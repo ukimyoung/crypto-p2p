@@ -1,0 +1,35 @@
+:root {
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f17;
+    --fg: #f3f4f6;
+    --muted: #9ca3af;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 16px;
+}
+
+p {
+  color: var(--muted);
+  line-height: 1.6;
+}
