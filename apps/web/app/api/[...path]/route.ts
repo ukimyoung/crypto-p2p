@@ -8,11 +8,15 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 const API_URL = process.env.API_URL ?? 'http://localhost:3000';
 const COOKIE = 'p2p_session';
+// Staff sessions use their own cookie so a customer login never reaches /ops and vice versa.
+const OPS_COOKIE = 'p2p_ops_session';
 
 async function forward(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const path = (await params).path.join('/');
+  const isOps = path.startsWith('ops/');
+  const cookieName = isOps ? OPS_COOKIE : COOKIE;
   const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
+  const token = jar.get(cookieName)?.value;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -29,15 +33,15 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
     cache: 'no-store',
   });
 
-  if (path === 'auth/login' && upstream.ok) {
+  if ((path === 'auth/login' || path === 'ops/auth/login') && upstream.ok) {
     const { token: newToken } = (await upstream.json()) as { token: string };
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(COOKIE, newToken, {
+    res.cookies.set(cookieName, newToken, {
       httpOnly: true,
       sameSite: 'strict',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 12 * 3600,
+      maxAge: (isOps ? 8 : 12) * 3600,
     });
     return res;
   }
@@ -49,7 +53,7 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
           status: upstream.status,
           headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
         });
-  if (path === 'auth/logout' || upstream.status === 401) res.cookies.delete(COOKIE);
+  if (path === 'auth/logout' || path === 'ops/auth/logout' || upstream.status === 401) res.cookies.delete(cookieName);
   return res;
 }
 

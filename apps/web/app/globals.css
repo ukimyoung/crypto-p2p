@@ -241,6 +241,11 @@ button.small {
   color: #fff;
 }
 
+.tabs button.active.neutral {
+  background: var(--accent);
+  color: #fff;
+}
+
 .tabs button.active.sell {
   background: var(--sell);
   color: #fff;
@@ -407,4 +412,62 @@ code.secret {
   word-break: break-all;
   font-size: 15px;
   letter-spacing: 1px;
+}
+
+/* Operations console */
+
+main.wide {
+  max-width: 1200px;
+}
+
+.ops-header {
+  background: var(--fg);
+}
+
+.ops-header .nav {
+  max-width: 1200px;
+}
+
+.ops-header .brand,
+.ops-header .nav-links a,
+.ops-header .link-button,
+.ops-header .muted {
+  color: var(--bg);
+}
+
+.ops-header .nav-links a.active {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  display: block;
+  color: inherit;
+}
+
+.stat strong {
+  display: block;
+  font-size: 32px;
+  line-height: 1.2;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+pre.json {
+  margin: 0;
+  max-width: 360px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 12px;
 }

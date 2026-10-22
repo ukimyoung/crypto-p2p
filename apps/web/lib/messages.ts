@@ -34,6 +34,8 @@ const ERRORS: Record<string, string> = {
   below_minimum: '최소 출금 수량보다 적습니다.',
   daily_limit_exceeded: '24시간 출금 한도를 넘습니다.',
   user_restricted: '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.',
+  proposal_pending: '이미 결정을 기다리는 제안이 있습니다.',
+  two_person_rule: '제안한 사람이 아닌 다른 운영자가 승인해야 합니다.',
 };
 
 export function errorText(code: string, fallback: string): string {
@@ -56,6 +58,19 @@ export const WITHDRAWAL_STATUS: Record<string, string> = {
   rejected: '거절됨',
   cancelled: '취소됨',
   failed: '실패(환불됨)',
+};
+
+export const USER_STATUS: Record<string, string> = {
+  active: '정상',
+  trade_suspended: '거래 정지',
+  withdraw_held: '출금 보류',
+  closed: '해지',
+};
+
+export const OPERATOR_ROLE: Record<string, string> = {
+  support: '상담',
+  reviewer: '심사',
+  admin: '관리자',
 };
 
 /** A few common Korean bank codes (KFTC). */

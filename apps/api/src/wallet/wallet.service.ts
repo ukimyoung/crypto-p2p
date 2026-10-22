@@ -235,6 +235,15 @@ export class WalletService {
     return rows.map(toWithdrawal);
   }
 
+  /** Review queue for operators, oldest first. */
+  async listByStatus(status: WithdrawalStatus, limit = 100): Promise<Withdrawal[]> {
+    const { rows } = await this.db.query('SELECT * FROM withdrawals WHERE status = $1 ORDER BY created_at LIMIT $2', [
+      status,
+      Math.min(limit, 200),
+    ]);
+    return rows.map(toWithdrawal);
+  }
+
   cancel(id: string, userId: string): Promise<Withdrawal> {
     return this.apply(id, 'cancel', { type: 'user', id: userId });
   }

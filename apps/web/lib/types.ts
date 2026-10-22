@@ -84,6 +84,7 @@ export type WithdrawalStatus = 'requested' | 'approved' | 'sent' | 'confirmed' |
 
 export interface Withdrawal {
   id: string;
+  userId: string;
   asset: string;
   addressId: string;
   address: string;
@@ -101,4 +102,46 @@ export interface WithdrawalLimit {
   minAmount: string;
   dailyLimit: string | null;
   usedToday: string;
+}
+
+export interface Operator {
+  id: string;
+  email: string;
+  name: string;
+  role: 'support' | 'reviewer' | 'admin';
+}
+
+export interface UserSummary {
+  id: string;
+  email: string | null;
+  legalName: string | null;
+  kycLevel: number;
+  status: 'active' | 'trade_suspended' | 'withdraw_held' | 'closed';
+  statusReason: string | null;
+  otpEnabled: boolean;
+  createdAt: string;
+}
+
+export interface DisputeResolution {
+  id: string;
+  orderId: string;
+  decision: 'release' | 'refund';
+  reason: string;
+  status: 'proposed' | 'approved' | 'declined';
+  proposedBy: string;
+  decidedBy: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface AuditEntry {
+  id: string;
+  actorType: 'user' | 'operator' | 'system';
+  actorId: string | null;
+  action: string;
+  targetType: string;
+  targetId: string;
+  before: unknown;
+  after: unknown;
+  createdAt: string;
 }
