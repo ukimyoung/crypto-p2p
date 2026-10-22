@@ -181,6 +181,14 @@ export class OrdersService {
     return expired;
   }
 
+  async listForUser(userId: string, limit = 50): Promise<Order[]> {
+    const { rows } = await this.db.query(
+      `SELECT * FROM orders WHERE buyer_id = $1 OR seller_id = $1 ORDER BY created_at DESC LIMIT $2`,
+      [userId, Math.min(limit, 100)],
+    );
+    return rows.map(toOrder);
+  }
+
   async get(orderId: string): Promise<Order | null> {
     const { rows } = await this.db.query('SELECT * FROM orders WHERE id = $1', [orderId]);
     return rows[0] ? toOrder(rows[0]) : null;

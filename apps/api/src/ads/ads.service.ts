@@ -64,6 +64,21 @@ export class AdsService {
       return ad;
     });
   }
+
+  /**
+   * Market list (AD-1). `side` is the maker's side: a buyer browses `sell` ads.
+   * Best price first: cheapest sell ads, highest buy ads.
+   */
+  async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<Ad[]> {
+    const { rows } = await this.db.query(
+      `SELECT * FROM ads
+       WHERE asset = $1 AND fiat = $2 AND side = $3 AND status = 'online' AND remaining_amount > 0
+       ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, created_at
+       LIMIT $4`,
+      [filter.asset, filter.fiat, filter.side, Math.min(filter.limit ?? 50, 100)],
+    );
+    return rows.map(toAd);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
