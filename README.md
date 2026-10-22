@@ -9,6 +9,7 @@
 | `apps/api` | NestJS API. 원장, 광고, 주문(에스크로) 도메인 로직과 PostgreSQL 마이그레이션 |
 | `apps/web` | Next.js 반응형 웹 |
 | `docs/architecture.md` | 원장 모델과 주문 상태 설계 |
+| `docs/api.md` | HTTP API 목록 |
 
 ## 개발 환경
 
@@ -22,7 +23,7 @@ createdb p2p_test
 DATABASE_URL=postgres://postgres@localhost:5432/p2p_test pnpm test
 
 # API 실행
-cp apps/api/.env.example apps/api/.env   # 값 수정
+cp apps/api/.env.example apps/api/.env   # 값 수정 (OTP_ENCRYPTION_KEY는 openssl rand -base64 32)
 pnpm --filter @crypto-p2p/api build
 DATABASE_URL=... pnpm --filter @crypto-p2p/api migrate
 DATABASE_URL=... pnpm --filter @crypto-p2p/api start   # GET /health
