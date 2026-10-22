@@ -1,9 +1,211 @@
-export default function HomePage() {
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ErrorText, messageOf } from '@/components/ErrorText';
+import { api } from '@/lib/api';
+import { BANKS } from '@/lib/messages';
+import type { Ad, Me, Order, PaymentMethod } from '@/lib/types';
+import { ASSETS, AssetCode, fiatFor, formatKrw, formatUnits, parseUnits } from '@/lib/units';
+import { useMe } from '@/lib/use-me';
+
+type Mode = 'buy' | 'sell';
+
+export default function MarketPage() {
+  const { me } = useMe();
+  const [mode, setMode] = useState<Mode>('buy');
+  const [asset, setAsset] = useState<AssetCode>('BTC');
+  const [ads, setAds] = useState<Ad[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [openAd, setOpenAd] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      // To buy coins you take a sell ad, and the other way round.
+      const side = mode === 'buy' ? 'sell' : 'buy';
+      const res = await api<{ ads: Ad[] }>(`ads?asset=${asset}&fiat=KRW&side=${side}`);
+      setAds(res.ads);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }, [mode, asset]);
+
+  useEffect(() => {
+    setAds(null);
+    setOpenAd(null);
+    void load();
+  }, [load]);
+
+  const decimals = ASSETS[asset].decimals;
+
   return (
-    <main>
-      <h1>P2P 거래</h1>
-      <p>이용자끼리 원하는 가격과 결제수단으로 코인을 사고팔고, 거래 중인 코인은 에스크로로 보호합니다.</p>
-      <p>마켓, 주문, 지갑 화면은 다음 단계에서 추가됩니다.</p>
-    </main>
+    <>
+      <h1>P2P 마켓</h1>
+      <p className="muted">
+        이용자끼리 원화 계좌이체로 코인을 사고팝니다. 거래 중인 코인은 에스크로에 잠겨 있다가, 판매자가 입금을 확인한
+        뒤에만 구매자에게 넘어갑니다.
+      </p>
+      <div className="row" style={{ margin: '16px 0' }}>
+        <div className="tabs">
+          <button className={mode === 'buy' ? 'active buy' : ''} onClick={() => setMode('buy')}>
+            사기
+          </button>
+          <button className={mode === 'sell' ? 'active sell' : ''} onClick={() => setMode('sell')}>
+            팔기
+          </button>
+        </div>
+        <select value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)} style={{ width: 'auto' }} aria-label="코인">
+          {Object.keys(ASSETS).map((a) => (
+            <option key={a}>{a}</option>
+          ))}
+        </select>
+        <span className="muted small-text">원화(KRW) · 은행 계좌이체</span>
+      </div>
+
+      <section className="card">
+        <ErrorText error={error} />
+        {ads === null && !error && <p className="muted">불러오는 중…</p>}
+        {ads?.length === 0 && <p className="muted">지금 올라온 광고가 없습니다.</p>}
+        {ads?.map((ad) => (
+          <div key={ad.id}>
+            <div className="ad">
+              <div>
+                <div className="price">{formatKrw(ad.priceMinor)}</div>
+                <div className="muted small-text">1 {ad.asset} 가격</div>
+              </div>
+              <div className="small-text">
+                <div>
+                  수량 {formatUnits(ad.remainingAmount, decimals)} {ad.asset}
+                </div>
+                <div className="muted">
+                  한도 {formatKrw(ad.minOrderFiatMinor)} ~ {formatKrw(ad.maxOrderFiatMinor)}
+                </div>
+              </div>
+              <div className="small-text muted">결제 기한 {ad.paymentWindowMinutes}분</div>
+              <div>
+                {me ? (
+                  me.id !== ad.makerId && (
+                    <button
+                      className={`small ${mode === 'sell' ? 'danger' : ''}`}
+                      onClick={() => setOpenAd(openAd === ad.id ? null : ad.id)}
+                    >
+                      {mode === 'buy' ? `${ad.asset} 사기` : `${ad.asset} 팔기`}
+                    </button>
+                  )
+                ) : (
+                  <Link href="/login" className="button small">
+                    로그인 후 거래
+                  </Link>
+                )}
+              </div>
+            </div>
+            {openAd === ad.id && me && <OrderForm ad={ad} mode={mode} me={me} />}
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function OrderForm({ ad, mode, me }: { ad: Ad; mode: Mode; me: Me }) {
+  const router = useRouter();
+  const decimals = ASSETS[ad.asset as AssetCode].decimals;
+  const [amount, setAmount] = useState('');
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [methodId, setMethodId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (mode !== 'sell' || !me.otpEnabled) return;
+    void api<{ paymentMethods: PaymentMethod[] }>('payment-methods').then((res) => {
+      setMethods(res.paymentMethods);
+      setMethodId(res.paymentMethods[0]?.id ?? '');
+    });
+  }, [mode, me.otpEnabled]);
+
+  const units = parseUnits(amount, decimals);
+  const cost = units ? fiatFor(units, BigInt(ad.priceMinor), decimals) : null;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!units) {
+      setError(`수량을 확인해 주세요. 소수점은 ${decimals}자리까지 됩니다.`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api<{ order: Order }>('orders', {
+        body: { adId: ad.id, amount: units.toString(), paymentMethodId: mode === 'sell' ? methodId : undefined },
+      });
+      router.push(`/orders/${res.order.id}`);
+    } catch (err) {
+      setError(messageOf(err));
+      setBusy(false);
+    }
+  }
+
+  if (!me.otpEnabled) {
+    return (
+      <p className="notice">
+        거래하려면 먼저 <Link href="/account">내 계정</Link>에서 OTP를 등록해 주세요.
+      </p>
+    );
+  }
+
+  return (
+    <form className="card" style={{ background: 'var(--bg)' }} onSubmit={submit}>
+      <div className="grid2">
+        <div>
+          <label htmlFor={`amount-${ad.id}`}>
+            {mode === 'buy' ? '살' : '팔'} 수량 ({ad.asset})
+          </label>
+          <input
+            id={`amount-${ad.id}`}
+            inputMode="decimal"
+            placeholder="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div>
+          <label>{mode === 'buy' ? '보낼 금액' : '받을 금액'}</label>
+          <div className="price" style={{ paddingTop: 6 }}>
+            {cost !== null ? formatKrw(cost) : '-'}
+          </div>
+        </div>
+      </div>
+      {mode === 'sell' && (
+        <>
+          <label htmlFor={`pm-${ad.id}`}>입금받을 내 계좌</label>
+          {methods.length ? (
+            <select id={`pm-${ad.id}`} value={methodId} onChange={(e) => setMethodId(e.target.value)}>
+              {methods.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {BANKS[m.bankCode] ?? m.bankCode} {m.accountMasked} ({m.accountHolder})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="muted small-text">
+              등록된 계좌가 없습니다. <Link href="/account">내 계정</Link>에서 먼저 등록해 주세요.
+            </p>
+          )}
+        </>
+      )}
+      <p className="muted small-text">
+        {mode === 'buy'
+          ? `주문하면 판매자의 코인이 에스크로에 잠깁니다. ${ad.paymentWindowMinutes}분 안에 판매자 계좌로 이체하고 '이체 완료'를 눌러 주세요.`
+          : '주문하면 내 코인이 에스크로에 잠깁니다. 구매자의 입금을 계좌에서 직접 확인한 뒤에만 코인을 넘겨 주세요.'}
+      </p>
+      <ErrorText error={error} />
+      <button className="full" disabled={busy}>
+        주문하기
+      </button>
+    </form>
   );
 }

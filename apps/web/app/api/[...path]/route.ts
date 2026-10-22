@@ -1,0 +1,56 @@
+import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * Backend-for-frontend proxy. The browser never sees the bearer token: login
+ * stores it in an httpOnly, SameSite=Strict cookie and every request to
+ * /api/* is forwarded to the API with that token attached.
+ */
+const API_URL = process.env.API_URL ?? 'http://localhost:3000';
+const COOKIE = 'p2p_session';
+
+async function forward(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const path = (await params).path.join('/');
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const userAgent = req.headers.get('user-agent');
+  if (userAgent) headers['User-Agent'] = userAgent;
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  if (forwardedFor) headers['X-Forwarded-For'] = forwardedFor;
+
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+  const upstream = await fetch(`${API_URL}/${path}${req.nextUrl.search}`, {
+    method: req.method,
+    headers,
+    body: hasBody ? await req.text() : undefined,
+    cache: 'no-store',
+  });
+
+  if (path === 'auth/login' && upstream.ok) {
+    const { token: newToken } = (await upstream.json()) as { token: string };
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set(COOKIE, newToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 12 * 3600,
+    });
+    return res;
+  }
+
+  const res =
+    upstream.status === 204
+      ? new NextResponse(null, { status: 204 })
+      : new NextResponse(await upstream.text(), {
+          status: upstream.status,
+          headers: { 'Content-Type': upstream.headers.get('content-type') ?? 'application/json' },
+        });
+  if (path === 'auth/logout' || upstream.status === 401) res.cookies.delete(COOKIE);
+  return res;
+}
+
+export { forward as GET, forward as POST, forward as DELETE };

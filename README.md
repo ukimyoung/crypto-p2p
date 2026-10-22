@@ -28,9 +28,11 @@ pnpm --filter @crypto-p2p/api build
 DATABASE_URL=... pnpm --filter @crypto-p2p/api migrate
 DATABASE_URL=... pnpm --filter @crypto-p2p/api start   # GET /health
 
-# 웹 실행
-pnpm --filter @crypto-p2p/web dev
+# 웹 실행 (http://localhost:3001, API는 API_URL로 지정)
+API_URL=http://localhost:3000 pnpm --filter @crypto-p2p/web dev
 ```
+
+웹은 `/api/*` 요청을 API 서버로 넘기는 프록시를 두고, 로그인 토큰은 브라우저 스크립트가 읽을 수 없는 httpOnly 쿠키에 보관합니다.
 
 API 테스트는 실제 PostgreSQL에 붙어서 돌고, 실행할 때마다 `public` 스키마를 지우고 다시 만듭니다. 운영 DB를 `DATABASE_URL`로 지정하지 마세요.
 
