@@ -11,6 +11,7 @@ const STATUS: Record<string, number> = {
   kyc_required: 403,
   otp_not_enabled: 403,
   user_restricted: 403,
+  holder_name_mismatch: 422,
   not_found: 404,
   email_taken: 409,
   invalid_transition: 409,

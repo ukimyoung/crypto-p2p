@@ -9,20 +9,25 @@ import { AdsController } from './http/ads.controller';
 import { AuthController } from './http/auth.controller';
 import { AuthGuard } from './http/auth.guard';
 import { OrdersController } from './http/orders.controller';
+import { PaymentMethodsController } from './http/payment-methods.controller';
 import { LedgerService } from './ledger/ledger.service';
+import { OrderExpiryWorker } from './orders/expiry.worker';
+import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
+import { PaymentMethodsService } from './payments/payment-methods.service';
 import { CONFIG, DB } from './tokens';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
+    { provide: SecretBox, inject: [CONFIG], useFactory: (config: AppConfig) => new SecretBox(config.otpEncryptionKey) },
     {
       provide: AuthService,
-      inject: [DB, CONFIG],
-      useFactory: (db: Db, config: AppConfig) =>
-        new AuthService(db, new SecretBox(config.otpEncryptionKey), {
+      inject: [DB, SecretBox, CONFIG],
+      useFactory: (db: Db, secrets: SecretBox, config: AppConfig) =>
+        new AuthService(db, secrets, {
           sessionTtlHours: config.sessionTtlHours,
           maxFailedLogins: 5,
           lockoutMinutes: 15,
@@ -30,13 +35,25 @@ import { CONFIG, DB } from './tokens';
     },
     AuthGuard,
     { provide: LedgerService, useFactory: () => new LedgerService() },
-    { provide: AdsService, inject: [DB], useFactory: (db: Db) => new AdsService(db) },
+    {
+      provide: PaymentMethodsService,
+      inject: [DB, SecretBox, CONFIG],
+      useFactory: (db: Db, secrets: SecretBox, config: AppConfig) =>
+        new PaymentMethodsService(db, secrets, { cooldownHours: config.paymentMethodCooldownHours }),
+    },
+    {
+      provide: AdsService,
+      inject: [DB, PaymentMethodsService],
+      useFactory: (db: Db, payments: PaymentMethodsService) => new AdsService(db, payments),
+    },
     {
       provide: OrdersService,
-      inject: [DB, LedgerService, CONFIG],
-      useFactory: (db: Db, ledger: LedgerService, config: AppConfig) =>
-        new OrdersService(db, ledger, { makerFeeBps: config.makerFeeBps }),
+      inject: [DB, LedgerService, PaymentMethodsService, CONFIG],
+      useFactory: (db: Db, ledger: LedgerService, payments: PaymentMethodsService, config: AppConfig) =>
+        new OrdersService(db, ledger, payments, { makerFeeBps: config.makerFeeBps }),
     },
+    { provide: OrderChatService, inject: [DB], useFactory: (db: Db) => new OrderChatService(db) },
+    OrderExpiryWorker,
   ],
 })
 export class AppModule implements OnApplicationShutdown {

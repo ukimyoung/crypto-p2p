@@ -3,7 +3,8 @@ import { AdsService, CreateAdInput } from '../src/ads/ads.service';
 import { Db } from '../src/db/database';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { OrdersService } from '../src/orders/orders.service';
-import { BTC, createUser, deposit, setupDb } from './helpers';
+import { PaymentMethodsService } from '../src/payments/payment-methods.service';
+import { addBankAccount, BTC, createUser, deposit, setupDb, testSecretBox } from './helpers';
 
 const PRICE = 100_000_000n; // 100,000,000 KRW per BTC
 const CENTI = BTC / 100n; // 0.01 BTC = 1,000,000 KRW at PRICE
@@ -13,6 +14,7 @@ describe('OrdersService', () => {
   let db: Db;
   let ads: AdsService;
   let orders: OrdersService;
+  let payments: PaymentMethodsService;
   let clock: Date;
   const ledger = new LedgerService();
 
@@ -45,14 +47,16 @@ describe('OrdersService', () => {
     const seller = await createUser(db);
     const buyer = await createUser(db);
     await deposit(db, ledger, seller, 'BTC', sellerBalance);
-    const ad = await ads.create(adInput(seller));
+    const paymentMethodId = await addBankAccount(db, payments, seller);
+    const ad = await ads.create(adInput(seller, { paymentMethodId }));
     return { seller, buyer, ad };
   }
 
   beforeAll(async () => {
     db = await setupDb();
-    ads = new AdsService(db);
-    orders = new OrdersService(db, ledger, { makerFeeBps: FEE_BPS }, () => clock);
+    payments = new PaymentMethodsService(db, testSecretBox(), { cooldownHours: 0 }, () => clock);
+    ads = new AdsService(db, payments);
+    orders = new OrdersService(db, ledger, payments, { makerFeeBps: FEE_BPS }, () => clock);
   });
   beforeEach(() => {
     clock = new Date('2026-10-22T00:00:00Z');
@@ -96,8 +100,10 @@ describe('OrdersService', () => {
     const ad = await ads.create(adInput(maker, { side: 'buy' }));
     const feeBefore = await feeRevenue();
 
-    const order = await orders.create(taker, ad.id, CENTI);
-    expect(order).toMatchObject({ buyerId: maker, sellerId: taker, escrowAmount: CENTI });
+    await expect(orders.create(taker, ad.id, CENTI)).rejects.toMatchObject({ code: 'payment_method_required' });
+    const takerAccount = await addBankAccount(db, payments, taker);
+    const order = await orders.create(taker, ad.id, CENTI, takerAccount);
+    expect(order).toMatchObject({ buyerId: maker, sellerId: taker, escrowAmount: CENTI, sellerPaymentMethodId: takerAccount });
     await orders.markPaid(order.id, maker);
     await orders.release(order.id, taker);
 

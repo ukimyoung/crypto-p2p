@@ -1,6 +1,9 @@
+import { randomBytes } from 'node:crypto';
+import { SecretBox } from '../src/auth/secret-box';
 import { createPool, Db, withTransaction } from '../src/db/database';
 import { migrate } from '../src/db/migrate';
 import { LedgerService } from '../src/ledger/ledger.service';
+import { PaymentMethodsService } from '../src/payments/payment-methods.service';
 
 export const TEST_DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres@localhost:5432/p2p_test';
 
@@ -35,3 +38,26 @@ export async function deposit(db: Db, ledger: LedgerService, userId: string, ass
 }
 
 export const BTC = 100_000_000n; // satoshi per BTC
+
+let accountSeq = 0;
+
+/** Marks the user KYC-verified under `legalName` and registers a KRW bank account in that name. */
+export async function addBankAccount(
+  db: Db,
+  payments: PaymentMethodsService,
+  userId: string,
+  legalName = '홍길동',
+): Promise<string> {
+  await db.query('UPDATE users SET legal_name = $2 WHERE id = $1', [userId, legalName]);
+  const method = await payments.addBankAccount(userId, {
+    fiat: 'KRW',
+    bankCode: '004',
+    accountHolder: legalName,
+    accountNumber: `1002${String(++accountSeq).padStart(8, '0')}`,
+  });
+  return method.id;
+}
+
+export function testSecretBox(): SecretBox {
+  return new SecretBox(randomBytes(32).toString('base64'));
+}

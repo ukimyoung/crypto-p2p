@@ -9,7 +9,8 @@ import { codeAt, counterAt } from '../src/auth/totp';
 import { Db } from '../src/db/database';
 import { configureApp } from '../src/http/configure';
 import { LedgerService } from '../src/ledger/ledger.service';
-import { BTC, deposit, setupDb, TEST_DATABASE_URL } from './helpers';
+import { PaymentMethodsService } from '../src/payments/payment-methods.service';
+import { addBankAccount, BTC, deposit, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'test password 123';
 
@@ -58,6 +59,8 @@ describe('HTTP API', () => {
     process.env.DATABASE_URL = TEST_DATABASE_URL;
     process.env.OTP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
     process.env.MAKER_FEE_BPS = '0';
+    process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
+    process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -131,6 +134,7 @@ describe('HTTP API', () => {
       const buyer = await trader('buyer@example.com');
       const stranger = await trader('stranger@example.com');
       await deposit(db, ledger, seller.id, 'BTC', BTC);
+      const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), seller.id);
 
       const adRes = await http()
         .post('/ads')
@@ -143,6 +147,7 @@ describe('HTTP API', () => {
           totalAmount: String(BTC / 2n),
           minOrderFiatMinor: '10000',
           maxOrderFiatMinor: '5000000',
+          paymentMethodId,
         })
         .expect(201);
       const adId = adRes.body.ad.id;
@@ -160,6 +165,15 @@ describe('HTTP API', () => {
       expect(order).toMatchObject({ status: 'pending_payment', fiatAmountMinor: '1000000', sellerId: seller.id });
 
       await http().get(`/orders/${order.id}`).set(auth(stranger)).expect(404);
+      const view = await http().get(`/orders/${order.id}`).set(auth(buyer)).expect(200);
+      expect(view.body.paymentDetails).toMatchObject({ bankCode: '004', accountHolder: '홍길동' });
+      expect(view.body.paymentDetails.accountNumber).toMatch(/^\d+$/);
+
+      await http().post(`/orders/${order.id}/messages`).set(auth(buyer)).send({ body: '입금했어요' }).expect(201);
+      await http().post(`/orders/${order.id}/messages`).set(auth(stranger)).send({ body: 'hi' }).expect(404);
+      const chat = await http().get(`/orders/${order.id}/messages`).set(auth(seller)).expect(200);
+      expect(chat.body.messages).toMatchObject([{ senderId: buyer.id, body: '입금했어요' }]);
+
       await http().post(`/orders/${order.id}/release`).set(auth(buyer)).send({ otp: '000000' }).expect(400);
 
       await http().post(`/orders/${order.id}/paid`).set(auth(buyer)).expect(200);
@@ -179,6 +193,27 @@ describe('HTTP API', () => {
       const mine = await http().get('/orders').set(auth(buyer)).expect(200);
       expect(mine.body.orders[0]).toMatchObject({ id: order.id, status: 'completed' });
       expect(await ledger.balance(db, { userId: buyer.id, asset: 'BTC', kind: 'available' })).toBe(BTC / 100n);
+    });
+
+    it('adds a bank account only with an OTP code', async () => {
+      const user = await trader('bank@example.com');
+      await db.query("UPDATE users SET legal_name = '김영희' WHERE id = $1", [user.id]);
+      const body = { fiat: 'KRW', bankCode: '088', accountHolder: '김영희', accountNumber: '110-123-456789' };
+
+      const noOtp = await http().post('/payment-methods').set(auth(user)).send(body).expect(400);
+      expect(noOtp.body.error.code).toBe('invalid_request');
+
+      const otp = codeAt(user.otpSecret!, counterAt(new Date()) + 1);
+      const added = await http()
+        .post('/payment-methods')
+        .set(auth(user))
+        .send({ ...body, otp })
+        .expect(201);
+      expect(added.body.paymentMethod).toMatchObject({ accountMasked: '****6789', accountHolder: '김영희' });
+      expect(JSON.stringify(added.body)).not.toContain('110123456789');
+
+      const list = await http().get('/payment-methods').set(auth(user)).expect(200);
+      expect(list.body.paymentMethods).toHaveLength(1);
     });
 
     it('requires OTP to post ads or open orders', async () => {
