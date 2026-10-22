@@ -11,6 +11,8 @@ export interface AppConfig {
   orderExpiryIntervalSeconds: number;
   /** Hours before a newly whitelisted withdrawal address can be used. */
   addressCooldownHours: number;
+  /** Operations console sessions are shorter than customer ones. */
+  opsSessionTtlHours: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -31,5 +33,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 24),
     orderExpiryIntervalSeconds: Number(env.ORDER_EXPIRY_INTERVAL_SECONDS ?? 30),
     addressCooldownHours: Number(env.ADDRESS_COOLDOWN_HOURS ?? 24),
+    opsSessionTtlHours: Number(env.OPS_SESSION_TTL_HOURS ?? 8),
   };
 }

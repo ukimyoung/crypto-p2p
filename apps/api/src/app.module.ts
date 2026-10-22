@@ -10,8 +10,13 @@ import { AuthController } from './http/auth.controller';
 import { AuthGuard } from './http/auth.guard';
 import { OrdersController } from './http/orders.controller';
 import { PaymentMethodsController } from './http/payment-methods.controller';
+import { OpsAuthController, OpsController } from './http/ops.controller';
+import { OpsGuard } from './http/ops.guard';
 import { WalletController } from './http/wallet.controller';
 import { LedgerService } from './ledger/ledger.service';
+import { DisputesService } from './ops/disputes.service';
+import { OperatorAuthService } from './ops/operator-auth.service';
+import { OpsService } from './ops/ops.service';
 import { OrderExpiryWorker } from './orders/expiry.worker';
 import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
@@ -21,7 +26,7 @@ import { DEFAULT_WALLET_CONFIG } from './wallet/wallet-config';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
@@ -62,6 +67,23 @@ import { WalletService } from './wallet/wallet.service';
       inject: [DB, LedgerService, CONFIG],
       useFactory: (db: Db, ledger: LedgerService, config: AppConfig) =>
         new WalletService(db, ledger, { ...DEFAULT_WALLET_CONFIG, addressCooldownHours: config.addressCooldownHours }),
+    },
+    {
+      provide: OperatorAuthService,
+      inject: [DB, SecretBox, CONFIG],
+      useFactory: (db: Db, secrets: SecretBox, config: AppConfig) =>
+        new OperatorAuthService(db, secrets, {
+          sessionTtlHours: config.opsSessionTtlHours,
+          maxFailedLogins: 5,
+          lockoutMinutes: 15,
+        }),
+    },
+    OpsGuard,
+    { provide: OpsService, inject: [DB], useFactory: (db: Db) => new OpsService(db) },
+    {
+      provide: DisputesService,
+      inject: [DB, OrdersService],
+      useFactory: (db: Db, orders: OrdersService) => new DisputesService(db, orders),
     },
   ],
 })

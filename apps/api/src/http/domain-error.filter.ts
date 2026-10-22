@@ -15,6 +15,8 @@ const STATUS: Record<string, number> = {
   not_found: 404,
   email_taken: 409,
   address_exists: 409,
+  proposal_pending: 409,
+  two_person_rule: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
 };

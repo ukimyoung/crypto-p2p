@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AdsService, CreateAdInput } from '../src/ads/ads.service';
-import { Db } from '../src/db/database';
+import { Db, withTransaction } from '../src/db/database';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { OrdersService } from '../src/orders/orders.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
@@ -180,11 +180,11 @@ describe('OrdersService', () => {
     expect((await orders.escalate(order.id, buyer)).status).toBe('under_review');
 
     await expect(orders.release(order.id, seller)).rejects.toMatchObject({ code: 'invalid_transition' });
-    expect(() => orders.resolve(order.id, 'release', { requestedBy: opA, approvedBy: opA })).toThrow(
-      /different operators/,
-    );
+    const resolve = (requestedBy: string, approvedBy: string) =>
+      withTransaction(db, (tx) => orders.resolve(tx, order.id, 'release', { requestedBy, approvedBy }));
+    await expect(resolve(opA, opA)).rejects.toThrow(/different operators/);
 
-    const resolved = await orders.resolve(order.id, 'release', { requestedBy: opA, approvedBy: opB });
+    const resolved = await resolve(opA, opB);
     expect(resolved.status).toBe('completed');
     expect(await available(buyer)).toBe(CENTI);
 
@@ -201,7 +201,8 @@ describe('OrdersService', () => {
     await orders.markPaid(order.id, buyer);
     await orders.escalate(order.id, seller);
 
-    await orders.resolve(order.id, 'refund', { requestedBy: await createUser(db), approvedBy: await createUser(db) });
+    const operators = { requestedBy: await createUser(db), approvedBy: await createUser(db) };
+    await withTransaction(db, (tx) => orders.resolve(tx, order.id, 'refund', operators));
 
     expect(await available(seller)).toBe(2n * BTC);
     expect(await available(buyer)).toBe(0n);

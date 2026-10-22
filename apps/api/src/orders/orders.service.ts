@@ -29,6 +29,7 @@ export interface Order {
   paidAt: Date | null;
   completedAt: Date | null;
   cancelledAt: Date | null;
+  createdAt: Date;
   cancelReason: string | null;
   sellerPaymentMethodId: string;
 }
@@ -159,8 +160,10 @@ export class OrdersService {
   /**
    * Operator decision on an order under review. Moving escrow needs two
    * different operators (PRD section 7): one proposes, the other approves.
+   * Runs in the caller's transaction so the decision record commits with it.
    */
   resolve(
+    tx: Tx,
     orderId: string,
     decision: 'release' | 'refund',
     operators: { requestedBy: string; approvedBy: string },
@@ -168,7 +171,7 @@ export class OrdersService {
     if (operators.requestedBy === operators.approvedBy) {
       throw new DomainError('two_person_rule', 'Requester and approver must be different operators');
     }
-    return this.apply(orderId, decision === 'release' ? 'resolve_release' : 'resolve_refund', {
+    return this.applyIn(tx, orderId, decision === 'release' ? 'resolve_release' : 'resolve_refund', {
       type: 'operator',
       id: operators.approvedBy,
       requestedBy: operators.requestedBy,
@@ -220,48 +223,51 @@ export class OrdersService {
     return rows[0] ? toOrder(rows[0]) : null;
   }
 
-  private async apply(
+  private apply(orderId: string, event: OrderEvent, actor: Actor): Promise<Order> {
+    return withTransaction(this.db, (tx) => this.applyIn(tx, orderId, event, actor));
+  }
+
+  private async applyIn(
+    tx: Tx,
     orderId: string,
     event: OrderEvent,
     actor: Actor | { type: 'operator'; id: string; requestedBy: string },
   ): Promise<Order> {
-    return withTransaction(this.db, async (tx) => {
-      const res = await tx.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
-      if (!res.rows[0]) throw new DomainError('not_found', 'Order not found');
-      const before = toOrder(res.rows[0]);
+    const res = await tx.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
+    if (!res.rows[0]) throw new DomainError('not_found', 'Order not found');
+    const before = toOrder(res.rows[0]);
 
-      const role = roleOf(before, actor);
-      const status = nextStatus(before.status, event, role);
-      const now = this.now();
+    const role = roleOf(before, actor);
+    const status = nextStatus(before.status, event, role);
+    const now = this.now();
 
-      if (event === 'mark_paid' && now > before.paymentDeadline) {
-        throw new DomainError('payment_window_closed', 'The payment window has closed');
-      }
-      if (event === 'expire' && now <= before.paymentDeadline) {
-        throw new DomainError('invalid_transition', 'The payment window is still open');
-      }
+    if (event === 'mark_paid' && now > before.paymentDeadline) {
+      throw new DomainError('payment_window_closed', 'The payment window has closed');
+    }
+    if (event === 'expire' && now <= before.paymentDeadline) {
+      throw new DomainError('invalid_transition', 'The payment window is still open');
+    }
 
-      if (status === 'completed') await this.settleToBuyer(tx, before);
-      if (status === 'cancelled') await this.refundSeller(tx, before);
+    if (status === 'completed') await this.settleToBuyer(tx, before);
+    if (status === 'cancelled') await this.refundSeller(tx, before);
 
-      const updated = await tx.query(
-        `UPDATE orders SET
-           status = $2,
-           paid_at = CASE WHEN $2 = 'paid' THEN $3 ELSE paid_at END,
-           completed_at = CASE WHEN $2 = 'completed' THEN $3 ELSE completed_at END,
-           cancelled_at = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancelled_at END,
-           cancel_reason = CASE WHEN $2 = 'cancelled' THEN $4 ELSE cancel_reason END
-         WHERE id = $1
-         RETURNING *`,
-        [orderId, status, now, event],
-      );
-      const after = toOrder(updated.rows[0]);
+    const updated = await tx.query(
+      `UPDATE orders SET
+         status = $2,
+         paid_at = CASE WHEN $2 = 'paid' THEN $3 ELSE paid_at END,
+         completed_at = CASE WHEN $2 = 'completed' THEN $3 ELSE completed_at END,
+         cancelled_at = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancelled_at END,
+         cancel_reason = CASE WHEN $2 = 'cancelled' THEN $4 ELSE cancel_reason END
+       WHERE id = $1
+       RETURNING *`,
+      [orderId, status, now, event],
+    );
+    const after = toOrder(updated.rows[0]);
 
-      const auditActor: Actor = actor.type === 'system' ? actor : { type: actor.type, id: actor.id };
-      const auditAfter = 'requestedBy' in actor ? { ...after, requestedBy: actor.requestedBy } : after;
-      await writeAudit(tx, auditActor, `order.${event}`, { type: 'order', id: orderId }, before, auditAfter);
-      return after;
-    });
+    const auditActor: Actor = actor.type === 'system' ? actor : { type: actor.type, id: actor.id };
+    const auditAfter = 'requestedBy' in actor ? { ...after, requestedBy: actor.requestedBy } : after;
+    await writeAudit(tx, auditActor, `order.${event}`, { type: 'order', id: orderId }, before, auditAfter);
+    return after;
   }
 
   private async settleToBuyer(tx: Tx, order: Order): Promise<void> {
@@ -336,6 +342,7 @@ function toOrder(row: any): Order {
     paidAt: row.paid_at,
     completedAt: row.completed_at,
     cancelledAt: row.cancelled_at,
+    createdAt: row.created_at,
     cancelReason: row.cancel_reason,
     sellerPaymentMethodId: row.seller_payment_method_id,
   };

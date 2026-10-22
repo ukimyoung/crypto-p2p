@@ -34,6 +34,17 @@ API_URL=http://localhost:3000 pnpm --filter @crypto-p2p/web dev
 
 웹은 `/api/*` 요청을 API 서버로 넘기는 프록시를 두고, 로그인 토큰은 브라우저 스크립트가 읽을 수 없는 httpOnly 쿠키에 보관합니다.
 
+### 운영 콘솔
+
+운영 콘솔은 같은 웹 앱의 `/ops`에 있습니다. 운영자 계정은 가입 화면 없이 CLI로만 만듭니다. 출력되는 OTP 키를 인증 앱에 등록해야 로그인할 수 있습니다.
+
+```bash
+OPERATOR_PASSWORD='...' DATABASE_URL=... OTP_ENCRYPTION_KEY=... \
+  node apps/api/dist/ops/create-operator-cli.js kim@company.com 김운영 reviewer
+```
+
+권한은 `support`(조회만), `reviewer`(출금 승인·거절, 분쟁 제안·승인, 계정 제한), `admin`(현재 reviewer와 같음) 세 가지입니다. 운영 환경에서는 `/ops`를 사내망이나 VPN 뒤에만 열어 두세요.
+
 API 테스트는 실제 PostgreSQL에 붙어서 돌고, 실행할 때마다 `public` 스키마를 지우고 다시 만듭니다. 운영 DB를 `DATABASE_URL`로 지정하지 마세요.
 
 ## 확인 명령
