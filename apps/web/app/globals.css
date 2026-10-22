@@ -471,3 +471,37 @@ pre.json {
   word-break: break-all;
   font-size: 12px;
 }
+
+.count {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--sell);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+ul.notifications {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ul.notifications li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+ul.notifications li:last-child {
+  border-bottom: 0;
+}
+
+ul.notifications li.unread a,
+ul.notifications li.unread {
+  font-weight: 600;
+}

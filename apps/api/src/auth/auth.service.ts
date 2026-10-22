@@ -24,6 +24,8 @@ export interface Me {
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
+  /** Language for emails and, on a new device, for the site. */
+  locale: 'ko' | 'en';
 }
 
 /** Password login, opaque bearer sessions and app OTP (PRD AUTH-1, AUTH-3). */
@@ -163,6 +165,10 @@ export class AuthService {
     });
   }
 
+  async setLocale(userId: string, locale: 'ko' | 'en'): Promise<void> {
+    await this.db.query('UPDATE users SET locale = $2 WHERE id = $1', [userId, locale]);
+  }
+
   /** AUTH-3: trading needs OTP turned on. */
   async assertOtpEnabled(userId: string): Promise<void> {
     if (!(await this.me(userId)).otpEnabled) {
@@ -205,5 +211,6 @@ function toMe(row: any): Me {
     kycLevel: row.kyc_level,
     status: row.status,
     otpEnabled: row.otp_enabled,
+    locale: row.locale,
   };
 }

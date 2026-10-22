@@ -1,8 +1,14 @@
+'use client';
+
+import { useT } from '@/lib/i18n';
+
+/** Error messages are Korean source text (see lib/messages.ts), translated here. */
 export function ErrorText({ error }: { error: string | null }) {
+  const { t } = useT();
   if (!error) return null;
   return (
     <p className="error" role="alert">
-      {error}
+      {t(error)}
     </p>
   );
 }

@@ -12,7 +12,8 @@
 | POST | `/auth/signup` | - | `{ email, password }`. 비밀번호는 10~128자, 영문과 숫자 포함 |
 | POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |
 | POST | `/auth/logout` | O | 현재 세션 만료 |
-| GET | `/me` | O | 내 정보 (`kycLevel`, `otpEnabled` 등) |
+| GET | `/me` | O | 내 정보 (`kycLevel`, `otpEnabled`, `locale` 등) |
+| POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |
 | POST | `/auth/otp/setup` | O | `{ secret, otpauthUrl }`. 인증 앱에 등록 |
 | POST | `/auth/otp/enable` | O | `{ code }`. 앱에 뜬 6자리 코드로 OTP 활성화 |
 
@@ -64,6 +65,16 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/wallet/withdrawals/:id/cancel` | 본인 | 운영 검토 대기(`requested`) 중에만 취소 가능 |
 
 새 주소는 등록 후 `ADDRESS_COOLDOWN_HOURS`(기본 24시간)가 지나야 출금에 쓸 수 있습니다.
+
+## 알림 (NOTI-1)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/notifications` | O | 최근 50건(최신순)과 안 읽은 수. `type`과 `data`만 주고 문구는 웹이 이용자 언어로 만듦 |
+| GET | `/notifications/unread-count` | O | `{ unread }` |
+| POST | `/notifications/read` | O | `{ upToId }`. 그 id까지 읽음 처리 |
+
+알림 종류: `order.created`, `order.paid`, `order.completed`, `order.cancelled`, `order.under_review`, `order.message`, `withdrawal.approved`, `withdrawal.rejected`, `withdrawal.sent`, `withdrawal.confirmed`, `withdrawal.failed`, `account.status_changed`.
 
 ## 운영 콘솔 (`/ops`)
 

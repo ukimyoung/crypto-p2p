@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { WITHDRAWAL_STATUS } from '@/lib/messages';
 import type { Balance, Withdrawal, WithdrawalAddress, WithdrawalLimit } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
@@ -23,6 +24,7 @@ interface WalletData {
 
 export default function WalletPage() {
   const { me } = useMe();
+  const { t } = useT();
   const [data, setData] = useState<WalletData | null>(null);
 
   const load = useCallback(async () => {
@@ -38,16 +40,16 @@ export default function WalletPage() {
     if (me) void load();
   }, [me, load]);
 
-  if (me === undefined) return <p className="muted">불러오는 중…</p>;
+  if (me === undefined) return <p className="muted">{t('불러오는 중…')}</p>;
   if (me === null) {
     if (typeof window !== 'undefined') window.location.href = '/login';
     return null;
   }
-  if (!data) return <p className="muted">불러오는 중…</p>;
+  if (!data) return <p className="muted">{t('불러오는 중…')}</p>;
 
   return (
     <>
-      <h1>내 지갑</h1>
+      <h1>{t('내 지갑')}</h1>
       <Balances balances={data.balances} />
       {me.otpEnabled ? (
         <>
@@ -57,8 +59,7 @@ export default function WalletPage() {
         </>
       ) : (
         <p className="notice">
-          출금 주소 등록과 출금에는 OTP가 필요합니다. <Link href="/account">내 계정</Link>에서 먼저 OTP를 등록해
-          주세요.
+          {t('출금 주소 등록과 출금에는 OTP가 필요합니다.')} <Link href="/account">{t('내 계정에서 OTP 등록하기')}</Link>
         </p>
       )}
     </>
@@ -66,17 +67,18 @@ export default function WalletPage() {
 }
 
 function Balances({ balances }: { balances: Balance[] }) {
+  const { t } = useT();
   return (
     <section className="card">
-      <h2>잔고</h2>
+      <h2>{t('잔고')}</h2>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>코인</th>
-              <th>사용 가능</th>
-              <th>거래 중 잠김</th>
-              <th>출금 처리 중</th>
+              <th>{t('코인')}</th>
+              <th>{t('사용 가능')}</th>
+              <th>{t('거래 중 잠김')}</th>
+              <th>{t('출금 처리 중')}</th>
             </tr>
           </thead>
           <tbody>
@@ -94,13 +96,14 @@ function Balances({ balances }: { balances: Balance[] }) {
         </table>
       </div>
       <p className="muted small-text" style={{ marginBottom: 0 }}>
-        입금 주소 발급은 수탁(커스터디) 업체 연동 후 열립니다.
+        {t('입금 주소 발급은 수탁(커스터디) 업체 연동 후 열립니다.')}
       </p>
     </section>
   );
 }
 
 function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promise<void> }) {
+  const { t, date } = useT();
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [addressId, setAddressId] = useState('');
   const [amountText, setAmountText] = useState('');
@@ -132,8 +135,8 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
       setOtp('');
       setDone(
         res.withdrawal.status === 'requested'
-          ? '출금을 신청했습니다. 금액이 커서 운영팀 검토 후 송금됩니다.'
-          : '출금을 신청했습니다. 곧 송금됩니다.',
+          ? t('출금을 신청했습니다. 금액이 커서 운영팀 검토 후 송금됩니다.')
+          : t('출금을 신청했습니다. 곧 송금됩니다.'),
       );
       await onDone();
     } catch (err) {
@@ -143,11 +146,11 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
 
   return (
     <section className="card">
-      <h2>출금</h2>
+      <h2>{t('출금')}</h2>
       <form onSubmit={submit}>
         <div className="grid2">
           <div>
-            <label htmlFor="w-asset">코인</label>
+            <label htmlFor="w-asset">{t('코인')}</label>
             <select id="w-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
               {Object.entries(ASSETS).map(([code, a]) => (
                 <option key={code} value={code}>
@@ -157,20 +160,20 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
             </select>
           </div>
           <div>
-            <label htmlFor="w-address">받을 주소</label>
+            <label htmlFor="w-address">{t('받을 주소')}</label>
             <select id="w-address" value={selectedId} onChange={(e) => setAddressId(e.target.value)} required>
-              {addresses.length === 0 && <option value="">아래에서 주소를 먼저 등록해 주세요</option>}
+              {addresses.length === 0 && <option value="">{t('아래에서 주소를 먼저 등록해 주세요')}</option>}
               {addresses.map((a) => (
                 <option key={a.id} value={a.id} disabled={!usable(a)}>
                   {a.label ? `${a.label} · ` : ''}
                   {shortAddress(a.address)}
-                  {!usable(a) && ` (${new Date(a.usableFrom).toLocaleString('ko-KR')}부터)`}
+                  {!usable(a) && ' ' + t('({time}부터)', { time: date(a.usableFrom) })}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label htmlFor="w-amount">받을 수량 ({asset})</label>
+            <label htmlFor="w-amount">{t('받을 수량 ({asset})', { asset })}</label>
             <input
               id="w-amount"
               inputMode="decimal"
@@ -181,35 +184,35 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
             />
           </div>
           <div>
-            <label htmlFor="w-otp">OTP 코드</label>
+            <label htmlFor="w-otp">{t('OTP 코드')}</label>
             <input id="w-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
           </div>
         </div>
         {limit && balance && (
           <dl className="kv" style={{ margin: '12px 0' }}>
-            <dt>사용 가능</dt>
+            <dt>{t('사용 가능')}</dt>
             <dd>{fmt(balance.available, asset)}</dd>
-            <dt>네트워크 수수료</dt>
+            <dt>{t('네트워크 수수료')}</dt>
             <dd>{fmt(limit.fee, asset)}</dd>
             {amount && (
               <>
-                <dt>잔고에서 빠질 수량</dt>
+                <dt>{t('잔고에서 빠질 수량')}</dt>
                 <dd>
                   <strong>{fmt(amount + BigInt(limit.fee), asset)}</strong>
                 </dd>
               </>
             )}
-            <dt>최소 출금</dt>
+            <dt>{t('최소 출금')}</dt>
             <dd>{fmt(limit.minAmount, asset)}</dd>
-            <dt>24시간 남은 한도</dt>
-            <dd>{remaining === null ? '본인인증 후 출금 가능' : fmt(remaining < 0n ? 0n : remaining, asset)}</dd>
+            <dt>{t('24시간 남은 한도')}</dt>
+            <dd>{remaining === null ? t('본인인증 후 출금 가능') : fmt(remaining < 0n ? 0n : remaining, asset)}</dd>
           </dl>
         )}
         <p className="muted small-text">
-          블록체인 송금은 되돌릴 수 없습니다. 주소와 네트워크를 다시 한번 확인해 주세요.
+          {t('블록체인 송금은 되돌릴 수 없습니다. 주소와 네트워크를 다시 한번 확인해 주세요.')}
         </p>
         <button className="full" disabled={!selectedId}>
-          출금 신청
+          {t('출금 신청')}
         </button>
       </form>
       <ErrorText error={error} />
@@ -219,6 +222,7 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
 }
 
 function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChange: () => Promise<void> }) {
+  const { t, date } = useT();
   const [error, setError] = useState<string | null>(null);
 
   async function cancel(id: string) {
@@ -234,37 +238,37 @@ function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChang
   if (withdrawals.length === 0) return null;
   return (
     <section className="card">
-      <h2>출금 내역</h2>
+      <h2>{t('출금 내역')}</h2>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>신청 시각</th>
-              <th>수량</th>
-              <th>주소</th>
-              <th>상태</th>
+              <th>{t('신청 시각')}</th>
+              <th>{t('수량')}</th>
+              <th>{t('주소')}</th>
+              <th>{t('상태')}</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {withdrawals.map((w) => (
               <tr key={w.id}>
-                <td>{new Date(w.createdAt).toLocaleString('ko-KR')}</td>
+                <td>{date(w.createdAt)}</td>
                 <td>
                   {fmt(w.amount, w.asset)}
-                  <div className="muted small-text">수수료 {formatUnits(w.fee, decimalsOf(w.asset))}</div>
+                  <div className="muted small-text">{t('수수료 {fee}', { fee: formatUnits(w.fee, decimalsOf(w.asset)) })}</div>
                 </td>
                 <td className="address" title={w.address}>
                   {shortAddress(w.address)}
                 </td>
                 <td>
-                  <span className={`badge ${w.status}`}>{WITHDRAWAL_STATUS[w.status] ?? w.status}</span>
+                  <span className={`badge ${w.status}`}>{t(WITHDRAWAL_STATUS[w.status] ?? w.status)}</span>
                   {w.reviewNote && w.status === 'rejected' && <div className="muted small-text">{w.reviewNote}</div>}
                 </td>
                 <td>
                   {w.status === 'requested' && (
                     <button type="button" className="secondary small" onClick={() => cancel(w.id)}>
-                      취소
+                      {t('취소')}
                     </button>
                   )}
                 </td>
@@ -279,6 +283,7 @@ function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChang
 }
 
 function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; onChange: () => Promise<void> }) {
+  const { t, date } = useT();
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [address, setAddress] = useState('');
   const [label, setLabel] = useState('');
@@ -301,7 +306,7 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
 
   async function remove(id: string) {
     setError(null);
-    const code = window.prompt('주소를 삭제하려면 OTP 코드를 입력하세요.');
+    const code = window.prompt(t('주소를 삭제하려면 OTP 코드를 입력하세요.'));
     if (!code) return;
     try {
       await api(`wallet/addresses/${id}`, { method: 'DELETE', body: { otp: code } });
@@ -313,19 +318,19 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
 
   return (
     <section className="card">
-      <h2>출금 주소 관리</h2>
+      <h2>{t('출금 주소 관리')}</h2>
       <p className="muted small-text">
-        등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.
+        {t('등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.')}
       </p>
       {addresses.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>코인</th>
-                <th>이름</th>
-                <th>주소</th>
-                <th>사용 가능</th>
+                <th>{t('코인')}</th>
+                <th>{t('이름')}</th>
+                <th>{t('주소')}</th>
+                <th>{t('사용 가능')}</th>
                 <th />
               </tr>
             </thead>
@@ -335,10 +340,10 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
                   <td>{a.asset}</td>
                   <td>{a.label || '-'}</td>
                   <td className="address">{a.address}</td>
-                  <td>{usable(a) ? '가능' : new Date(a.usableFrom).toLocaleString('ko-KR')}</td>
+                  <td>{usable(a) ? t('가능') : date(a.usableFrom)}</td>
                   <td>
                     <button type="button" className="secondary small" onClick={() => remove(a.id)}>
-                      삭제
+                      {t('삭제')}
                     </button>
                   </td>
                 </tr>
@@ -350,7 +355,7 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
       <form onSubmit={add}>
         <div className="grid2">
           <div>
-            <label htmlFor="a-asset">코인</label>
+            <label htmlFor="a-asset">{t('코인')}</label>
             <select id="a-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
               {Object.entries(ASSETS).map(([code, a]) => (
                 <option key={code} value={code}>
@@ -360,15 +365,15 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
             </select>
           </div>
           <div>
-            <label htmlFor="a-label">이름 (선택)</label>
+            <label htmlFor="a-label">{t('이름 (선택)')}</label>
             <input id="a-label" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} />
           </div>
         </div>
-        <label htmlFor="a-address">주소</label>
+        <label htmlFor="a-address">{t('주소')}</label>
         <input id="a-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-        <label htmlFor="a-otp">OTP 코드</label>
+        <label htmlFor="a-otp">{t('OTP 코드')}</label>
         <input id="a-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
-        <button className="full">주소 등록</button>
+        <button className="full">{t('주소 등록')}</button>
       </form>
       <ErrorText error={error} />
     </section>

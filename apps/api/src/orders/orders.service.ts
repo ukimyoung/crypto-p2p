@@ -3,6 +3,8 @@ import { DomainError } from '../common/errors';
 import { toAd } from '../ads/ads.service';
 import { Db, Tx, withTransaction } from '../db/database';
 import { LedgerService, Posting } from '../ledger/ledger.service';
+import { notify } from '../notifications/notify';
+import { NotificationType } from '../notifications/templates';
 import { PaymentDetails, PaymentMethodsService } from '../payments/payment-methods.service';
 import { nextStatus, OrderEvent, OrderRole, OrderStatus } from './order-state';
 
@@ -137,6 +139,7 @@ export class OrdersService {
       });
 
       await writeAudit(tx, { type: 'user', id: takerId }, 'order.create', { type: 'order', id: order.id }, null, order);
+      await notify(tx, ad.makerId, 'order.created', orderData(order));
       return order;
     });
   }
@@ -267,6 +270,15 @@ export class OrdersService {
     const auditActor: Actor = actor.type === 'system' ? actor : { type: actor.type, id: actor.id };
     const auditAfter = 'requestedBy' in actor ? { ...after, requestedBy: actor.requestedBy } : after;
     await writeAudit(tx, auditActor, `order.${event}`, { type: 'order', id: orderId }, before, auditAfter);
+
+    // Tell the parties, except the one who just acted.
+    const type = NOTIFY_ON[status];
+    const recipients = status === 'paid' ? [after.sellerId] : [after.buyerId, after.sellerId];
+    for (const userId of recipients) {
+      if (type && !(actor.type === 'user' && actor.id === userId)) {
+        await notify(tx, userId, type, { ...orderData(after), reason: event });
+      }
+    }
     return after;
   }
 
@@ -345,5 +357,22 @@ function toOrder(row: any): Order {
     createdAt: row.created_at,
     cancelReason: row.cancel_reason,
     sellerPaymentMethodId: row.seller_payment_method_id,
+  };
+}
+
+const NOTIFY_ON: Partial<Record<OrderStatus, NotificationType>> = {
+  paid: 'order.paid',
+  completed: 'order.completed',
+  cancelled: 'order.cancelled',
+  under_review: 'order.under_review',
+};
+
+function orderData(order: Order) {
+  return {
+    orderId: order.id,
+    asset: order.asset,
+    amount: order.amount.toString(),
+    fiat: order.fiat,
+    fiatAmountMinor: order.fiatAmountMinor.toString(),
   };
 }

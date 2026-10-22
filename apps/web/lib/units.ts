@@ -27,8 +27,8 @@ export function formatUnits(value: bigint | string, decimals: number): string {
 }
 
 /** KRW has no minor unit, so minor units are won. */
-export function formatKrw(value: bigint | string): string {
-  return `${BigInt(value).toLocaleString('ko-KR')}원`;
+export function formatKrw(value: bigint | string, locale: 'ko' | 'en' = 'ko'): string {
+  return locale === 'en' ? `${BigInt(value).toLocaleString('en-US')} KRW` : `${BigInt(value).toLocaleString('ko-KR')}원`;
 }
 
 /** Fiat cost of `amount` coins at `priceMinor` per whole coin, rounded down like the API. */

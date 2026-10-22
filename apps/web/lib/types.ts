@@ -4,6 +4,7 @@ export interface Me {
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
+  locale: 'ko' | 'en';
 }
 
 export interface Ad {
@@ -144,4 +145,12 @@ export interface AuditEntry {
   before: unknown;
   after: unknown;
   createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  data: Record<string, string | null>;
+  createdAt: string;
+  readAt: string | null;
 }

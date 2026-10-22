@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, ReactNode, useContext, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { LocaleProvider } from '@/lib/i18n';
 import { OPERATOR_ROLE } from '@/lib/messages';
 import type { Operator } from '@/lib/types';
 import { useOperator } from '@/lib/use-operator';
@@ -34,7 +35,14 @@ export function OpsShell({ children }: { children: ReactNode }) {
     if (operator === null && !isLogin) window.location.href = '/ops/login';
   }, [operator, isLogin]);
 
-  if (isLogin) return <main>{children}</main>;
+  // The console is for the Korean operations team, so it stays in Korean.
+  if (isLogin) {
+    return (
+      <LocaleProvider locale="ko">
+        <main>{children}</main>
+      </LocaleProvider>
+    );
+  }
   if (!operator) return <main className="muted">불러오는 중…</main>;
 
   async function logout() {
@@ -43,28 +51,30 @@ export function OpsShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <OperatorContext.Provider value={operator}>
-      <header className="header ops-header">
-        <nav className="nav">
-          <Link href="/ops" className="brand">
-            운영 콘솔
-          </Link>
-          <div className="nav-links">
-            {LINKS.map(([href, label]) => (
-              <Link key={href} href={href} className={pathname === href ? 'active' : undefined}>
-                {label}
-              </Link>
-            ))}
-            <span className="muted small-text">
-              {operator.name} · {OPERATOR_ROLE[operator.role]}
-            </span>
-            <button type="button" className="link-button" onClick={logout}>
-              로그아웃
-            </button>
-          </div>
-        </nav>
-      </header>
-      <main className="wide">{children}</main>
-    </OperatorContext.Provider>
+    <LocaleProvider locale="ko">
+      <OperatorContext.Provider value={operator}>
+        <header className="header ops-header">
+          <nav className="nav">
+            <Link href="/ops" className="brand">
+              운영 콘솔
+            </Link>
+            <div className="nav-links">
+              {LINKS.map(([href, label]) => (
+                <Link key={href} href={href} className={pathname === href ? 'active' : undefined}>
+                  {label}
+                </Link>
+              ))}
+              <span className="muted small-text">
+                {operator.name} · {OPERATOR_ROLE[operator.role]}
+              </span>
+              <button type="button" className="link-button" onClick={logout}>
+                로그아웃
+              </button>
+            </div>
+          </nav>
+        </header>
+        <main className="wide">{children}</main>
+      </OperatorContext.Provider>
+    </LocaleProvider>
   );
 }

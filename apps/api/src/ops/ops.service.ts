@@ -1,6 +1,7 @@
 import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, withTransaction } from '../db/database';
+import { notify } from '../notifications/notify';
 
 export type UserStatus = 'active' | 'trade_suspended' | 'withdraw_held' | 'closed';
 
@@ -84,6 +85,8 @@ export class OpsService {
         { status: before.status },
         { status: after.status, reason: text },
       );
+      // The internal reason stays with staff; the customer is told only the new status.
+      if (before.status !== after.status) await notify(tx, userId, 'account.status_changed', { status: after.status });
       return after;
     });
   }

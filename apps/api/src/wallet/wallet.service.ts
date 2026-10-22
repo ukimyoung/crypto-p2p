@@ -2,6 +2,8 @@ import { Actor, writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, Tx, withTransaction } from '../db/database';
 import { LedgerService } from '../ledger/ledger.service';
+import { notify } from '../notifications/notify';
+import { NotificationType } from '../notifications/templates';
 import { normalizeAddress } from './address';
 import { WalletConfig } from './wallet-config';
 import {
@@ -55,6 +57,14 @@ export interface WithdrawalLimit {
 }
 
 const DAY_MS = 24 * 3_600_000;
+
+const WITHDRAWAL_NOTICES: Partial<Record<WithdrawalStatus, NotificationType>> = {
+  approved: 'withdrawal.approved',
+  rejected: 'withdrawal.rejected',
+  sent: 'withdrawal.sent',
+  confirmed: 'withdrawal.confirmed',
+  failed: 'withdrawal.failed',
+};
 /** Withdrawals that still count against the daily limit. */
 const COUNTED = "status NOT IN ('rejected', 'cancelled', 'failed')";
 
@@ -300,6 +310,19 @@ export class WalletService {
 
     if (FINAL_STATUSES.includes(status)) await this.settle(tx, after);
     await writeAudit(tx, actor, `withdrawal.${event}`, { type: 'withdrawal', id }, before, after);
+
+    // Automatic approval happens while the user waits on the request, so it needs no notice.
+    const type = actor.type === 'system' && status === 'approved' ? undefined : WITHDRAWAL_NOTICES[status];
+    if (type) {
+      await notify(tx, after.userId, type, {
+        withdrawalId: after.id,
+        asset: after.asset,
+        amount: after.amount.toString(),
+        address: after.address,
+        txHash: after.txHash,
+        note: after.reviewNote,
+      });
+    }
     return after;
   }
 

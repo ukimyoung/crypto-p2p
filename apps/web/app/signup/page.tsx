@@ -3,8 +3,10 @@
 import { FormEvent, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 export default function SignUpPage() {
+  const { t, locale } = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -14,7 +16,7 @@ export default function SignUpPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError('비밀번호 확인이 일치하지 않습니다.');
+      setError(t('비밀번호 확인이 일치하지 않습니다.'));
       return;
     }
     setBusy(true);
@@ -22,6 +24,8 @@ export default function SignUpPage() {
     try {
       await api('auth/signup', { body: { email, password } });
       await api('auth/login', { body: { email, password } });
+      // Emails go out in the language the user signed up in.
+      await api('me/locale', { body: { locale } });
       window.location.href = '/account';
     } catch (err) {
       setError(messageOf(err));
@@ -31,11 +35,11 @@ export default function SignUpPage() {
 
   return (
     <div className="narrow">
-      <h1>가입하기</h1>
+      <h1>{t('가입하기')}</h1>
       <form className="card" onSubmit={submit}>
-        <label htmlFor="email">이메일</label>
+        <label htmlFor="email">{t('이메일')}</label>
         <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <label htmlFor="password">비밀번호 (10자 이상, 영문과 숫자 포함)</label>
+        <label htmlFor="password">{t('비밀번호 (10자 이상, 영문과 숫자 포함)')}</label>
         <input
           id="password"
           type="password"
@@ -44,7 +48,7 @@ export default function SignUpPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <label htmlFor="confirm">비밀번호 확인</label>
+        <label htmlFor="confirm">{t('비밀번호 확인')}</label>
         <input
           id="confirm"
           type="password"
@@ -55,7 +59,7 @@ export default function SignUpPage() {
         />
         <ErrorText error={error} />
         <button className="full" disabled={busy}>
-          가입하기
+          {t('가입하기')}
         </button>
       </form>
     </div>
