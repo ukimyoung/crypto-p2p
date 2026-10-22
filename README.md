@@ -11,6 +11,32 @@
 | `docs/architecture.md` | 원장 모델과 주문 상태 설계 |
 | `docs/api.md` | HTTP API 목록 |
 
+## 데모 실행
+
+[Docker Desktop](https://www.docker.com/products/docker-desktop/)만 있으면 DB, API, 웹이 한 번에 뜹니다. 체험용 계정, 잔고, 광고, 분쟁 중인 주문, 검토 대기 출금도 자동으로 들어갑니다.
+
+```bash
+git clone https://github.com/ukimyoung/crypto-p2p.git
+cd crypto-p2p
+docker compose up --build        # 처음엔 몇 분 걸립니다
+```
+
+브라우저에서 http://localhost:3001 (고객 화면)과 http://localhost:3001/ops (운영 콘솔)를 엽니다. 비밀번호는 모두 `demo password 1`입니다.
+
+| 계정 | 용도 |
+| --- | --- |
+| `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
+| `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
+| `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁은 한 명이 제안하고 다른 한 명이 승인합니다 |
+
+로그인과 코인 전달에는 OTP 코드가 필요합니다. 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
+
+```bash
+docker compose exec api node dist/demo/otp-cli.js
+```
+
+처음 상태로 되돌리려면 `docker compose down -v` 후 다시 `docker compose up`을 실행합니다. 데모 설정(공개된 암호화 키와 OTP 키, 대기 시간 0)은 체험용이므로 실제 서비스에 쓰지 마세요.
+
 ## 개발 환경
 
 필요한 것: Node.js 22 이상, pnpm 10, PostgreSQL 16.

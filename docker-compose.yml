@@ -1,0 +1,49 @@
+# Local demo: `docker compose up --build`, then open http://localhost:3001.
+# Demo accounts and their OTP codes: see "데모 실행" in README.md.
+# The encryption key and cooldowns below are for the demo only.
+name: crypto-p2p-demo
+
+x-app: &app
+  build: .
+  image: crypto-p2p-demo
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: p2p
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres']
+      interval: 2s
+      retries: 30
+
+  api:
+    <<: *app
+    working_dir: /app/apps/api
+    command: sh -c "DEMO_SEED=yes node dist/demo/seed-cli.js && node dist/main.js"
+    environment:
+      DATABASE_URL: postgres://postgres:demo@db:5432/p2p
+      OTP_ENCRYPTION_KEY: ZGVtby1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=
+      PAYMENT_METHOD_COOLDOWN_HOURS: 0
+      ADDRESS_COOLDOWN_HOURS: 0
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    working_dir: /app/apps/web
+    command: npx next start -p 3001
+    environment:
+      API_URL: http://api:3000
+    ports:
+      - '3001:3001'
+    depends_on:
+      - api
+
+volumes:
+  db:
