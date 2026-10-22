@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { describe } from '@/lib/notifications';
 import type { Notification } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
 
 export default function NotificationsPage() {
   const { me } = useMe();
+  const { t, locale, date } = useT();
   const [items, setItems] = useState<Notification[] | null>(null);
 
   useEffect(() => {
@@ -28,20 +30,20 @@ export default function NotificationsPage() {
     if (typeof window !== 'undefined') window.location.href = '/login';
     return null;
   }
-  if (!items) return <p className="muted">불러오는 중…</p>;
+  if (!items) return <p className="muted">{t('불러오는 중…')}</p>;
 
   return (
     <>
-      <h1>알림</h1>
+      <h1>{t('알림')}</h1>
       <section className="card">
-        {items.length === 0 && <p className="muted">알림이 없습니다.</p>}
+        {items.length === 0 && <p className="muted">{t('알림이 없습니다.')}</p>}
         <ul className="notifications">
           {items.map((n) => {
-            const { text, href } = describe(n);
+            const { text, href } = describe(n, locale);
             return (
               <li key={n.id} className={n.readAt ? '' : 'unread'}>
                 {href ? <Link href={href}>{text}</Link> : text}
-                <div className="muted small-text">{new Date(n.createdAt).toLocaleString('ko-KR')}</div>
+                <div className="muted small-text">{date(n.createdAt)}</div>
               </li>
             );
           })}

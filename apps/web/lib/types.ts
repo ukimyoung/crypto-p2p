@@ -4,6 +4,7 @@ export interface Me {
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
+  locale: 'ko' | 'en';
 }
 
 export interface Ad {

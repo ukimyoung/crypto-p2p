@@ -12,7 +12,8 @@
 | POST | `/auth/signup` | - | `{ email, password }`. 비밀번호는 10~128자, 영문과 숫자 포함 |
 | POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |
 | POST | `/auth/logout` | O | 현재 세션 만료 |
-| GET | `/me` | O | 내 정보 (`kycLevel`, `otpEnabled` 등) |
+| GET | `/me` | O | 내 정보 (`kycLevel`, `otpEnabled`, `locale` 등) |
+| POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |
 | POST | `/auth/otp/setup` | O | `{ secret, otpauthUrl }`. 인증 앱에 등록 |
 | POST | `/auth/otp/enable` | O | `{ code }`. 앱에 뜬 6자리 코드로 OTP 활성화 |
 

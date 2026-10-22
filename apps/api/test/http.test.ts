@@ -92,6 +92,11 @@ describe('HTTP API', () => {
       const me = await http().get('/me').set(auth(user)).expect(200);
       expect(me.body.user).toMatchObject({ email: 'alice@example.com', kycLevel: 0, otpEnabled: false });
       expect(me.body.user).not.toHaveProperty('password_hash');
+      expect(me.body.user.locale).toBe('ko');
+
+      await http().post('/me/locale').set(auth(user)).send({ locale: 'fr' }).expect(400);
+      await http().post('/me/locale').set(auth(user)).send({ locale: 'en' }).expect(204);
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user.locale).toBe('en');
 
       await http().post('/auth/logout').set(auth(user)).expect(204);
       await http().get('/me').set(auth(user)).expect(401);

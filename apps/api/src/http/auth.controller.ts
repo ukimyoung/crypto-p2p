@@ -8,6 +8,7 @@ import { parse } from './validation';
 const credentials = z.object({ email: z.string(), password: z.string() });
 const loginBody = credentials.extend({ otp: z.string().optional() });
 const otpBody = z.object({ code: z.string() });
+const localeBody = z.object({ locale: z.enum(['ko', 'en']) });
 
 @Controller()
 export class AuthController {
@@ -38,6 +39,13 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async me(@CurrentUser() userId: string) {
     return { user: await this.auth.me(userId) };
+  }
+
+  @Post('me/locale')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  async setLocale(@CurrentUser() userId: string, @Body() body: unknown) {
+    await this.auth.setLocale(userId, parse(localeBody, body).locale);
   }
 
   @Post('auth/otp/setup')

@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { BANKS, ORDER_STATUS } from '@/lib/messages';
 import type { Me, Message, Order, PaymentDetails } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
@@ -14,6 +15,7 @@ const POLL_MS = 3000;
 export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
   const { me } = useMe();
+  const { t, locale } = useT();
   const [order, setOrder] = useState<Order | null>(null);
   const [details, setDetails] = useState<PaymentDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function OrderPage() {
   }, [load]);
 
   if (error && !order) return <ErrorText error={error} />;
-  if (!order || !me) return <p className="muted">불러오는 중…</p>;
+  if (!order || !me) return <p className="muted">{t('불러오는 중…')}</p>;
 
   const isBuyer = order.buyerId === me.id;
   const decimals = ASSETS[order.asset as AssetCode].decimals;
@@ -43,24 +45,25 @@ export default function OrderPage() {
   return (
     <>
       <h1>
-        {order.asset} {isBuyer ? '구매' : '판매'} 주문 <span className={`badge ${order.status}`}>{ORDER_STATUS[order.status]}</span>
+        {t(isBuyer ? '{asset} 구매 주문' : '{asset} 판매 주문', { asset: order.asset })}{' '}
+        <span className={`badge ${order.status}`}>{t(ORDER_STATUS[order.status] ?? order.status)}</span>
       </h1>
       <Guide order={order} isBuyer={isBuyer} />
       <section className="card">
         <dl className="kv">
-          <dt>수량</dt>
+          <dt>{t('수량')}</dt>
           <dd>
             {formatUnits(order.amount, decimals)} {order.asset}
           </dd>
-          <dt>{isBuyer ? '보낼 금액' : '받을 금액'}</dt>
-          <dd className="price">{formatKrw(order.fiatAmountMinor)}</dd>
-          <dt>가격</dt>
+          <dt>{t(isBuyer ? '보낼 금액' : '받을 금액')}</dt>
+          <dd className="price">{formatKrw(order.fiatAmountMinor, locale)}</dd>
+          <dt>{t('가격')}</dt>
           <dd>
-            1 {order.asset} = {formatKrw(order.priceMinor)}
+            1 {order.asset} = {formatKrw(order.priceMinor, locale)}
           </dd>
           {order.status === 'pending_payment' && (
             <>
-              <dt>결제 기한</dt>
+              <dt>{t('결제 기한')}</dt>
               <dd>
                 <Countdown deadline={order.paymentDeadline} />
               </dd>
@@ -68,17 +71,17 @@ export default function OrderPage() {
           )}
           {details && (
             <>
-              <dt>입금 계좌</dt>
+              <dt>{t('입금 계좌')}</dt>
               <dd>
                 <strong>
-                  {BANKS[details.bankCode] ?? details.bankCode} {details.accountNumber}
+                  {t(BANKS[details.bankCode] ?? details.bankCode)} {details.accountNumber}
                 </strong>
                 <br />
-                예금주 {details.accountHolder}
+                {t('예금주 {name}', { name: details.accountHolder })}
               </dd>
             </>
           )}
-          <dt>주문 번호</dt>
+          <dt>{t('주문 번호')}</dt>
           <dd className="muted small-text">{order.id}</dd>
         </dl>
         <Actions order={order} isBuyer={isBuyer} onChange={load} />
@@ -89,6 +92,7 @@ export default function OrderPage() {
 }
 
 function Guide({ order, isBuyer }: { order: Order; isBuyer: boolean }) {
+  const { t } = useT();
   const text: Record<string, [string, string]> = {
     pending_payment: [
       '아래 계좌로 정확한 금액을 본인 명의 계좌에서 이체한 뒤 "이체 완료"를 눌러 주세요. 판매자의 코인은 에스크로에 잠겨 있습니다.',
@@ -103,10 +107,11 @@ function Guide({ order, isBuyer }: { order: Order; isBuyer: boolean }) {
     cancelled: ['주문이 취소되었습니다.', '주문이 취소되었고 코인은 내 지갑으로 돌아왔습니다.'],
   };
   const [buyerText, sellerText] = text[order.status] ?? ['', ''];
-  return <p className="notice">{isBuyer ? buyerText : sellerText}</p>;
+  return <p className="notice">{t(isBuyer ? buyerText : sellerText)}</p>;
 }
 
 function Countdown({ deadline }: { deadline: string }) {
+  const { t } = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -115,10 +120,11 @@ function Countdown({ deadline }: { deadline: string }) {
   const left = Math.max(0, new Date(deadline).getTime() - now);
   const m = Math.floor(left / 60000);
   const s = Math.floor((left % 60000) / 1000);
-  return <span>{left > 0 ? `${m}분 ${String(s).padStart(2, '0')}초 남음` : '기한 지남'}</span>;
+  return <span>{left > 0 ? t('{m}분 {s}초 남음', { m, s: String(s).padStart(2, '0') }) : t('기한 지남')}</span>;
 }
 
 function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean; onChange: () => Promise<void> }) {
+  const { t, locale } = useT();
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -142,11 +148,14 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
     <div style={{ marginTop: 20 }}>
       {isBuyer && s === 'pending_payment' && (
         <div className="row">
-          <button disabled={busy} onClick={() => act('paid', '판매자 계좌로 이체를 마치셨나요? 이체하지 않고 누르면 제재될 수 있습니다.')}>
-            이체 완료
+          <button
+            disabled={busy}
+            onClick={() => act('paid', t('판매자 계좌로 이체를 마치셨나요? 이체하지 않고 누르면 제재될 수 있습니다.'))}
+          >
+            {t('이체 완료')}
           </button>
-          <button className="secondary" disabled={busy} onClick={() => act('cancel', '주문을 취소할까요?')}>
-            주문 취소
+          <button className="secondary" disabled={busy} onClick={() => act('cancel', t('주문을 취소할까요?'))}>
+            {t('주문 취소')}
           </button>
         </div>
       )}
@@ -156,12 +165,14 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
             e.preventDefault();
             void act(
               'release',
-              `계좌에 ${formatKrw(order.fiatAmountMinor)}이 들어온 것을 직접 확인하셨나요? 코인을 넘기면 되돌릴 수 없습니다.`,
+              t('계좌에 {amount}이 들어온 것을 직접 확인하셨나요? 코인을 넘기면 되돌릴 수 없습니다.', {
+                amount: formatKrw(order.fiatAmountMinor, locale),
+              }),
               { otp },
             );
           }}
         >
-          <label htmlFor="release-otp">OTP 코드</label>
+          <label htmlFor="release-otp">{t('OTP 코드')}</label>
           <div className="row">
             <input
               id="release-otp"
@@ -171,7 +182,7 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
               onChange={(e) => setOtp(e.target.value)}
               style={{ maxWidth: 160 }}
             />
-            <button disabled={busy || otp.length !== 6}>입금 확인, 코인 넘기기</button>
+            <button disabled={busy || otp.length !== 6}>{t('입금 확인, 코인 넘기기')}</button>
           </div>
         </form>
       )}
@@ -180,9 +191,9 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
           className="secondary small"
           style={{ marginTop: 12 }}
           disabled={busy}
-          onClick={() => act('escalate', '운영팀에 검토를 요청할까요? 채팅에 증빙을 남겨 주세요.')}
+          onClick={() => act('escalate', t('운영팀에 검토를 요청할까요? 채팅에 증빙을 남겨 주세요.'))}
         >
-          문제가 있어요 (운영 검토 요청)
+          {t('문제가 있어요 (운영 검토 요청)')}
         </button>
       )}
       <ErrorText error={error} />
@@ -191,6 +202,7 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
 }
 
 function Chat({ orderId, me }: { orderId: string; me: Me }) {
+  const { t } = useT();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -230,8 +242,10 @@ function Chat({ orderId, me }: { orderId: string; me: Me }) {
 
   return (
     <section className="card">
-      <h2>채팅</h2>
-      <p className="muted small-text">채팅은 지울 수 없고 분쟁 시 증빙으로 쓰입니다. 플랫폼 밖 연락처 교환은 피해 주세요.</p>
+      <h2>{t('채팅')}</h2>
+      <p className="muted small-text">
+        {t('채팅은 지울 수 없고 분쟁 시 증빙으로 쓰입니다. 플랫폼 밖 연락처 교환은 피해 주세요.')}
+      </p>
       <div className="chat" ref={box}>
         {messages.map((m) => (
           <div key={m.id} className={`bubble ${m.senderId === me.id ? 'mine' : ''}`}>
@@ -240,8 +254,8 @@ function Chat({ orderId, me }: { orderId: string; me: Me }) {
         ))}
       </div>
       <form className="row" onSubmit={send}>
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="메시지 입력" maxLength={1000} style={{ flex: 1 }} />
-        <button>보내기</button>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={t('메시지 입력')} maxLength={1000} style={{ flex: 1 }} />
+        <button>{t('보내기')}</button>
       </form>
       <ErrorText error={error} />
     </section>
