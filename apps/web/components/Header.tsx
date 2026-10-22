@@ -27,6 +27,7 @@ export function Header() {
             <>
               <Link href="/orders">내 주문</Link>
               <Link href="/ads/new">광고 등록</Link>
+              <Link href="/wallet">내 지갑</Link>
               <Link href="/account">내 계정</Link>
               <button type="button" className="link-button" onClick={logout}>
                 로그아웃

@@ -50,3 +50,18 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/orders/:id/messages` | 당사자 | `{ body }`. 1~1000자. 지울 수 없음(분쟁 증빙) |
 
 결제 기한이 지난 미결제 주문은 서버가 `ORDER_EXPIRY_INTERVAL_SECONDS`(기본 30초)마다 자동 취소하고 코인을 판매자에게 돌려줍니다.
+
+## 지갑 (WAL-2, WAL-3)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/wallet/balances` | O | 코인별 `available`, `escrow`, `withdrawalPending` |
+| GET | `/wallet/addresses` | O | 출금 주소 화이트리스트 |
+| POST | `/wallet/addresses` | O | `{ asset, address, label?, otp }`. 네트워크에 맞는 주소 형식만 받음. OTP 필수 |
+| DELETE | `/wallet/addresses/:id` | O | `{ otp }` |
+| GET | `/wallet/withdrawals` | O | 내 출금 내역(최신순)과 코인별 수수료·최소 수량·24시간 한도·사용량 |
+| POST | `/wallet/withdrawals` | O | `{ addressId, amount, otp }`. `amount`는 받을 수량이고 수수료는 별도로 빠짐 |
+| POST | `/wallet/withdrawals/:id/cancel` | 본인 | 운영 검토 대기(`requested`) 중에만 취소 가능 |
+
+새 주소는 등록 후 `ADDRESS_COOLDOWN_HOURS`(기본 24시간)가 지나야 출금에 쓸 수 있습니다.
+

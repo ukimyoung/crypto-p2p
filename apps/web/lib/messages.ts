@@ -26,6 +26,14 @@ const ERRORS: Record<string, string> = {
   forbidden: '권한이 없습니다.',
   not_found: '찾을 수 없습니다.',
   invalid_message: '메시지는 1~1000자로 입력해 주세요.',
+  invalid_address: '주소 형식이 올바르지 않습니다. 코인과 네트워크가 맞는지 확인해 주세요.',
+  address_exists: '이미 등록한 주소입니다.',
+  address_invalid: '등록된 출금 주소 중에서 선택해 주세요.',
+  address_cooldown: '새로 등록한 주소는 24시간 뒤부터 출금할 수 있습니다.',
+  asset_unsupported: '출금을 지원하지 않는 코인입니다.',
+  below_minimum: '최소 출금 수량보다 적습니다.',
+  daily_limit_exceeded: '24시간 출금 한도를 넘습니다.',
+  user_restricted: '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.',
 };
 
 export function errorText(code: string, fallback: string): string {
@@ -38,6 +46,16 @@ export const ORDER_STATUS: Record<string, string> = {
   completed: '거래 완료',
   cancelled: '취소됨',
   under_review: '운영 검토 중',
+};
+
+export const WITHDRAWAL_STATUS: Record<string, string> = {
+  requested: '검토 대기',
+  approved: '송금 준비',
+  sent: '전송됨',
+  confirmed: '완료',
+  rejected: '거절됨',
+  cancelled: '취소됨',
+  failed: '실패(환불됨)',
 };
 
 /** A few common Korean bank codes (KFTC). */
