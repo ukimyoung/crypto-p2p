@@ -1,5 +1,6 @@
 import { DomainError } from '../common/errors';
-import { Db } from '../db/database';
+import { Db, withTransaction } from '../db/database';
+import { notify } from '../notifications/notify';
 
 export interface OrderMessage {
   id: string;
@@ -20,12 +21,16 @@ export class OrderChatService {
     if (text.length < 1 || text.length > 1000) {
       throw new DomainError('invalid_message', 'Messages must be 1-1000 characters');
     }
-    await this.assertParty(orderId, senderId);
-    const { rows } = await this.db.query(
-      `INSERT INTO order_messages (order_id, sender_id, body, created_at) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [orderId, senderId, text, this.now()],
-    );
-    return toMessage(rows[0]);
+    const order = await this.assertParty(orderId, senderId);
+    return withTransaction(this.db, async (tx) => {
+      const { rows } = await tx.query(
+        `INSERT INTO order_messages (order_id, sender_id, body, created_at) VALUES ($1, $2, $3, $4) RETURNING *`,
+        [orderId, senderId, text, this.now()],
+      );
+      const other = order.buyer_id === senderId ? order.seller_id : order.buyer_id;
+      await notify(tx, other, 'order.message', { orderId });
+      return toMessage(rows[0]);
+    });
   }
 
   /** Messages after `afterId`, oldest first, so clients can poll for new ones. */
@@ -38,7 +43,7 @@ export class OrderChatService {
     return rows.map(toMessage);
   }
 
-  private async assertParty(orderId: string, userId: string): Promise<void> {
+  private async assertParty(orderId: string, userId: string): Promise<{ buyer_id: string; seller_id: string }> {
     const { rows } = await this.db.query<{ buyer_id: string; seller_id: string }>(
       'SELECT buyer_id, seller_id FROM orders WHERE id = $1',
       [orderId],
@@ -47,6 +52,7 @@ export class OrderChatService {
     if (!order || (order.buyer_id !== userId && order.seller_id !== userId)) {
       throw new DomainError('not_found', 'Order not found');
     }
+    return order;
   }
 }
 

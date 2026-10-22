@@ -145,3 +145,11 @@ export interface AuditEntry {
   after: unknown;
   createdAt: string;
 }
+
+export interface Notification {
+  id: string;
+  type: string;
+  data: Record<string, string | null>;
+  createdAt: string;
+  readAt: string | null;
+}

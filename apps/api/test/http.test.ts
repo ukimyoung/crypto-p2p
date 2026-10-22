@@ -62,6 +62,7 @@ describe('HTTP API', () => {
     process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
     process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
     process.env.ADDRESS_COOLDOWN_HOURS = '0';
+    process.env.EMAIL_INTERVAL_SECONDS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -194,6 +195,20 @@ describe('HTTP API', () => {
       const mine = await http().get('/orders').set(auth(buyer)).expect(200);
       expect(mine.body.orders[0]).toMatchObject({ id: order.id, status: 'completed' });
       expect(await ledger.balance(db, { userId: buyer.id, asset: 'BTC', kind: 'available' })).toBe(BTC / 100n);
+
+      const inbox = await http().get('/notifications').set(auth(seller)).expect(200);
+      expect(inbox.body.notifications.map((n: { type: string }) => n.type)).toEqual([
+        'order.paid',
+        'order.message',
+        'order.created',
+      ]);
+      expect(inbox.body.unread).toBe(3);
+      await http()
+        .post('/notifications/read')
+        .set(auth(seller))
+        .send({ upToId: inbox.body.notifications[0].id })
+        .expect(204);
+      await http().get('/notifications/unread-count').set(auth(seller)).expect(200, { unread: 0 });
     });
 
     it('adds a bank account only with an OTP code', async () => {

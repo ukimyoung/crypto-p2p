@@ -13,6 +13,8 @@ export interface AppConfig {
   addressCooldownHours: number;
   /** Operations console sessions are shorter than customer ones. */
   opsSessionTtlHours: number;
+  /** How often queued emails are sent. 0 turns the worker off. */
+  emailIntervalSeconds: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -34,5 +36,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     orderExpiryIntervalSeconds: Number(env.ORDER_EXPIRY_INTERVAL_SECONDS ?? 30),
     addressCooldownHours: Number(env.ADDRESS_COOLDOWN_HOURS ?? 24),
     opsSessionTtlHours: Number(env.OPS_SESSION_TTL_HOURS ?? 8),
+    emailIntervalSeconds: Number(env.EMAIL_INTERVAL_SECONDS ?? 10),
   };
 }

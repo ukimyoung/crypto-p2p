@@ -81,6 +81,7 @@ describe('operations console', () => {
     process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
     process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
     process.env.ADDRESS_COOLDOWN_HOURS = '0';
+    process.env.EMAIL_INTERVAL_SECONDS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);

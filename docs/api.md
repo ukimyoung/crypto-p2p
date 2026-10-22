@@ -65,6 +65,16 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 
 새 주소는 등록 후 `ADDRESS_COOLDOWN_HOURS`(기본 24시간)가 지나야 출금에 쓸 수 있습니다.
 
+## 알림 (NOTI-1)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/notifications` | O | 최근 50건(최신순)과 안 읽은 수. `type`과 `data`만 주고 문구는 웹이 이용자 언어로 만듦 |
+| GET | `/notifications/unread-count` | O | `{ unread }` |
+| POST | `/notifications/read` | O | `{ upToId }`. 그 id까지 읽음 처리 |
+
+알림 종류: `order.created`, `order.paid`, `order.completed`, `order.cancelled`, `order.under_review`, `order.message`, `withdrawal.approved`, `withdrawal.rejected`, `withdrawal.sent`, `withdrawal.confirmed`, `withdrawal.failed`, `account.status_changed`.
+
 ## 운영 콘솔 (`/ops`)
 
 이용자 토큰으로는 호출할 수 없고, 운영자 로그인으로 받은 토큰만 받습니다. 운영자의 모든 동작은 감사 로그에 남습니다.
