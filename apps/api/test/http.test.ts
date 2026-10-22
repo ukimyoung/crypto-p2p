@@ -61,6 +61,7 @@ describe('HTTP API', () => {
     process.env.MAKER_FEE_BPS = '0';
     process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
     process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
+    process.env.ADDRESS_COOLDOWN_HOURS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -234,6 +235,63 @@ describe('HTTP API', () => {
         .send({ adId: '00000000-0000-4000-8000-000000000000', amount: '1.5' })
         .expect(400);
       expect(res.body.error.code).toBe('invalid_request');
+    });
+  });
+
+  describe('wallet', () => {
+    /** Each code works once, so tests that need several in one 30s step forget the last one used. */
+    async function freshOtp(user: TestUser): Promise<string> {
+      await db.query('UPDATE users SET otp_last_counter = NULL WHERE id = $1', [user.id]);
+      return codeAt(user.otpSecret!, counterAt(new Date()) + 1);
+    }
+
+    it('whitelists an address and withdraws to it', async () => {
+      const user = await trader('wallet@example.com');
+      await deposit(db, ledger, user.id, 'BTC', BTC);
+
+      const balances = await http().get('/wallet/balances').set(auth(user)).expect(200);
+      expect(balances.body.balances).toContainEqual({
+        asset: 'BTC',
+        available: String(BTC),
+        escrow: '0',
+        withdrawalPending: '0',
+      });
+
+      const address = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+      const bad = await http()
+        .post('/wallet/addresses')
+        .set(auth(user))
+        .send({ asset: 'BTC', address: '0x52908400098527886e0f7030069857d2e4169ee7', otp: await freshOtp(user) })
+        .expect(400);
+      expect(bad.body.error.code).toBe('invalid_address');
+      const added = await http()
+        .post('/wallet/addresses')
+        .set(auth(user))
+        .send({ asset: 'BTC', address, label: '내 지갑', otp: await freshOtp(user) })
+        .expect(201);
+      const addressId = added.body.address.id;
+
+      await http()
+        .post('/wallet/withdrawals')
+        .set(auth(user))
+        .send({ addressId, amount: '1000000' })
+        .expect(400);
+      const res = await http()
+        .post('/wallet/withdrawals')
+        .set(auth(user))
+        .send({ addressId, amount: '1000000', otp: await freshOtp(user) })
+        .expect(201);
+      expect(res.body.withdrawal).toMatchObject({ address, amount: '1000000', fee: '20000', status: 'approved' });
+
+      const list = await http().get('/wallet/withdrawals').set(auth(user)).expect(200);
+      expect(list.body.withdrawals).toHaveLength(1);
+      expect(list.body.limits).toContainEqual(
+        expect.objectContaining({ asset: 'BTC', dailyLimit: String(BTC), usedToday: '1000000' }),
+      );
+
+      const other = await trader('wallet-other@example.com');
+      await http().get('/wallet/addresses').set(auth(other)).expect(200, { addresses: [] });
+      await http().post(`/wallet/withdrawals/${res.body.withdrawal.id}/cancel`).set(auth(other)).expect(404);
     });
   });
 });

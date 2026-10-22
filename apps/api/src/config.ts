@@ -9,6 +9,8 @@ export interface AppConfig {
   paymentMethodCooldownHours: number;
   /** How often unpaid orders are expired. 0 turns the worker off. */
   orderExpiryIntervalSeconds: number;
+  /** Hours before a newly whitelisted withdrawal address can be used. */
+  addressCooldownHours: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -28,5 +30,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionTtlHours: Number(env.SESSION_TTL_HOURS ?? 12),
     paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 24),
     orderExpiryIntervalSeconds: Number(env.ORDER_EXPIRY_INTERVAL_SECONDS ?? 30),
+    addressCooldownHours: Number(env.ADDRESS_COOLDOWN_HOURS ?? 24),
   };
 }

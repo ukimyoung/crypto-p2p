@@ -47,6 +47,16 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 - 주문은 생성 시점의 판매자 계좌를 `seller_payment_method_id`로 고정합니다. 이후 계좌를 지워도 진행 중인 주문의 입금처는 바뀌지 않습니다.
 - 1원 송금 같은 계좌 실소유 확인은 업체 연동 후 추가합니다.
 
+## 출금
+
+- 상태: `requested`(운영 검토 대기) → `approved`(커스터디로 넘길 준비) → `sent`(전송) → `confirmed`(완료). 검토 중 `rejected`·`cancelled`, 전송 실패 시 `failed`가 되며 이 세 경우 코인은 `available`로 돌아갑니다.
+- 신청 시 `수량 + 수수료`를 `available`에서 `withdrawal_pending`으로 옮깁니다. 완료되면 수량은 `custody`로, 수수료는 `fee_revenue`로 갑니다(원장 키 `withdrawal:{id}:lock`, `withdrawal:{id}:settle`).
+- 자동 승인 기준(`autoApproveMax`) 이하는 바로 `approved`, 넘으면 운영자 검토로 갑니다. 운영자 승인·거절과 커스터디 콜백(`markSent`, `markConfirmed`, `markFailed`)은 서비스에만 있고, 운영 도구와 커스터디 연동 때 HTTP로 엽니다.
+- 한도는 KYC 단계별·코인별 24시간 누적(거절·취소·실패 건 제외)입니다. 같은 사용자의 신청은 사용자 행 잠금으로 직렬화해 동시 신청으로 한도를 넘을 수 없습니다.
+- 출금은 화이트리스트에 등록하고 쿨다운이 지난 주소로만 갈 수 있습니다. 주소 등록·삭제와 출금 신청에 OTP가 필요합니다. `withdraw_held`나 `closed` 상태 계정은 출금할 수 없습니다.
+- 수수료·최소 수량·한도 숫자는 `apps/api/src/wallet/wallet-config.ts`의 임시값입니다. 원화 환산 한도는 시세 피드가 붙은 뒤에 바꿉니다.
+- 주소 검사는 형식만 봅니다(비트코인 bech32/base58, 이더리움 0x+40자리). 체크섬 검증은 커스터디 연동 때 서명 전에 한 번 더 합니다.
+
 ## 아직 정하지 않은 것
 
 - 판매 광고 등록 시 코인을 미리 잠글지(AD-5): 지금은 주문 생성 시점에 잠급니다.

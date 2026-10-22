@@ -63,3 +63,42 @@ export interface Message {
   body: string;
   createdAt: string;
 }
+
+export interface Balance {
+  asset: string;
+  available: string;
+  escrow: string;
+  withdrawalPending: string;
+}
+
+export interface WithdrawalAddress {
+  id: string;
+  asset: string;
+  address: string;
+  label: string;
+  usableFrom: string;
+  createdAt: string;
+}
+
+export type WithdrawalStatus = 'requested' | 'approved' | 'sent' | 'confirmed' | 'rejected' | 'cancelled' | 'failed';
+
+export interface Withdrawal {
+  id: string;
+  asset: string;
+  addressId: string;
+  address: string;
+  amount: string;
+  fee: string;
+  status: WithdrawalStatus;
+  txHash: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface WithdrawalLimit {
+  asset: string;
+  fee: string;
+  minAmount: string;
+  dailyLimit: string | null;
+  usedToday: string;
+}

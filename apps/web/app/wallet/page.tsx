@@ -1,0 +1,376 @@
+'use client';
+
+import Link from 'next/link';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { ErrorText, messageOf } from '@/components/ErrorText';
+import { api } from '@/lib/api';
+import { WITHDRAWAL_STATUS } from '@/lib/messages';
+import type { Balance, Withdrawal, WithdrawalAddress, WithdrawalLimit } from '@/lib/types';
+import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
+import { useMe } from '@/lib/use-me';
+
+const decimalsOf = (asset: string) => ASSETS[asset as AssetCode]?.decimals ?? 0;
+const fmt = (value: string | bigint, asset: string) => `${formatUnits(value, decimalsOf(asset))} ${asset}`;
+const usable = (a: WithdrawalAddress) => new Date(a.usableFrom) <= new Date();
+const shortAddress = (a: string) => (a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-8)}` : a);
+
+interface WalletData {
+  balances: Balance[];
+  addresses: WithdrawalAddress[];
+  withdrawals: Withdrawal[];
+  limits: WithdrawalLimit[];
+}
+
+export default function WalletPage() {
+  const { me } = useMe();
+  const [data, setData] = useState<WalletData | null>(null);
+
+  const load = useCallback(async () => {
+    const [b, a, w] = await Promise.all([
+      api<{ balances: Balance[] }>('wallet/balances'),
+      api<{ addresses: WithdrawalAddress[] }>('wallet/addresses'),
+      api<{ withdrawals: Withdrawal[]; limits: WithdrawalLimit[] }>('wallet/withdrawals'),
+    ]);
+    setData({ balances: b.balances, addresses: a.addresses, withdrawals: w.withdrawals, limits: w.limits });
+  }, []);
+
+  useEffect(() => {
+    if (me) void load();
+  }, [me, load]);
+
+  if (me === undefined) return <p className="muted">불러오는 중…</p>;
+  if (me === null) {
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    return null;
+  }
+  if (!data) return <p className="muted">불러오는 중…</p>;
+
+  return (
+    <>
+      <h1>내 지갑</h1>
+      <Balances balances={data.balances} />
+      {me.otpEnabled ? (
+        <>
+          <WithdrawForm data={data} onDone={load} />
+          <History withdrawals={data.withdrawals} onChange={load} />
+          <AddressBook addresses={data.addresses} onChange={load} />
+        </>
+      ) : (
+        <p className="notice">
+          출금 주소 등록과 출금에는 OTP가 필요합니다. <Link href="/account">내 계정</Link>에서 먼저 OTP를 등록해
+          주세요.
+        </p>
+      )}
+    </>
+  );
+}
+
+function Balances({ balances }: { balances: Balance[] }) {
+  return (
+    <section className="card">
+      <h2>잔고</h2>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>코인</th>
+              <th>사용 가능</th>
+              <th>거래 중 잠김</th>
+              <th>출금 처리 중</th>
+            </tr>
+          </thead>
+          <tbody>
+            {balances.map((b) => (
+              <tr key={b.asset}>
+                <td>
+                  <strong>{b.asset}</strong>
+                </td>
+                <td>{formatUnits(b.available, decimalsOf(b.asset))}</td>
+                <td>{formatUnits(b.escrow, decimalsOf(b.asset))}</td>
+                <td>{formatUnits(b.withdrawalPending, decimalsOf(b.asset))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small-text" style={{ marginBottom: 0 }}>
+        입금 주소 발급은 수탁(커스터디) 업체 연동 후 열립니다.
+      </p>
+    </section>
+  );
+}
+
+function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promise<void> }) {
+  const [asset, setAsset] = useState<AssetCode>('BTC');
+  const [addressId, setAddressId] = useState('');
+  const [amountText, setAmountText] = useState('');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const decimals = decimalsOf(asset);
+  const addresses = data.addresses.filter((a) => a.asset === asset);
+  const limit = data.limits.find((l) => l.asset === asset);
+  const balance = data.balances.find((b) => b.asset === asset);
+  const amount = parseUnits(amountText, decimals);
+  // Falls back to the first usable address when the coin changes or nothing is picked yet.
+  const selectedId = addresses.some((a) => a.id === addressId && usable(a))
+    ? addressId
+    : (addresses.find(usable)?.id ?? '');
+  const remaining = limit?.dailyLimit ? BigInt(limit.dailyLimit) - BigInt(limit.usedToday) : null;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setDone(null);
+    if (!amount) return setError('출금 수량을 올바르게 입력해 주세요.');
+    try {
+      const res = await api<{ withdrawal: Withdrawal }>('wallet/withdrawals', {
+        body: { addressId: selectedId, amount: amount.toString(), otp },
+      });
+      setAmountText('');
+      setOtp('');
+      setDone(
+        res.withdrawal.status === 'requested'
+          ? '출금을 신청했습니다. 금액이 커서 운영팀 검토 후 송금됩니다.'
+          : '출금을 신청했습니다. 곧 송금됩니다.',
+      );
+      await onDone();
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>출금</h2>
+      <form onSubmit={submit}>
+        <div className="grid2">
+          <div>
+            <label htmlFor="w-asset">코인</label>
+            <select id="w-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
+              {Object.entries(ASSETS).map(([code, a]) => (
+                <option key={code} value={code}>
+                  {code} · {a.network}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="w-address">받을 주소</label>
+            <select id="w-address" value={selectedId} onChange={(e) => setAddressId(e.target.value)} required>
+              {addresses.length === 0 && <option value="">아래에서 주소를 먼저 등록해 주세요</option>}
+              {addresses.map((a) => (
+                <option key={a.id} value={a.id} disabled={!usable(a)}>
+                  {a.label ? `${a.label} · ` : ''}
+                  {shortAddress(a.address)}
+                  {!usable(a) && ` (${new Date(a.usableFrom).toLocaleString('ko-KR')}부터)`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="w-amount">받을 수량 ({asset})</label>
+            <input
+              id="w-amount"
+              inputMode="decimal"
+              placeholder="0.0"
+              value={amountText}
+              onChange={(e) => setAmountText(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="w-otp">OTP 코드</label>
+            <input id="w-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
+          </div>
+        </div>
+        {limit && balance && (
+          <dl className="kv" style={{ margin: '12px 0' }}>
+            <dt>사용 가능</dt>
+            <dd>{fmt(balance.available, asset)}</dd>
+            <dt>네트워크 수수료</dt>
+            <dd>{fmt(limit.fee, asset)}</dd>
+            {amount && (
+              <>
+                <dt>잔고에서 빠질 수량</dt>
+                <dd>
+                  <strong>{fmt(amount + BigInt(limit.fee), asset)}</strong>
+                </dd>
+              </>
+            )}
+            <dt>최소 출금</dt>
+            <dd>{fmt(limit.minAmount, asset)}</dd>
+            <dt>24시간 남은 한도</dt>
+            <dd>{remaining === null ? '본인인증 후 출금 가능' : fmt(remaining < 0n ? 0n : remaining, asset)}</dd>
+          </dl>
+        )}
+        <p className="muted small-text">
+          블록체인 송금은 되돌릴 수 없습니다. 주소와 네트워크를 다시 한번 확인해 주세요.
+        </p>
+        <button className="full" disabled={!selectedId}>
+          출금 신청
+        </button>
+      </form>
+      <ErrorText error={error} />
+      {done && <p className="notice">{done}</p>}
+    </section>
+  );
+}
+
+function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChange: () => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function cancel(id: string) {
+    setError(null);
+    try {
+      await api(`wallet/withdrawals/${id}/cancel`, { method: 'POST' });
+      await onChange();
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  if (withdrawals.length === 0) return null;
+  return (
+    <section className="card">
+      <h2>출금 내역</h2>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>신청 시각</th>
+              <th>수량</th>
+              <th>주소</th>
+              <th>상태</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {withdrawals.map((w) => (
+              <tr key={w.id}>
+                <td>{new Date(w.createdAt).toLocaleString('ko-KR')}</td>
+                <td>
+                  {fmt(w.amount, w.asset)}
+                  <div className="muted small-text">수수료 {formatUnits(w.fee, decimalsOf(w.asset))}</div>
+                </td>
+                <td className="address" title={w.address}>
+                  {shortAddress(w.address)}
+                </td>
+                <td>
+                  <span className={`badge ${w.status}`}>{WITHDRAWAL_STATUS[w.status] ?? w.status}</span>
+                  {w.reviewNote && w.status === 'rejected' && <div className="muted small-text">{w.reviewNote}</div>}
+                </td>
+                <td>
+                  {w.status === 'requested' && (
+                    <button type="button" className="secondary small" onClick={() => cancel(w.id)}>
+                      취소
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ErrorText error={error} />
+    </section>
+  );
+}
+
+function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; onChange: () => Promise<void> }) {
+  const [asset, setAsset] = useState<AssetCode>('BTC');
+  const [address, setAddress] = useState('');
+  const [label, setLabel] = useState('');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api('wallet/addresses', { body: { asset, address, label, otp } });
+      setAddress('');
+      setLabel('');
+      setOtp('');
+      await onChange();
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  async function remove(id: string) {
+    setError(null);
+    const code = window.prompt('주소를 삭제하려면 OTP 코드를 입력하세요.');
+    if (!code) return;
+    try {
+      await api(`wallet/addresses/${id}`, { method: 'DELETE', body: { otp: code } });
+      await onChange();
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>출금 주소 관리</h2>
+      <p className="muted small-text">
+        등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.
+      </p>
+      {addresses.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>코인</th>
+                <th>이름</th>
+                <th>주소</th>
+                <th>사용 가능</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {addresses.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.asset}</td>
+                  <td>{a.label || '-'}</td>
+                  <td className="address">{a.address}</td>
+                  <td>{usable(a) ? '가능' : new Date(a.usableFrom).toLocaleString('ko-KR')}</td>
+                  <td>
+                    <button type="button" className="secondary small" onClick={() => remove(a.id)}>
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form onSubmit={add}>
+        <div className="grid2">
+          <div>
+            <label htmlFor="a-asset">코인</label>
+            <select id="a-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
+              {Object.entries(ASSETS).map(([code, a]) => (
+                <option key={code} value={code}>
+                  {code} · {a.network}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="a-label">이름 (선택)</label>
+            <input id="a-label" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+        </div>
+        <label htmlFor="a-address">주소</label>
+        <input id="a-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+        <label htmlFor="a-otp">OTP 코드</label>
+        <input id="a-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
+        <button className="full">주소 등록</button>
+      </form>
+      <ErrorText error={error} />
+    </section>
+  );
+}

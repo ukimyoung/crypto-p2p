@@ -14,6 +14,7 @@ const STATUS: Record<string, number> = {
   holder_name_mismatch: 422,
   not_found: 404,
   email_taken: 409,
+  address_exists: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
 };

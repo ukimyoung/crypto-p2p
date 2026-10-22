@@ -10,15 +10,18 @@ import { AuthController } from './http/auth.controller';
 import { AuthGuard } from './http/auth.guard';
 import { OrdersController } from './http/orders.controller';
 import { PaymentMethodsController } from './http/payment-methods.controller';
+import { WalletController } from './http/wallet.controller';
 import { LedgerService } from './ledger/ledger.service';
 import { OrderExpiryWorker } from './orders/expiry.worker';
 import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
 import { PaymentMethodsService } from './payments/payment-methods.service';
 import { CONFIG, DB } from './tokens';
+import { DEFAULT_WALLET_CONFIG } from './wallet/wallet-config';
+import { WalletService } from './wallet/wallet.service';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
@@ -54,6 +57,12 @@ import { CONFIG, DB } from './tokens';
     },
     { provide: OrderChatService, inject: [DB], useFactory: (db: Db) => new OrderChatService(db) },
     OrderExpiryWorker,
+    {
+      provide: WalletService,
+      inject: [DB, LedgerService, CONFIG],
+      useFactory: (db: Db, ledger: LedgerService, config: AppConfig) =>
+        new WalletService(db, ledger, { ...DEFAULT_WALLET_CONFIG, addressCooldownHours: config.addressCooldownHours }),
+    },
   ],
 })
 export class AppModule implements OnApplicationShutdown {

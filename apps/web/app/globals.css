@@ -293,6 +293,7 @@ button.small {
   font-size: 13px;
   font-weight: 600;
   background: var(--border);
+  white-space: nowrap;
 }
 
 .badge.completed {
@@ -309,6 +310,30 @@ button.small {
 .badge.paid {
   background: var(--accent);
   color: #fff;
+}
+
+.badge.confirmed {
+  background: var(--buy);
+  color: #fff;
+}
+
+.badge.rejected,
+.badge.failed {
+  background: var(--sell);
+  color: #fff;
+}
+
+.badge.requested,
+.badge.approved,
+.badge.sent {
+  background: var(--accent);
+  color: #fff;
+}
+
+.address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  word-break: break-all;
 }
 
 .badge.under_review {
@@ -363,6 +388,15 @@ th {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+/* Scroll sideways on phones instead of squeezing columns into one-letter lines. */
+.table-wrap table {
+  min-width: 520px;
+}
+
+th {
+  white-space: nowrap;
 }
 
 code.secret {
