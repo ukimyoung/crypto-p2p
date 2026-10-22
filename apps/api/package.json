@@ -1,0 +1,26 @@
+{
+  "name": "@crypto-p2p/api",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp -r src/db/migrations dist/db/",
+    "start": "node dist/main.js",
+    "migrate": "node dist/db/migrate-cli.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
