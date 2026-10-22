@@ -47,6 +47,6 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/orders/:id/cancel` | 구매자 | 결제 표시 전에만 취소 가능 |
 | POST | `/orders/:id/escalate` | 당사자 | 결제 표시 후 운영 검토 요청 |
 | GET | `/orders/:id/messages?after=` | 당사자 | 주문 채팅. `after`보다 뒤의 메시지만 (폴링용) |
-| POST | `/orders/:id/messages` | 당사자 | `{ body }`. 1~1000자. 지운 수 없음(분쟁 증빙) |
+| POST | `/orders/:id/messages` | 당사자 | `{ body }`. 1~1000자. 지울 수 없음(분쟁 증빙) |
 
 결제 기한이 지난 미결제 주문은 서버가 `ORDER_EXPIRY_INTERVAL_SECONDS`(기본 30초)마다 자동 취소하고 코인을 판매자에게 돌려줍니다.
