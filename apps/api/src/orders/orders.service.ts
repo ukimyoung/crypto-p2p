@@ -3,6 +3,7 @@ import { DomainError } from '../common/errors';
 import { toAd } from '../ads/ads.service';
 import { Db, Tx, withTransaction } from '../db/database';
 import { LedgerService, Posting } from '../ledger/ledger.service';
+import { PaymentDetails, PaymentMethodsService } from '../payments/payment-methods.service';
 import { nextStatus, OrderEvent, OrderRole, OrderStatus } from './order-state';
 
 export interface OrdersConfig {
@@ -29,6 +30,7 @@ export interface Order {
   completedAt: Date | null;
   cancelledAt: Date | null;
   cancelReason: string | null;
+  sellerPaymentMethodId: string;
 }
 
 /**
@@ -40,12 +42,16 @@ export class OrdersService {
   constructor(
     private readonly db: Db,
     private readonly ledger: LedgerService,
+    private readonly payments: PaymentMethodsService,
     private readonly config: OrdersConfig,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  /** Taker opens an order against an ad for `amount` coins (smallest unit). */
-  async create(takerId: string, adId: string, amount: bigint): Promise<Order> {
+  /**
+   * Taker opens an order against an ad for `amount` coins (smallest unit).
+   * On a buy ad the taker is the seller and names the account that receives the fiat.
+   */
+  async create(takerId: string, adId: string, amount: bigint, takerPaymentMethodId?: string): Promise<Order> {
     if (amount <= 0n) throw new DomainError('invalid_amount', 'Amount must be positive');
 
     return withTransaction(this.db, async (tx) => {
@@ -83,10 +89,17 @@ export class OrdersService {
       const escrowAmount = makerIsSeller ? amount + feeAmount : amount;
       const deadline = new Date(this.now().getTime() + ad.paymentWindowMinutes * 60_000);
 
+      const sellerPaymentMethodId = makerIsSeller ? ad.paymentMethodId : takerPaymentMethodId;
+      if (!sellerPaymentMethodId) {
+        throw new DomainError('payment_method_required', 'Choose the bank account that receives the payment');
+      }
+      await this.payments.assertUsable(tx, sellerId, sellerPaymentMethodId, ad.fiat);
+
       const inserted = await tx.query(
         `INSERT INTO orders (ad_id, maker_id, buyer_id, seller_id, asset, fiat, price_minor, amount,
-                             fiat_amount_minor, fee_amount, escrow_amount, status, payment_deadline, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_payment', $12, $13)
+                             fiat_amount_minor, fee_amount, escrow_amount, status, payment_deadline, created_at,
+                             seller_payment_method_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_payment', $12, $13, $14)
          RETURNING *`,
         [
           ad.id,
@@ -102,6 +115,7 @@ export class OrdersService {
           escrowAmount.toString(),
           deadline,
           this.now(),
+          sellerPaymentMethodId,
         ],
       );
       const order = toOrder(inserted.rows[0]);
@@ -187,6 +201,18 @@ export class OrdersService {
       [userId, Math.min(limit, 100)],
     );
     return rows.map(toOrder);
+  }
+
+  /**
+   * The seller's full bank details, for the two parties while money can still move.
+   * Returns null once the order is finished.
+   */
+  async paymentDetails(order: Order, viewerId: string): Promise<PaymentDetails | null> {
+    if (viewerId !== order.buyerId && viewerId !== order.sellerId) {
+      throw new DomainError('forbidden', 'Not a party to this order');
+    }
+    if (!['pending_payment', 'paid', 'under_review'].includes(order.status)) return null;
+    return this.payments.details(order.sellerPaymentMethodId);
   }
 
   async get(orderId: string): Promise<Order | null> {
@@ -311,5 +337,6 @@ function toOrder(row: any): Order {
     completedAt: row.completed_at,
     cancelledAt: row.cancelled_at,
     cancelReason: row.cancel_reason,
+    sellerPaymentMethodId: row.seller_payment_method_id,
   };
 }

@@ -5,6 +5,10 @@ export interface AppConfig {
   /** 32-byte key, base64. Encrypts OTP secrets at rest. */
   otpEncryptionKey: string;
   sessionTtlHours: number;
+  /** Hours before a newly added bank account can receive payments. */
+  paymentMethodCooldownHours: number;
+  /** How often unpaid orders are expired. 0 turns the worker off. */
+  orderExpiryIntervalSeconds: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -22,5 +26,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     makerFeeBps,
     otpEncryptionKey,
     sessionTtlHours: Number(env.SESSION_TTL_HOURS ?? 12),
+    paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 24),
+    orderExpiryIntervalSeconds: Number(env.ORDER_EXPIRY_INTERVAL_SECONDS ?? 30),
   };
 }

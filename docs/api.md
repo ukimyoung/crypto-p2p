@@ -23,16 +23,30 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 좋은 가격 순 |
-| POST | `/ads` | O + OTP 활성 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel? }` |
+| POST | `/ads` | O + OTP 활성 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel?, paymentMethodId? }`. 판매 광고는 입금받을 `paymentMethodId` 필수 |
+
+## 결제수단 (PAY-1)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/payment-methods` | O | 내 계좌 목록 (계좌번호는 끝 4자리만) |
+| POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber, otp }`. 예금주가 KYC 실명과 같아야 함. OTP 필수 |
+| DELETE | `/payment-methods/:id` | O | `{ otp }` |
+
+새 계좌는 등록 후 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다.
 
 ## 주문
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/orders` | O | 내 주문 목록 (최신순) |
-| POST | `/orders` | O + OTP 활성 | `{ adId, amount }`. 판매자 코인이 에스크로에 잠김 |
-| GET | `/orders/:id` | O | 거래 당사자만 조회 가능 (그 외 404) |
+| POST | `/orders` | O + OTP 활성 | `{ adId, amount, paymentMethodId? }`. 판매자 코인이 에스크로에 잠김. 구매 광고에 파는 경우 입금받을 `paymentMethodId` 필수 |
+| GET | `/orders/:id` | O | 거래 당사자만 조회 가능 (그 외 404). 주문이 진행 중이면 `paymentDetails`에 판매자 계좌 전체 정보 |
 | POST | `/orders/:id/paid` | 구매자 | 이체 완료 표시 |
 | POST | `/orders/:id/release` | 판매자 | `{ otp }`. 수령 확인 후 코인 전달. OTP 코드 필수 |
 | POST | `/orders/:id/cancel` | 구매자 | 결제 표시 전에만 취소 가능 |
 | POST | `/orders/:id/escalate` | 당사자 | 결제 표시 후 운영 검토 요청 |
+| GET | `/orders/:id/messages?after=` | 당사자 | 주문 채팅. `after`보다 뒤의 메시지만 (폴링용) |
+| POST | `/orders/:id/messages` | 당사자 | `{ body }`. 1~1000자. 지운 수 없음(분쟁 증빙) |
+
+결제 기한이 지난 미결제 주문은 서버가 `ORDER_EXPIRY_INTERVAL_SECONDS`(기본 30초)마다 자동 취소하고 코인을 판매자에게 돌려줍니다.

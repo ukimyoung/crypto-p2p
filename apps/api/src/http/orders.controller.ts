@@ -1,13 +1,16 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
 import { DomainError } from '../common/errors';
+import { OrderChatService } from '../orders/order-chat.service';
 import { OrdersService } from '../orders/orders.service';
 import { AuthGuard, CurrentUser } from './auth.guard';
 import { amountString, parse } from './validation';
 
-const createBody = z.object({ adId: z.uuid(), amount: amountString });
+const createBody = z.object({ adId: z.uuid(), amount: amountString, paymentMethodId: z.uuid().optional() });
 const releaseBody = z.object({ otp: z.string() });
+const messageBody = z.object({ body: z.string() });
+const messagesQuery = z.object({ after: z.string().regex(/^\d+$/).optional() });
 const uuid = new ParseUUIDPipe({ version: '4' });
 
 @Controller('orders')
@@ -16,6 +19,7 @@ export class OrdersController {
   constructor(
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(OrderChatService) private readonly chat: OrderChatService,
   ) {}
 
   @Get()
@@ -25,9 +29,9 @@ export class OrdersController {
 
   @Post()
   async create(@CurrentUser() userId: string, @Body() body: unknown) {
-    const { adId, amount } = parse(createBody, body);
+    const { adId, amount, paymentMethodId } = parse(createBody, body);
     await this.auth.assertOtpEnabled(userId);
-    return { order: await this.orders.create(userId, adId, amount) };
+    return { order: await this.orders.create(userId, adId, amount, paymentMethodId) };
   }
 
   @Get(':id')
@@ -37,7 +41,8 @@ export class OrdersController {
     if (!order || (order.buyerId !== userId && order.sellerId !== userId)) {
       throw new DomainError('not_found', 'Order not found');
     }
-    return { order };
+    // The account the buyer pays into, shown only to the two parties while the order is open.
+    return { order, paymentDetails: await this.orders.paymentDetails(order, userId) };
   }
 
   @Post(':id/paid')
@@ -65,5 +70,16 @@ export class OrdersController {
   @HttpCode(200)
   async escalate(@CurrentUser() userId: string, @Param('id', uuid) id: string) {
     return { order: await this.orders.escalate(id, userId) };
+  }
+
+  @Get(':id/messages')
+  async messages(@CurrentUser() userId: string, @Param('id', uuid) id: string, @Query() query: unknown) {
+    const { after } = parse(messagesQuery, query);
+    return { messages: await this.chat.list(id, userId, after) };
+  }
+
+  @Post(':id/messages')
+  async postMessage(@CurrentUser() userId: string, @Param('id', uuid) id: string, @Body() body: unknown) {
+    return { message: await this.chat.post(id, userId, parse(messageBody, body).body) };
   }
 }

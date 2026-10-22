@@ -24,6 +24,7 @@ const createBody = z.object({
   maxOrderFiatMinor: amountString,
   paymentWindowMinutes: z.number().int().min(5).max(180).optional(),
   minTakerKycLevel: z.number().int().min(1).max(3).optional(),
+  paymentMethodId: z.uuid().optional(),
 });
 
 @Controller('ads')
