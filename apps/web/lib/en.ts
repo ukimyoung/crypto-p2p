@@ -304,4 +304,10 @@ export const EN: Record<string, string> = {
   '내일이 광고 수수료 {krw}의 납부 기한입니다.': 'Your ad fee of {krw} is due tomorrow.',
   '광고 수수료 {krw}이 연체되어 광고가 노출되지 않습니다.': 'Your ad fee of {krw} is overdue, so your ads are hidden.',
   '광고 수수료 납부가 확인되었습니다.': 'We received your ad fee payment.',
+  '{asset} 광고가 운영팀에 의해 종료되었습니다. 진행 중인 주문은 그대로 진행됩니다.':
+    'Our team closed your {asset} ad. Open orders carry on.',
+  '{asset} 광고가 운영팀에 의해 비노출로 바뀌었습니다. 진행 중인 주문은 그대로 진행됩니다.':
+    'Our team hid your {asset} ad. Open orders carry on.',
+  '지금은 이 마켓에서 새 광고나 주문을 받지 않습니다.': 'This market is not taking new ads or orders right now.',
+  '지금은 이 코인의 출금이 일시 중지되어 있습니다.': 'Withdrawals of this coin are paused right now.',
 };

@@ -544,3 +544,28 @@ ul.notifications li.unread {
   gap: 12px;
   margin-top: 16px;
 }
+
+.sort-head {
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.filters label {
+  margin-top: 0;
+}
+
+tr.clickable {
+  cursor: pointer;
+}
+
+tr.clickable:hover td {
+  background: var(--bg);
+}

@@ -7,7 +7,7 @@ import { localeFrom, translate } from '../lib/locale';
 const ROOT = join(__dirname, '..');
 const HANGUL = /[가-힣]/;
 // The operations console stays Korean; the language switch names Korean in Korean.
-const SKIP = ['app/ops/', 'components/AuditTable.tsx', 'lib/en.ts', 'lib/units.ts', 'lib/use-operator.ts'];
+const SKIP = ['app/ops/', 'components/AuditTable.tsx', 'lib/en.ts', 'lib/units.ts', 'lib/use-operator.ts', 'lib/ops-labels.ts'];
 const NOT_TRANSLATED = new Set(['한국어']);
 
 function files(dir: string): string[] {

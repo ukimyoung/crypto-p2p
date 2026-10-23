@@ -35,6 +35,8 @@ const ERRORS: Record<string, string> = {
   daily_limit_exceeded: '24시간 출금 한도를 넘습니다.',
   user_restricted: '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.',
   step_up_required: '보안을 위해 OTP 코드를 다시 입력해 주세요.',
+  market_unavailable: '지금은 이 마켓에서 새 광고나 주문을 받지 않습니다.',
+  withdrawals_paused: '지금은 이 코인의 출금이 일시 중지되어 있습니다.',
   fee_overdue: '연체된 광고 수수료가 있어 새 광고를 올릴 수 없습니다. 수수료 청구 화면을 확인해 주세요.',
 };
 

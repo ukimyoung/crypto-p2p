@@ -425,7 +425,8 @@ describe('operations console', () => {
       expect(found.body.users.map((u: { id: string }) => u.id)).toEqual([user.id]);
       const byId = await http().get('/ops/users').query({ q: user.id }).set(bearer(reviewerB)).expect(200);
       expect(byId.body.users).toHaveLength(1);
-      await http().get('/ops/users').query({ q: '%' }).set(bearer(reviewerB)).expect(200, { users: [] });
+      const none = await http().get('/ops/users').query({ q: '%' }).set(bearer(reviewerB)).expect(200);
+      expect(none.body).toMatchObject({ users: [], total: 0 });
 
       const detail = await http().get(`/ops/users/${user.id}`).set(bearer(reviewerB)).expect(200);
       expect(detail.body).toMatchObject({ user: { email: 'held@example.com', status: 'active' }, orders: [] });
@@ -466,6 +467,156 @@ describe('operations console', () => {
         after: { status: 'closed', reason: '명의 도용 확인' },
       });
       expect(audit.body.operatorNames).toEqual({ [reviewerAId]: 'alice' });
+    });
+
+    it('lists every member a page at a time, masks personal details and audits a reveal', async () => {
+      const ids: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        const { rows } = await db.query(
+          `INSERT INTO users (email, phone, legal_name, kyc_level, created_at)
+           VALUES ($1, $2, $3, 2, now() + make_interval(secs => $4)) RETURNING id`,
+          [`grid${i}@example.com`, `010-1234-567${i}`, '홍길동', 60 + i],
+        );
+        ids.push(rows[0].id);
+      }
+      const all = await http().get('/ops/users').query({ pageSize: 20 }).set(bearer(reviewerB)).expect(200);
+      expect(all.body.total).toBeGreaterThanOrEqual(3);
+      // Newest first by default.
+      expect(all.body.users.slice(0, 3).map((u: { id: string }) => u.id)).toEqual([...ids].reverse());
+      expect(all.body.users[0]).toMatchObject({ phone: '010-****-5672', legalName: '홍*동', openOrders: 0 });
+
+      const paged = await http()
+        .get('/ops/users')
+        .query({ kycLevel: 2, sort: 'email', dir: 'asc', pageSize: 20, page: 1 })
+        .set(bearer(reviewerB))
+        .expect(200);
+      expect(paged.body.users.map((u: { email: string }) => u.email)).toEqual([
+        'grid0@example.com',
+        'grid1@example.com',
+        'grid2@example.com',
+      ]);
+      await http().get('/ops/users').query({ pageSize: 30 }).set(bearer(reviewerB)).expect(400);
+      const byPhone = await http().get('/ops/users').query({ q: '01012345671' }).set(bearer(reviewerB)).expect(200);
+      expect(byPhone.body.users.map((u: { id: string }) => u.id)).toEqual([ids[1]]);
+
+      // Showing personal details needs a fresh OTP code and a reason.
+      const noStepUp = await http()
+        .post(`/ops/users/${ids[0]}/reveal`)
+        .set(bearer(reviewerB))
+        .send({ reason: '본인 확인 전화' })
+        .expect(403);
+      expect(noStepUp.body.error.code).toBe('step_up_required');
+      await http().post(`/ops/users/${ids[0]}/reveal`).set(bearer(reviewerA)).send({ reason: ' ' }).expect(400);
+      const revealed = await http()
+        .post(`/ops/users/${ids[0]}/reveal`)
+        .set(bearer(reviewerA))
+        .send({ reason: '본인 확인 전화' })
+        .expect(200);
+      expect(revealed.body.pii).toEqual({ email: 'grid0@example.com', phone: '010-1234-5670', legalName: '홍길동' });
+
+      const kyc = await http()
+        .post(`/ops/users/${ids[0]}/kyc-level`)
+        .set(bearer(reviewerB))
+        .send({ level: 1, reason: '서류 재확인 필요' })
+        .expect(200);
+      expect(kyc.body.user.kycLevel).toBe(1);
+
+      const detail = await http().get(`/ops/users/${ids[0]}`).set(bearer(reviewerB)).expect(200);
+      expect(detail.body.user.legalName).toBe('홍*동');
+      expect(detail.body.history.map((h: { action: string }) => h.action)).toEqual(['user.set_kyc_level', 'user.reveal_pii']);
+      expect(detail.body).toMatchObject({ logins: [], addresses: [], ads: [] });
+    });
+  });
+
+  describe('ads, orders and markets', () => {
+    it('lists ads and orders, takes an ad down and tells the maker', async () => {
+      const { seller, orderId } = await dispute();
+      const ads = await http().get('/ops/ads').query({ makerId: seller }).set(bearer(reviewerB)).expect(200);
+      expect(ads.body.total).toBe(1);
+      const adId = ads.body.ads[0].id;
+
+      const detail = await http().get(`/ops/ads/${adId}`).set(bearer(reviewerB)).expect(200);
+      expect(detail.body.ad).toMatchObject({ status: 'online', priceMinor: '100000000' });
+      expect(detail.body.orders.map((o: { id: string }) => o.id)).toEqual([orderId]);
+
+      const off = await http()
+        .post(`/ops/ads/${adId}/status`)
+        .set(bearer(reviewerB))
+        .send({ status: 'closed', reason: '허위 광고 신고' })
+        .expect(200);
+      expect(off.body.ad.status).toBe('closed');
+      await http().post(`/ops/ads/${adId}/status`).set(bearer(reviewerB)).send({ status: 'offline', reason: 'x' }).expect(409);
+      const { rows } = await db.query(`SELECT data FROM notifications WHERE user_id = $1 AND type = 'ad.status_changed'`, [
+        seller,
+      ]);
+      // The maker learns the new status, not the operator's reason.
+      expect(rows[0].data).toEqual({ adId, asset: 'BTC', status: 'closed' });
+      // The open order carries on.
+      expect((await app.get(OrdersService).get(orderId))!.status).toBe('under_review');
+
+      const orders = await http().get('/ops/orders').query({ userId: seller, status: 'under_review' }).set(bearer(reviewerB)).expect(200);
+      expect(orders.body.orders.map((o: { id: string }) => o.id)).toEqual([orderId]);
+      const order = await http().get(`/ops/orders/${orderId}`).set(bearer(reviewerB)).expect(200);
+      expect(order.body.history.map((h: { action: string }) => h.action)).toEqual([
+        'order.create',
+        'order.mark_paid',
+        'order.escalate',
+      ]);
+      expect(order.body.ledger.map((l: { account: string }) => l.account).sort()).toEqual(['available', 'escrow']);
+    });
+
+    it('pauses markets and coins (admin only) and blocks new ads, orders and withdrawals', async () => {
+      await http().put('/ops/markets/BTC/KRW').set(bearer(reviewerB)).send({ status: 'paused', reason: 'x' }).expect(403);
+      const paused = await http()
+        .put('/ops/markets/BTC/KRW')
+        .set(bearer(admin))
+        .send({ status: 'paused', reason: '시스템 점검' })
+        .expect(200);
+      expect(paused.body.markets.find((m: { asset: string; fiat: string }) => m.asset === 'BTC' && m.fiat === 'KRW')).toMatchObject({
+        status: 'paused',
+      });
+
+      const maker = await createUser(db);
+      const adInput = {
+        makerId: maker,
+        side: 'buy' as const,
+        asset: 'BTC',
+        fiat: 'KRW',
+        priceMinor: 100_000_000n,
+        totalAmount: BTC,
+        minOrderFiatMinor: 10_000n,
+        maxOrderFiatMinor: 10_000_000n,
+      };
+      await expect(app.get(AdsService).create(adInput)).rejects.toMatchObject({ code: 'market_unavailable' });
+      await http().put('/ops/markets/BTC/KRW').set(bearer(admin)).send({ status: 'open', reason: '점검 끝' }).expect(200);
+      const ad = await app.get(AdsService).create(adInput);
+
+      await http().put('/ops/markets/BTC/KRW').set(bearer(admin)).send({ status: 'paused', reason: '점검' }).expect(200);
+      const market = await http().get('/ads').query({ asset: 'BTC', fiat: 'KRW', side: 'buy' }).expect(200);
+      expect(market.body.ads).toEqual([]);
+      const taker = await createUser(db);
+      await deposit(db, ledger, taker, 'BTC', BTC);
+      const takerAccount = await addBankAccount(db, app.get(PaymentMethodsService), taker);
+      await expect(app.get(OrdersService).create(taker, ad.id, BTC / 100n, takerAccount)).rejects.toMatchObject({
+        code: 'market_unavailable',
+      });
+      await http().put('/ops/markets/BTC/KRW').set(bearer(admin)).send({ status: 'open', reason: '재개' }).expect(200);
+
+      await http()
+        .put('/ops/markets/assets/BTC')
+        .set(bearer(admin))
+        .send({ status: 'withdrawals_paused', reason: '노드 장애' })
+        .expect(200);
+      const { id, addressId } = await customer();
+      await expect(app.get(WalletService).requestWithdrawal(id, addressId, BTC / 100n)).rejects.toMatchObject({
+        code: 'withdrawals_paused',
+      });
+      // Trading carries on while withdrawals are paused.
+      await app.get(OrdersService).create(taker, ad.id, BTC / 100n, takerAccount);
+      await http().put('/ops/markets/assets/BTC').set(bearer(admin)).send({ status: 'active', reason: '복구' }).expect(200);
+
+      const audit = await http().get('/ops/audit').query({ targetId: 'BTC/KRW' }).set(bearer(admin)).expect(200);
+      expect(audit.body.entries[0]).toMatchObject({ action: 'market.status', after: { status: 'open', reason: '재개' } });
     });
   });
 });

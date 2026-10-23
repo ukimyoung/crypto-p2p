@@ -196,6 +196,10 @@ export class WalletService {
 
       const [rules] = await loadWithdrawalRules(tx, address.asset);
       if (!rules) throw new DomainError('asset_unsupported', `${address.asset} withdrawals are not supported`);
+      const asset = await tx.query<{ status: string }>('SELECT status FROM assets WHERE code = $1', [address.asset]);
+      if (asset.rows[0]?.status === 'withdrawals_paused' || asset.rows[0]?.status === 'delisted') {
+        throw new DomainError('withdrawals_paused', `${address.asset} withdrawals are paused`);
+      }
       const dailyLimit = rules.dailyLimitByKycLevel[user.kyc_level];
       if (dailyLimit === undefined) throw new DomainError('kyc_required', 'Complete identity verification first');
       if (amount < rules.minAmount) {
