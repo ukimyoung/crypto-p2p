@@ -22,6 +22,10 @@ export interface UserSummary {
 export interface UserRow extends UserSummary {
   /** Orders waiting for payment, paid or under review. */
   openOrders: number;
+  /** Sumsub review status and answer, null before the member opens identity verification. */
+  sumsubStatus: string | null;
+  sumsubAnswer: string | null;
+  sumsubRejectType: string | null;
 }
 
 export const USER_SORTS = ['created_at', 'email', 'kyc_level', 'status', 'open_orders'] as const;
@@ -73,8 +77,9 @@ export class OpsService {
     const sort = USER_SORTS.includes(filter.sort as UserSort) ? filter.sort! : 'created_at';
     const dir = filter.dir === 'asc' ? 'ASC' : 'DESC';
     const { rows } = await this.db.query(
-      `SELECT u.*, oo.n AS open_orders, count(*) OVER () AS total_count
+      `SELECT u.*, oo.n AS open_orders, k.review_status, k.review_answer, k.reject_type, count(*) OVER () AS total_count
        FROM users u
+       LEFT JOIN kyc_applicants k ON k.user_id = u.id
        CROSS JOIN LATERAL (
          SELECT count(*)::int AS n FROM orders o
          WHERE (o.buyer_id = u.id OR o.seller_id = u.id) AND o.status IN ('pending_payment', 'paid', 'under_review')
@@ -100,7 +105,13 @@ export class OpsService {
       ],
     );
     return {
-      users: rows.map((r) => ({ ...toUser(r, true), openOrders: r.open_orders })),
+      users: rows.map((r) => ({
+        ...toUser(r, true),
+        openOrders: r.open_orders,
+        sumsubStatus: r.review_status,
+        sumsubAnswer: r.review_answer,
+        sumsubRejectType: r.reject_type,
+      })),
       total: Number(rows[0]?.total_count ?? 0),
     };
   }
@@ -134,8 +145,8 @@ export class OpsService {
   async setKycLevel(userId: string, level: number, reason: string, operatorId: string): Promise<UserSummary> {
     const text = reason.trim();
     if (!text) throw new DomainError('invalid_request', 'Give a reason');
-    if (!Number.isInteger(level) || level < 0 || level > 3) {
-      throw new DomainError('invalid_request', 'KYC level must be 0 to 3');
+    if (level !== 0 && level !== 1) {
+      throw new DomainError('invalid_request', 'KYC level must be 0 or 1');
     }
     return withTransaction(this.db, async (tx) => {
       const { rows } = await tx.query('SELECT kyc_level FROM users WHERE id = $1 FOR UPDATE', [userId]);
@@ -173,7 +184,8 @@ export class OpsService {
       ),
       this.db.query(
         `SELECT id, actor_id, action, before, after, created_at FROM audit_logs
-         WHERE target_type = 'user' AND target_id = $1 AND action IN ('user.set_status', 'user.set_kyc_level', 'user.reveal_pii')
+         WHERE target_type = 'user' AND target_id = $1 AND action IN ('user.set_status', 'user.set_kyc_level', 'user.reveal_pii',
+           'user.kyc_approved', 'user.kyc_revoked', 'user.kyc_sync', 'user.kyc_request_check')
          ORDER BY id DESC LIMIT 50`,
         [userId],
       ),

@@ -94,6 +94,12 @@ export function describe(n: Notification, locale: Locale = 'ko'): { text: string
               }),
         href: null,
       };
+    case 'kyc.approved':
+      return { text: t('본인 인증이 완료되었습니다. 이제 입금 계좌를 등록하고 거래할 수 있습니다.'), href: '/account' };
+    case 'kyc.rejected':
+      return d.final === 'true'
+        ? { text: t('본인 인증이 최종 거절되었습니다. 자세한 내용은 고객센터에 문의해 주세요.'), href: '/account/verify' }
+        : { text: t('본인 인증이 승인되지 않았습니다. 안내에 따라 다시 제출해 주세요.'), href: '/account/verify' };
     case 'account.status_changed':
       return { text: t(USER_STATUS_TEXT[d.status ?? ''] ?? '계정 상태가 변경되었습니다.'), href: '/account' };
     default:

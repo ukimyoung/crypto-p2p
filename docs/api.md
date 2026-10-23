@@ -19,6 +19,16 @@
 
 OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 다시 보내면 거절됩니다.
 
+## 본인 인증 (KYC-1, KYC-2)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/kyc` | O | `{ kycLevel, available, applicant }`. `applicant`는 심사 상태, 결과(`GREEN`/`RED`), 거절 종류(`RETRY`/`FINAL`), 회원 안내 문구 |
+| POST | `/kyc/token` | O | `{ token, levelName }`. Sumsub WebSDK 토큰. 이미 인증했으면 409, 최종 거절이면 `kyc_rejected`(403) |
+| POST | `/kyc/sumsub/webhook` | 서명 | Sumsub 웹훅. `X-Payload-Digest`(HMAC) 검증, 틀리면 401. 같은 본문은 한 번만 반영 |
+
+Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provider_error`(502)입니다.
+
 ## 광고 (AD-1, AD-2)
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -103,7 +113,11 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | GET | `/ops/users?q=&status=&kycLevel=&from=&to=&sort=&dir=&page=&pageSize=` | 모두 | 회원 그리드. 기본은 전체 회원 가입일 최신순, 페이지당 20·50·100(기본 50). `q`는 이메일 일부, 전화, 실명, 회원 ID. 전화·실명은 가림 |
 | GET | `/ops/users/:id` | 모두 | 회원 정보(가림), 잔고, 주문, 출금, 계좌(가림), 출금 주소, 광고, 로그인 기록, 처리 이력 |
 | POST | `/ops/users/:id/reveal` | reviewer | `{ reason }`. 전체 이메일·전화·실명. step-up 필요. 열람 자체가 감사 로그에 남음 |
-| POST | `/ops/users/:id/kyc-level` | reviewer | `{ level, reason }`. 예외용 KYC 등급 수동 조정 |
+| POST | `/ops/users/:id/kyc-level` | reviewer | `{ level, reason }`. 예외용 KYC 등급 수동 조정. `level`은 0 또는 1 |
+| GET | `/ops/users/:id/kyc` | 모두 | KYC 탭. Sumsub 상태, 결과, 거절 사유, 내부 메모, 마지막 갱신, 콘솔 링크(`consoleUrl`), 최근 웹훅 |
+| POST | `/ops/users/:id/kyc/sync` | reviewer | Sumsub에서 지원자를 다시 읽어 반영(웹훅 누락 대비) |
+| POST | `/ops/users/:id/kyc/request-check` | reviewer | `{ reason }`. Sumsub에 재심사 요청 |
+| GET | `/ops/settings/kyc` | 모두 | Sumsub 연결 여부, 레벨 이름, 마지막 웹훅 수신 시각, 최근 24시간 웹훅 수. 키는 보여 주지 않음 |
 | GET | `/ops/ads?asset=&fiat=&side=&status=&makerId=&sort=&dir=&page=&pageSize=` | 모두 | 광고 그리드. 정렬은 `created_at`, `price_minor`, `remaining_amount` |
 | GET | `/ops/ads/:id` | 모두 | 광고, 지금 요율의 최종 가격, 이 광고로 생긴 주문 |
 | POST | `/ops/ads/:id/status` | reviewer | `{ status: offline \| closed, reason }`. 진행 중 주문은 유지. 광고주에게 알림(사유는 안 보냄) |
@@ -114,7 +128,7 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | PUT | `/ops/markets/assets/:code` | admin | `{ status: active \| ads_paused \| withdrawals_paused \| delisted, reason }` |
 | POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊고 step-up 필요 |
 | GET | `/ops/settings/withdrawal-rules` | 모두 | 코인별 출금 수수료, 최소 수량, 자동 승인 기준, KYC 단계별 24시간 한도 |
-| PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 빠진 KYC 단계는 출금 불가. step-up 필요 |
+| PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 키는 KYC 0 또는 1, 빠진 단계는 출금 불가. step-up 필요 |
 | GET | `/ops/settings/fee-rates` | 모두 | 기본 요율, 마켓별 지금 요율, 예약된 변경, 변경 이력 |
 | POST | `/ops/settings/fee-rates` | reviewer | `{ asset?, fiat?, rateBp, effectiveFrom?, reason }`. 둘 다 빼면 기본 요율. 마켓에 `rateBp: null`이면 기본 요율로 되돌림. step-up 필요 |
 | GET | `/ops/settings/orders` | 모두 | `{ autoReviewMinutes }` |

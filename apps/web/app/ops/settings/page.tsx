@@ -8,8 +8,8 @@ import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 import { BillingForm, FeeRates, OrderSettingsForm } from './FeeSettings';
 
-/** KYC levels that get a daily limit field. A level left empty cannot withdraw. */
-const KYC_LEVELS = [1, 2];
+/** Only verified members (KYC 1) get a daily limit field. A level left empty cannot withdraw. */
+const KYC_LEVELS = [1];
 
 const decimalsOf = (asset: string) => ASSETS[asset as AssetCode]?.decimals ?? 0;
 
@@ -43,6 +43,10 @@ export default function OpsSettingsPage() {
       <section className="card">
         <h2>수수료 청구</h2>
         <BillingForm />
+      </section>
+      <section className="card">
+        <h2>본인 인증 (Sumsub)</h2>
+        <KycConnection />
       </section>
       <section className="card">
         <h2>출금 수수료와 한도</h2>
@@ -87,7 +91,7 @@ function RulesForm({ rules, onSaved }: { rules: WithdrawalRules; onSaved: () => 
       if (!text) continue;
       const value = parseUnits(text, decimals);
       if (value === null) {
-        setError(`KYC ${level}단계 한도는 0보다 큰 숫자로 입력하거나 비워 두세요.`);
+        setError(`본인 인증 회원 한도는 0보다 큰 숫자로 입력하거나 비워 두세요.`);
         return;
       }
       dailyLimits[level] = value.toString();
@@ -140,7 +144,7 @@ function RulesForm({ rules, onSaved }: { rules: WithdrawalRules; onSaved: () => 
         {KYC_LEVELS.map((level) => (
           <div key={level}>
             <label htmlFor={`${rules.asset}-kyc${level}`}>
-              KYC {level}단계 24시간 한도 ({rules.asset}, 비우면 출금 불가)
+              본인 인증 회원 24시간 한도 ({rules.asset}, 비우면 출금 불가)
             </label>
             <input
               id={`${rules.asset}-kyc${level}`}
@@ -157,5 +161,41 @@ function RulesForm({ rules, onSaved }: { rules: WithdrawalRules; onSaved: () => 
       {saved && <p className="muted small-text">저장했습니다.</p>}
       <ErrorText error={error} />
     </form>
+  );
+}
+
+interface KycConnectionState {
+  configured: boolean;
+  levelName: string | null;
+  lastWebhookAt: string | null;
+  webhooksLast24h: number;
+}
+
+/** Connection state only (KYC-6). The keys live in the server environment and are never shown. */
+function KycConnection() {
+  const [kyc, setKyc] = useState<KycConnectionState | null>(null);
+  useEffect(() => {
+    void api<{ kyc: KycConnectionState }>('ops/settings/kyc').then((r) => setKyc(r.kyc));
+  }, []);
+  if (!kyc) return <p className="muted">불러오는 중…</p>;
+  return (
+    <>
+      <dl className="kv">
+        <dt>연결 상태</dt>
+        <dd>
+          <span className={`badge ${kyc.configured ? 'completed' : 'pending_payment'}`}>{kyc.configured ? '연결됨' : '키 미등록'}</span>
+        </dd>
+        <dt>인증 레벨</dt>
+        <dd>{kyc.levelName ?? '-'}</dd>
+        <dt>마지막 웹훅 수신</dt>
+        <dd>{kyc.lastWebhookAt ? new Date(kyc.lastWebhookAt).toLocaleString('ko-KR') : '받은 적 없음'}</dd>
+        <dt>최근 24시간 웹훅</dt>
+        <dd>{kyc.webhooksLast24h}건</dd>
+      </dl>
+      <p className="muted small-text">
+        앱 토큰, 시크릿 키, 웹훅 시크릿, 레벨 이름은 서버 환경변수(SUMSUB_APP_TOKEN, SUMSUB_SECRET_KEY,
+        SUMSUB_WEBHOOK_SECRET, SUMSUB_LEVEL_NAME)로만 설정합니다. Sumsub 웹훅 주소는 API 서버의 /kyc/sumsub/webhook입니다.
+      </p>
+    </>
   );
 }

@@ -241,6 +241,10 @@ export interface FeeInvoiceDetail {
 
 export interface UserRow extends UserSummary {
   openOrders: number;
+  /** Sumsub review status and answer; null before the member starts identity verification. */
+  sumsubStatus: string | null;
+  sumsubAnswer: string | null;
+  sumsubRejectType: string | null;
 }
 
 export interface OpsAd extends Ad {
@@ -284,4 +288,37 @@ export interface MarketsOverview {
     onlineAds: number;
     openOrders: number;
   }[];
+}
+
+/** The member's identity verification (GET /kyc). */
+export interface KycStatus {
+  kycLevel: number;
+  /** False until Sumsub is set up on the server. */
+  available: boolean;
+  applicant: {
+    reviewStatus: string;
+    reviewAnswer: 'GREEN' | 'RED' | null;
+    rejectType: 'RETRY' | 'FINAL' | null;
+    moderationComment: string | null;
+    updatedAt: string;
+  } | null;
+}
+
+/** The KYC tab of the member detail in the operations console. */
+export interface OpsKyc {
+  configured: boolean;
+  applicant: {
+    applicantId: string;
+    levelName: string | null;
+    reviewStatus: string;
+    reviewAnswer: 'GREEN' | 'RED' | null;
+    rejectType: 'RETRY' | 'FINAL' | null;
+    rejectLabels: string[];
+    moderationComment: string | null;
+    clientComment: string | null;
+    createdAt: string;
+    updatedAt: string;
+    consoleUrl: string;
+  } | null;
+  webhooks: { type: string; reviewStatus: string | null; receivedAt: string }[];
 }

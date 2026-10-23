@@ -11,12 +11,15 @@ import { AdsController } from './http/ads.controller';
 import { AuthController } from './http/auth.controller';
 import { AuthGuard } from './http/auth.guard';
 import { FeesController } from './http/fees.controller';
+import { KycController } from './http/kyc.controller';
 import { OrdersController } from './http/orders.controller';
 import { PaymentMethodsController } from './http/payment-methods.controller';
 import { NotificationsController } from './http/notifications.controller';
 import { OpsAuthController, OpsController } from './http/ops.controller';
 import { OpsGuard } from './http/ops.guard';
 import { WalletController } from './http/wallet.controller';
+import { KycService } from './kyc/kyc.service';
+import { loadSumsubConfig, SumsubClient } from './kyc/sumsub.client';
 import { LedgerService } from './ledger/ledger.service';
 import { EmailWorker, LogEmailSender } from './notifications/email.worker';
 import { NotificationsService } from './notifications/notifications.service';
@@ -32,7 +35,7 @@ import { CONFIG, DB, EMAIL_SENDER } from './tokens';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController, NotificationsController, FeesController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController, NotificationsController, FeesController, KycController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
@@ -93,6 +96,15 @@ import { WalletService } from './wallet/wallet.service';
     { provide: BillingService, inject: [DB], useFactory: (db: Db) => new BillingService(db) },
     { provide: OpsTradesService, inject: [DB], useFactory: (db: Db) => new OpsTradesService(db) },
     BillingWorker,
+    {
+      // Without the Sumsub keys in the environment, identity verification reports itself as not set up.
+      provide: KycService,
+      inject: [DB],
+      useFactory: (db: Db) => {
+        const sumsub = loadSumsubConfig();
+        return new KycService(db, sumsub ? new SumsubClient(sumsub) : null);
+      },
+    },
     {
       provide: DisputesService,
       inject: [DB, OrdersService],

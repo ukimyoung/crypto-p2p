@@ -5,6 +5,7 @@ import { DomainError } from '../common/errors';
 const STATUS: Record<string, number> = {
   unauthorized: 401,
   invalid_credentials: 401,
+  invalid_signature: 401,
   otp_required: 401,
   forbidden: 403,
   step_up_required: 403,
@@ -13,6 +14,7 @@ const STATUS: Record<string, number> = {
   otp_not_enabled: 403,
   user_restricted: 403,
   fee_overdue: 403,
+  kyc_rejected: 403,
   market_unavailable: 409,
   withdrawals_paused: 409,
   holder_name_mismatch: 422,
@@ -21,6 +23,8 @@ const STATUS: Record<string, number> = {
   address_exists: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
+  kyc_provider_error: 502,
+  kyc_unavailable: 503,
 };
 
 /** Maps domain errors to `{ error: { code, message } }` with a fitting HTTP status. */

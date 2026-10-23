@@ -88,12 +88,33 @@ export const EN: Record<string, string> = {
   '기본 정보': 'Profile',
   이메일: 'Email',
   '본인인증(KYC)': 'Identity check (KYC)',
-  '{n}단계 완료': 'Level {n} done',
+  완료: 'Done',
+  '본인인증을 마쳐야 주문을 하고 입금 계좌를 등록할 수 있습니다.':
+    'You need to verify your identity before you can order or add a bank account.',
+  '본인 인증하기': 'Verify identity',
+  '본인 인증': 'Identity verification',
+  '신분증과 얼굴 사진으로 본인임을 확인합니다. 인증은 Sumsub가 처리하고, 신분증 이미지는 이 서비스에 저장하지 않습니다.':
+    'We confirm who you are with your ID and a selfie. Sumsub handles the check, and we do not keep images of your ID.',
+  '본인 인증을 아직 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.':
+    'Identity verification is not available yet. Please try again later.',
+  '본인 인증이 완료되었습니다.': 'Your identity is verified.',
+  '본인 인증이 최종 거절되었습니다. 자세한 내용은 고객센터에 문의해 주세요.':
+    'Your identity verification was rejected. Please contact support for details.',
+  '지난 제출이 승인되지 않았습니다. 안내에 따라 다시 제출해 주세요.':
+    'Your last submission was not approved. Please follow the instructions and submit again.',
+  '제출되었습니다. 심사 결과는 알림으로 알려 드립니다.': 'Submitted. We will notify you of the result.',
+  '본인 인증 화면을 불러오는 중…': 'Loading identity verification…',
+  '본인 인증 화면을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.':
+    'Could not load identity verification. Please try again later.',
+  '본인 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.':
+    'Could not reach the identity verification service. Please try again later.',
+  '본인 인증이 완료되었습니다. 이제 입금 계좌를 등록하고 거래할 수 있습니다.':
+    'Your identity is verified. You can now add a bank account and trade.',
+  '본인 인증이 승인되지 않았습니다. 안내에 따라 다시 제출해 주세요.':
+    'Your identity verification was not approved. Please follow the instructions and submit again.',
   미완료: 'Not done',
   '사용 중': 'On',
   미등록: 'Not set up',
-  '본인인증 기능은 준비 중입니다. 인증을 마쳐야 주문을 하고 입금 계좌를 등록할 수 있습니다.':
-    'Identity checks are coming soon. You need one to place orders and register a bank account.',
   'OTP 등록': 'Set up OTP',
   '광고 등록, 주문, 코인 전달(릴리즈), 계좌 등록에는 OTP가 필요합니다. Google Authenticator 같은 인증 앱을 준비해 주세요.':
     'You need OTP to post ads, place orders, release coins and register bank accounts. Have an authenticator app such as Google Authenticator ready.',
