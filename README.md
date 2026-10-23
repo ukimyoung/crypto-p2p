@@ -27,7 +27,7 @@ docker compose up --build        # 처음엔 몇 분 걸립니다
 | --- | --- |
 | `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
 | `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
-| `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁은 한 명이 제안하고 다른 한 명이 승인합니다 |
+| `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
 
 로그인과 코인 전달에는 OTP 코드가 필요합니다. 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
 
@@ -90,7 +90,7 @@ OPERATOR_PASSWORD='...' DATABASE_URL=... OTP_ENCRYPTION_KEY=... \
   node apps/api/dist/ops/create-operator-cli.js kim@company.com 김운영 reviewer
 ```
 
-권한은 `support`(조회만), `reviewer`(출금 승인·거절, 분쟁 제안·승인, 계정 제한), `admin`(현재 reviewer와 같음) 세 가지입니다. 운영 환경에서는 `/ops`를 사내망이나 VPN 뒤에만 열어 두세요.
+권한은 `reviewer`(조회, 출금 승인·거절, 분쟁 결정, 계정 제한, 출금 한도 변경)와 `admin`(reviewer 권한에 더해 시스템 관리) 두 가지입니다. 코인이 움직이거나 한도가 바뀌는 동작은 새 OTP 코드로 5분 동안 열리는 재확인(step-up)이 필요합니다. 운영 환경에서는 `/ops`를 사내망이나 VPN 뒤에만 열어 두세요.
 
 API 테스트는 실제 PostgreSQL에 붙어서 돌고, 실행할 때마다 `public` 스키마를 지우고 다시 만듭니다. 운영 DB를 `DATABASE_URL`로 지정하지 마세요.
 

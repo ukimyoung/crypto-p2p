@@ -3,12 +3,11 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import type { DisputeResolution, Order } from '@/lib/types';
+import type { Order } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
 
 interface Row {
   order: Order;
-  proposal: DisputeResolution | null;
 }
 
 export default function OpsDisputesPage() {
@@ -33,11 +32,10 @@ export default function OpsDisputesPage() {
                   <th>수량</th>
                   <th>금액</th>
                   <th>이체 완료 표시</th>
-                  <th>처리 상황</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ order, proposal }) => (
+                {rows.map(({ order }) => (
                   <tr key={order.id}>
                     <td>
                       <Link href={`/ops/disputes/${order.id}`}>{order.id.slice(0, 8)}</Link>
@@ -47,15 +45,6 @@ export default function OpsDisputesPage() {
                     </td>
                     <td>{formatKrw(order.fiatAmountMinor)}</td>
                     <td>{order.paidAt ? new Date(order.paidAt).toLocaleString('ko-KR') : '-'}</td>
-                    <td>
-                      {proposal ? (
-                        <span className="badge requested">
-                          {proposal.decision === 'release' ? '구매자 지급' : '판매자 환불'} 제안, 승인 대기
-                        </span>
-                      ) : (
-                        <span className="badge">검토 필요</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>

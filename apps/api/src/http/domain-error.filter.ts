@@ -7,6 +7,7 @@ const STATUS: Record<string, number> = {
   invalid_credentials: 401,
   otp_required: 401,
   forbidden: 403,
+  step_up_required: 403,
   account_closed: 403,
   kyc_required: 403,
   otp_not_enabled: 403,
@@ -15,8 +16,6 @@ const STATUS: Record<string, number> = {
   not_found: 404,
   email_taken: 409,
   address_exists: 409,
-  proposal_pending: 409,
-  two_person_rule: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
 };

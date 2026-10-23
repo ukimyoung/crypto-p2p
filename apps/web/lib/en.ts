@@ -219,8 +219,7 @@ export const EN: Record<string, string> = {
   '24시간 출금 한도를 넘습니다.': 'This exceeds your 24-hour withdrawal limit.',
   '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.':
     'Withdrawals are restricted on this account. Please contact support.',
-  '이미 결정을 기다리는 제안이 있습니다.': 'Another proposal is waiting for a decision.',
-  '제안한 사람이 아닌 다른 운영자가 승인해야 합니다.': 'A different operator must approve this proposal.',
+  '보안을 위해 OTP 코드를 다시 입력해 주세요.': 'For security, enter your OTP code again.',
   '결제 대기': 'Awaiting payment',
   '결제 완료 표시됨': 'Marked as paid',
   '거래 완료': 'Completed',

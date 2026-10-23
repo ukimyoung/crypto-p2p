@@ -1,21 +1,26 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
-import { Db, withTransaction } from '../db/database';
+import { Db, Tx, withTransaction } from '../db/database';
 import { assertPasswordPolicy, hashPassword, verifyPassword } from '../auth/password';
 import { SecretBox } from '../auth/secret-box';
 import { generateSecret, matchCode, otpauthUrl } from '../auth/totp';
 
-export type OperatorRole = 'support' | 'reviewer' | 'admin';
+export type OperatorRole = 'reviewer' | 'admin';
 
-/** Each role can do everything the roles before it can. */
-const RANK: Record<OperatorRole, number> = { support: 1, reviewer: 2, admin: 3 };
+/** Admins can do everything reviewers can, plus system settings. */
+const RANK: Record<OperatorRole, number> = { reviewer: 1, admin: 2 };
+
+/** How long a fresh OTP code unlocks sensitive actions. */
+const STEP_UP_MINUTES = 5;
 
 export interface Operator {
   id: string;
   email: string;
   name: string;
   role: OperatorRole;
+  /** Sensitive actions are allowed until this time. Set by a step-up on the current session. */
+  stepUpUntil: Date | null;
 }
 
 export interface OperatorAuthConfig {
@@ -81,11 +86,7 @@ export class OperatorAuthService {
       if (!op || op.status !== 'active' || !(await verifyPassword(password, op.password_hash))) {
         throw await fail(op?.status === 'disabled' ? 'disabled' : 'bad_credentials');
       }
-      const counter = matchCode(this.secrets.open(op.otp_secret_enc), otp, this.now());
-      if (counter === null || (op.otp_last_counter !== null && counter <= Number(op.otp_last_counter))) {
-        throw await fail('otp_invalid');
-      }
-      await tx.query('UPDATE operators SET otp_last_counter = $2 WHERE id = $1', [op.id, counter]);
+      if (!(await this.consumeOtp(tx, op, otp))) throw await fail('otp_invalid');
       return op.id as string;
     });
 
@@ -112,11 +113,44 @@ export class OperatorAuthService {
 
   async authenticate(token: string): Promise<Operator | null> {
     const { rows } = await this.db.query(
-      `SELECT o.* FROM operator_sessions s JOIN operators o ON o.id = s.operator_id
+      `SELECT o.*, s.step_up_until FROM operator_sessions s JOIN operators o ON o.id = s.operator_id
        WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > $2 AND o.status = 'active'`,
       [hashToken(token), this.now()],
     );
     return rows[0] ? toOperator(rows[0]) : null;
+  }
+
+  /**
+   * Checks a fresh OTP code and unlocks sensitive actions on this session for a few minutes.
+   * The same code cannot be used twice, including the one used to log in.
+   */
+  async stepUp(token: string, otp: string): Promise<Date> {
+    return withTransaction(this.db, async (tx) => {
+      const { rows } = await tx.query(
+        `SELECT o.*, s.id AS session_id FROM operator_sessions s JOIN operators o ON o.id = s.operator_id
+         WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > $2 AND o.status = 'active'
+         FOR UPDATE OF o`,
+        [hashToken(token), this.now()],
+      );
+      const op = rows[0];
+      if (!op) throw new DomainError('unauthorized', 'Operator login required');
+      if (!(await this.consumeOtp(tx, op, otp))) throw new DomainError('invalid_otp', 'OTP code is incorrect or already used');
+      const until = new Date(this.now().getTime() + STEP_UP_MINUTES * 60_000);
+      await tx.query('UPDATE operator_sessions SET step_up_until = $2 WHERE id = $1', [op.session_id, until]);
+      await writeAudit(tx, { type: 'operator', id: op.id }, 'operator.step_up', { type: 'operator', id: op.id }, null, {
+        until,
+      });
+      return until;
+    });
+  }
+
+  /** Accepts each code once: a code at or before the last used counter is refused. Caller holds the row lock. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async consumeOtp(tx: Tx, op: any, otp: string): Promise<boolean> {
+    const counter = matchCode(this.secrets.open(op.otp_secret_enc), otp, this.now());
+    if (counter === null || (op.otp_last_counter !== null && counter <= Number(op.otp_last_counter))) return false;
+    await tx.query('UPDATE operators SET otp_last_counter = $2 WHERE id = $1', [op.id, counter]);
+    return true;
   }
 
   async logout(token: string): Promise<void> {
@@ -140,11 +174,18 @@ export function assertRole(operator: Operator, needed: OperatorRole): void {
   }
 }
 
+/** Sensitive actions (moving money, changing limits, closing accounts) need a recent step-up. */
+export function assertStepUp(operator: Operator, now: Date = new Date()): void {
+  if (!operator.stepUpUntil || operator.stepUpUntil <= now) {
+    throw new DomainError('step_up_required', 'Enter a fresh OTP code to continue');
+  }
+}
+
 function hashToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toOperator(row: any): Operator {
-  return { id: row.id, email: row.email, name: row.name, role: row.role };
+  return { id: row.id, email: row.email, name: row.name, role: row.role, stepUpUntil: row.step_up_until ?? null };
 }

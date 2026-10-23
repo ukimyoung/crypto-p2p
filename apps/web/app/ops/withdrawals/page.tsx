@@ -7,14 +7,12 @@ import { api } from '@/lib/api';
 import { WITHDRAWAL_STATUS } from '@/lib/messages';
 import type { Withdrawal, WithdrawalStatus } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits } from '@/lib/units';
-import { canAct } from '@/lib/use-operator';
-import { useCurrentOperator } from '../OpsShell';
+import { withStepUp } from '@/lib/use-operator';
 
 const TABS: WithdrawalStatus[] = ['requested', 'approved', 'rejected', 'confirmed', 'failed'];
 const fmt = (v: string, asset: string) => `${formatUnits(v, ASSETS[asset as AssetCode]?.decimals ?? 0)} ${asset}`;
 
 export default function OpsWithdrawalsPage() {
-  const operator = useCurrentOperator();
   const [status, setStatus] = useState<WithdrawalStatus>('requested');
   const [rows, setRows] = useState<Withdrawal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +37,7 @@ export default function OpsWithdrawalsPage() {
       return;
     }
     try {
-      await api(`ops/withdrawals/${id}/${action}`, { method: 'POST', body });
+      await withStepUp(() => api(`ops/withdrawals/${id}/${action}`, { method: 'POST', body }));
       await load();
     } catch (err) {
       setError(messageOf(err));
@@ -90,7 +88,7 @@ export default function OpsWithdrawalsPage() {
                       {w.reviewNote && <div className="muted small-text">{w.reviewNote}</div>}
                     </td>
                     <td>
-                      {w.status === 'requested' && canAct(operator) && (
+                      {w.status === 'requested' && (
                         <div className="actions">
                           <button type="button" className="small" onClick={() => act(w.id, 'approve')}>
                             승인

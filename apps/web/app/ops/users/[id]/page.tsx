@@ -9,8 +9,7 @@ import { api } from '@/lib/api';
 import { BANKS, ORDER_STATUS, USER_STATUS, WITHDRAWAL_STATUS } from '@/lib/messages';
 import type { AuditEntry, Balance, Order, PaymentMethod, UserSummary, Withdrawal } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
-import { canAct } from '@/lib/use-operator';
-import { useCurrentOperator } from '../../OpsShell';
+import { withStepUp } from '@/lib/use-operator';
 
 interface Detail {
   user: UserSummary;
@@ -24,7 +23,6 @@ const fmt = (v: string, asset: string) => `${formatUnits(v, ASSETS[asset as Asse
 
 export default function OpsUserPage() {
   const { id } = useParams<{ id: string }>();
-  const operator = useCurrentOperator();
   const [data, setData] = useState<Detail | null>(null);
   const [audit, setAudit] = useState<{ entries: AuditEntry[]; operatorNames: Record<string, string> } | null>(null);
   const [status, setStatus] = useState<UserSummary['status']>('active');
@@ -50,7 +48,7 @@ export default function OpsUserPage() {
     setError(null);
     if (!window.confirm(`계정 상태를 '${USER_STATUS[status]}'(으)로 바꿀까요?`)) return;
     try {
-      await api(`ops/users/${id}/status`, { body: { status, reason } });
+      if (!(await withStepUp(() => api(`ops/users/${id}/status`, { body: { status, reason } })))) return;
       setReason('');
       await load();
     } catch (err) {
@@ -97,28 +95,24 @@ export default function OpsUserPage() {
 
         <section className="card">
           <h2>계정 상태 변경</h2>
-          {canAct(operator) ? (
-            <form onSubmit={changeStatus}>
-              <label htmlFor="status">상태</label>
-              <select id="status" value={status} onChange={(e) => setStatus(e.target.value as UserSummary['status'])}>
-                {Object.entries(USER_STATUS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="reason">사유 (감사 로그에 남습니다)</label>
-              <input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
-              <p className="muted small-text">
-                거래 정지는 새 주문과 광고 거래를, 출금 보류는 출금을 막습니다. 해지하면 로그인이 끊깁니다. 진행 중인
-                주문과 출금은 그대로 처리됩니다.
-              </p>
-              <button className="full">변경</button>
-              <ErrorText error={error} />
-            </form>
-          ) : (
-            <p className="muted">상담 권한으로는 계정 상태를 바꿀 수 없습니다.</p>
-          )}
+          <form onSubmit={changeStatus}>
+            <label htmlFor="status">상태</label>
+            <select id="status" value={status} onChange={(e) => setStatus(e.target.value as UserSummary['status'])}>
+              {Object.entries(USER_STATUS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="reason">사유 (감사 로그에 남습니다)</label>
+            <input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+            <p className="muted small-text">
+              거래 정지는 새 주문과 광고 거래를, 출금 보류는 출금을 막습니다. 해지하면 로그인이 끊기고, 해지할 때는
+              OTP 코드를 다시 확인합니다. 진행 중인 주문과 출금은 그대로 처리됩니다.
+            </p>
+            <button className="full">변경</button>
+            <ErrorText error={error} />
+          </form>
         </section>
       </div>
 

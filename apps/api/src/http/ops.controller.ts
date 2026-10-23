@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -15,11 +16,12 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { Db } from '../db/database';
 import { DisputesService } from '../ops/disputes.service';
-import { assertRole, Operator, OperatorAuthService } from '../ops/operator-auth.service';
+import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
 import { OpsService } from '../ops/ops.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
 import { DB } from '../tokens';
+import { loadWithdrawalRules, updateWithdrawalRules } from '../wallet/wallet-config';
 import { WalletService } from '../wallet/wallet.service';
 import { CurrentOperator, OpsGuard, OpsRequest } from './ops.guard';
 import { parse } from './validation';
@@ -28,13 +30,26 @@ const loginBody = z.object({ email: z.string(), password: z.string(), otp: z.str
 const WITHDRAWAL_STATUSES = ['requested', 'approved', 'sent', 'confirmed', 'rejected', 'cancelled', 'failed'] as const;
 const withdrawalQuery = z.object({ status: z.enum(WITHDRAWAL_STATUSES).default('requested') });
 const rejectBody = z.object({ note: z.string().trim().min(1).max(500) });
-const proposeBody = z.object({ decision: z.enum(['release', 'refund']), reason: z.string() });
+const resolveBody = z.object({ decision: z.enum(['release', 'refund']), reason: z.string() });
+const stepUpBody = z.object({ otp: z.string() });
+/** Zero or a positive integer in the coin's smallest unit, as a decimal string. */
+const units = z
+  .string()
+  .regex(/^(0|[1-9]\d{0,40})$/, 'must be an integer string')
+  .transform((v) => BigInt(v));
+const withdrawalRulesBody = z.object({
+  fee: units,
+  minAmount: units,
+  autoApproveMax: units,
+  dailyLimits: z.record(z.string().regex(/^\d{1,2}$/), units),
+  reason: z.string().max(500),
+});
 const userQuery = z.object({ q: z.string().max(200).default('') });
 const statusBody = z.object({
   status: z.enum(['active', 'trade_suspended', 'withdraw_held', 'closed']),
   reason: z.string().max(500),
 });
-const auditQuery = z.object({ targetId: z.uuid().optional(), actorId: z.uuid().optional() });
+const auditQuery = z.object({ targetId: z.string().max(100).optional(), actorId: z.uuid().optional() });
 const uuid = new ParseUUIDPipe({ version: '4' });
 
 @Controller('ops')
@@ -50,8 +65,9 @@ export class OpsAuthController {
 }
 
 /**
- * Operations console API. `support` can look; `reviewer` and `admin` can act.
- * Every action is written to the audit log with the operator's id.
+ * Operations console API. Reviewers can look and act; admins also manage the system.
+ * Moving money and changing limits need a recent OTP step-up. Every action is
+ * written to the audit log with the operator's id.
  */
 @Controller('ops')
 @UseGuards(OpsGuard)
@@ -77,6 +93,13 @@ export class OpsController {
     return { operator };
   }
 
+  /** A fresh OTP code unlocks sensitive actions on this session for a few minutes. */
+  @Post('auth/step-up')
+  @HttpCode(200)
+  async stepUp(@Req() req: OpsRequest, @Body() body: unknown) {
+    return { stepUpUntil: await this.auth.stepUp(req.token, parse(stepUpBody, body).otp) };
+  }
+
   @Get('summary')
   async summary() {
     const { rows } = await this.db.query<{ withdrawals: number; disputes: number }>(
@@ -97,6 +120,7 @@ export class OpsController {
   @HttpCode(200)
   async approveWithdrawal(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string) {
     assertRole(operator, 'reviewer');
+    assertStepUp(operator);
     return { withdrawal: await this.wallet.approve(id, operator.id) };
   }
 
@@ -126,25 +150,13 @@ export class OpsController {
     };
   }
 
-  @Post('disputes/:orderId/proposals')
-  async propose(@CurrentOperator() operator: Operator, @Param('orderId', uuid) orderId: string, @Body() body: unknown) {
-    assertRole(operator, 'reviewer');
-    const { decision, reason } = parse(proposeBody, body);
-    return { resolution: await this.disputes.propose(orderId, operator.id, decision, reason) };
-  }
-
-  @Post('proposals/:id/approve')
+  @Post('disputes/:orderId/resolve')
   @HttpCode(200)
-  async approveProposal(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string) {
+  async resolve(@CurrentOperator() operator: Operator, @Param('orderId', uuid) orderId: string, @Body() body: unknown) {
     assertRole(operator, 'reviewer');
-    return this.disputes.approve(id, operator.id);
-  }
-
-  @Post('proposals/:id/decline')
-  @HttpCode(200)
-  async declineProposal(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string) {
-    assertRole(operator, 'reviewer');
-    return { resolution: await this.disputes.decline(id, operator.id) };
+    assertStepUp(operator);
+    const { decision, reason } = parse(resolveBody, body);
+    return this.disputes.resolve(orderId, operator.id, decision, reason);
   }
 
   // Users ---------------------------------------------------------------------
@@ -171,7 +183,26 @@ export class OpsController {
   async setStatus(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
     assertRole(operator, 'reviewer');
     const { status, reason } = parse(statusBody, body);
+    if (status === 'closed') assertStepUp(operator);
     return { user: await this.ops.setUserStatus(id, status, reason, operator.id) };
+  }
+
+  // Settings ------------------------------------------------------------------
+
+  @Get('settings/withdrawal-rules')
+  async withdrawalRules() {
+    return { rules: await loadWithdrawalRules(this.db) };
+  }
+
+  @Put('settings/withdrawal-rules/:asset')
+  async setWithdrawalRules(@CurrentOperator() operator: Operator, @Param('asset') asset: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const input = parse(withdrawalRulesBody, body);
+    const dailyLimitByKycLevel = Object.fromEntries(Object.entries(input.dailyLimits).map(([k, v]) => [Number(k), v]));
+    return {
+      rules: await updateWithdrawalRules(this.db, asset, { ...input, dailyLimitByKycLevel }, operator.id, input.reason),
+    };
   }
 
   @Get('audit')

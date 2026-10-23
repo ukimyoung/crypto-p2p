@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Db } from '../src/db/database';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { normalizeAddress } from '../src/wallet/address';
-import { DEFAULT_WALLET_CONFIG } from '../src/wallet/wallet-config';
+import { DEFAULT_WALLET_CONFIG, loadWithdrawalRules, updateWithdrawalRules } from '../src/wallet/wallet-config';
 import { WalletService } from '../src/wallet/wallet.service';
 import { nextWithdrawalStatus } from '../src/wallet/withdrawal-state';
 import { BTC, createUser, deposit, setupDb } from './helpers';
@@ -10,7 +10,7 @@ import { BTC, createUser, deposit, setupDb } from './helpers';
 const BECH32 = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
 const LEGACY = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
 const ETH_ADDRESS = '0x52908400098527886E0F7030069857D2E4169EE7';
-const FEE = DEFAULT_WALLET_CONFIG.assets.BTC!.fee;
+const FEE = 20_000n; // BTC withdrawal fee seeded by migration 007
 const OPERATOR = '00000000-0000-4000-8000-0000000000aa';
 
 describe('address format', () => {
@@ -223,6 +223,47 @@ describe('wallet', () => {
       expect(results.find((r) => r.status === 'rejected')).toMatchObject({
         reason: expect.objectContaining({ code: 'daily_limit_exceeded' }),
       });
+    });
+
+    it('applies rules an operator changes to the next request and audits the change', async () => {
+      await db.query(
+        `INSERT INTO operators (id, email, name, role, password_hash, otp_secret_enc)
+         VALUES ($1, 'rules@ops.test', 'rules', 'reviewer', 'x', 'x') ON CONFLICT DO NOTHING`,
+        [OPERATOR],
+      );
+      const [original] = await loadWithdrawalRules(db, 'BTC');
+      const { userId, addressId } = await funded(5n * BTC);
+      await updateWithdrawalRules(
+        db,
+        'BTC',
+        { fee: 1_000n, minAmount: BTC / 1000n, autoApproveMax: 0n, dailyLimitByKycLevel: { 1: BTC / 10n } },
+        OPERATOR,
+        '한도 축소',
+      );
+
+      await expect(wallet.requestWithdrawal(userId, addressId, BTC / 5n)).rejects.toMatchObject({
+        code: 'daily_limit_exceeded',
+      });
+      const w = await wallet.requestWithdrawal(userId, addressId, BTC / 20n);
+      expect(w).toMatchObject({ status: 'requested', fee: 1_000n });
+      expect((await wallet.limits(userId)).find((l) => l.asset === 'BTC')).toMatchObject({ dailyLimit: BTC / 10n });
+
+      // A level left out of the new rules can no longer withdraw.
+      await db.query('UPDATE users SET kyc_level = 2 WHERE id = $1', [userId]);
+      await expect(wallet.requestWithdrawal(userId, addressId, BTC / 100n)).rejects.toMatchObject({
+        code: 'kyc_required',
+      });
+
+      const audit = await db.query(
+        "SELECT before, after FROM audit_logs WHERE action = 'settings.withdrawal_rules' AND target_id = 'BTC'",
+      );
+      expect(audit.rows[0].before).toMatchObject({ fee: '20000', dailyLimitByKycLevel: { 1: '100000000' } });
+      expect(audit.rows[0].after).toMatchObject({ fee: '1000', reason: '한도 축소' });
+
+      await expect(
+        updateWithdrawalRules(db, 'BTC', { ...original!, minAmount: 0n }, OPERATOR, 'x'),
+      ).rejects.toMatchObject({ code: 'invalid_request' });
+      await updateWithdrawalRules(db, 'BTC', original!, OPERATOR, '원래대로');
     });
   });
 });

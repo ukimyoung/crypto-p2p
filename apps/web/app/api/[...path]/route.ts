@@ -57,4 +57,4 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
   return res;
 }
 
-export { forward as GET, forward as POST, forward as DELETE };
+export { forward as GET, forward as POST, forward as PUT, forward as DELETE };

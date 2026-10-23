@@ -5,7 +5,7 @@ import { LedgerService } from '../ledger/ledger.service';
 import { notify } from '../notifications/notify';
 import { NotificationType } from '../notifications/templates';
 import { normalizeAddress } from './address';
-import { WalletConfig } from './wallet-config';
+import { loadWithdrawalRules, WalletConfig } from './wallet-config';
 import {
   FINAL_STATUSES,
   nextWithdrawalStatus,
@@ -162,12 +162,12 @@ export class WalletService {
       [userId, new Date(this.now().getTime() - DAY_MS)],
     );
     const usedByAsset = new Map(used.rows.map((r) => [r.asset, BigInt(r.used)]));
-    return Object.entries(this.config.assets).map(([asset, rules]) => ({
-      asset,
+    return (await loadWithdrawalRules(this.db)).map((rules) => ({
+      asset: rules.asset,
       fee: rules.fee,
       minAmount: rules.minAmount,
       dailyLimit: rules.dailyLimitByKycLevel[kycLevel] ?? null,
-      usedToday: usedByAsset.get(asset) ?? 0n,
+      usedToday: usedByAsset.get(rules.asset) ?? 0n,
     }));
   }
 
@@ -194,7 +194,7 @@ export class WalletService {
         throw new DomainError('address_cooldown', 'A new address cannot receive withdrawals yet');
       }
 
-      const rules = this.config.assets[address.asset];
+      const [rules] = await loadWithdrawalRules(tx, address.asset);
       if (!rules) throw new DomainError('asset_unsupported', `${address.asset} withdrawals are not supported`);
       const dailyLimit = rules.dailyLimitByKycLevel[user.kyc_level];
       if (dailyLimit === undefined) throw new DomainError('kyc_required', 'Complete identity verification first');
@@ -350,7 +350,7 @@ export class WalletService {
 
   private async networkOf(asset: string): Promise<string> {
     const { rows } = await this.db.query<{ network: string }>('SELECT network FROM assets WHERE code = $1', [asset]);
-    if (!rows[0] || !this.config.assets[asset]) {
+    if (!rows[0] || (await loadWithdrawalRules(this.db, asset)).length === 0) {
       throw new DomainError('asset_unsupported', `${asset} withdrawals are not supported`);
     }
     return rows[0].network;
