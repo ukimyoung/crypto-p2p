@@ -20,10 +20,13 @@ export function useCurrentOperator(): Operator {
 
 const LINKS = [
   ['/ops', '대시보드'],
-  ['/ops/withdrawals', '출금 검토'],
-  ['/ops/disputes', '분쟁'],
   ['/ops/users', '회원'],
+  ['/ops/ads', '광고'],
+  ['/ops/orders', '주문'],
+  ['/ops/disputes', '분쟁'],
+  ['/ops/withdrawals', '출금 검토'],
   ['/ops/fees', '수수료 청구'],
+  ['/ops/markets', '마켓'],
   ['/ops/settings', '정책 설정'],
   ['/ops/audit', '감사 로그'],
 ] as const;
@@ -62,7 +65,7 @@ export function OpsShell({ children }: { children: ReactNode }) {
             </Link>
             <div className="nav-links">
               {LINKS.map(([href, label]) => (
-                <Link key={href} href={href} className={pathname === href ? 'active' : undefined}>
+                <Link key={href} href={href} className={(href === '/ops' ? pathname === href : pathname.startsWith(href)) ? 'active' : undefined}>
                   {label}
                 </Link>
               ))}

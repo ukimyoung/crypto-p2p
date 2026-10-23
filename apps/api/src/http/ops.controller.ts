@@ -19,9 +19,11 @@ import { Db } from '../db/database';
 import { BillingService } from '../fees/billing.service';
 import { feeRateOverview, MAX_FEE_RATE_BP, setFeeRate } from '../fees/fee-rates';
 import { DisputesService } from '../ops/disputes.service';
+import { listMarkets, setAssetStatus, setMarketStatus } from '../ops/markets';
 import { billingSettings, updateSettings } from '../ops/ops-settings';
+import { AD_SORTS, OpsTradesService } from '../ops/ops-trades.service';
 import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
-import { OpsService } from '../ops/ops.service';
+import { maskName, OpsService, USER_SORTS } from '../ops/ops.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
 import { DB } from '../tokens';
@@ -78,7 +80,48 @@ const summaryQuery = z.object({
   from: z.iso.datetime({ offset: true }).optional(),
   to: z.iso.datetime({ offset: true }).optional(),
 });
-const userQuery = z.object({ q: z.string().max(200).default('') });
+const USER_STATUSES = ['active', 'trade_suspended', 'withdraw_held', 'closed'] as const;
+const dateTime = z.iso.datetime({ offset: true }).transform((v) => new Date(v));
+const paging = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().refine((n) => [20, 50, 100].includes(n), 'must be 20, 50 or 100').default(50),
+};
+const userQuery = z.object({
+  q: z.string().max(200).optional(),
+  status: z.enum(USER_STATUSES).optional(),
+  kycLevel: z.coerce.number().int().min(0).max(3).optional(),
+  from: dateTime.optional(),
+  to: dateTime.optional(),
+  sort: z.enum(USER_SORTS).default('created_at'),
+  dir: z.enum(['asc', 'desc']).default('desc'),
+  ...paging,
+});
+const reasonBody = z.object({ reason: z.string().max(500) });
+const kycBody = z.object({ level: z.number().int().min(0).max(3), reason: z.string().max(500) });
+const adQuery = z.object({
+  asset: z.string().max(10).optional(),
+  fiat: z.string().max(10).optional(),
+  side: z.enum(['buy', 'sell']).optional(),
+  status: z.enum(['online', 'offline', 'closed']).optional(),
+  makerId: z.uuid().optional(),
+  sort: z.enum(AD_SORTS).default('created_at'),
+  dir: z.enum(['asc', 'desc']).default('desc'),
+  ...paging,
+});
+const adStatusBody = z.object({ status: z.enum(['offline', 'closed']), reason: z.string().max(500) });
+const orderQuery = z.object({
+  status: z.enum(['pending_payment', 'paid', 'completed', 'cancelled', 'under_review']).optional(),
+  asset: z.string().max(10).optional(),
+  userId: z.uuid().optional(),
+  from: dateTime.optional(),
+  to: dateTime.optional(),
+  ...paging,
+});
+const assetStatusBody = z.object({
+  status: z.enum(['active', 'ads_paused', 'withdrawals_paused', 'delisted']),
+  reason: z.string().max(500),
+});
+const marketStatusBody = z.object({ status: z.enum(['open', 'paused', 'closed']), reason: z.string().max(500) });
 const statusBody = z.object({
   status: z.enum(['active', 'trade_suspended', 'withdraw_held', 'closed']),
   reason: z.string().max(500),
@@ -114,6 +157,7 @@ export class OpsController {
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentMethodsService) private readonly payments: PaymentMethodsService,
     @Inject(BillingService) private readonly billing: BillingService,
+    @Inject(OpsTradesService) private readonly trades: OpsTradesService,
     @Inject(DB) private readonly db: Db,
   ) {}
 
@@ -179,8 +223,9 @@ export class OpsController {
     const operatorIds = c.resolutions.flatMap((r) => [r.proposedBy, r.decidedBy ?? []]).flat();
     return {
       ...c,
-      buyer: await this.ops.getUser(c.order.buyerId),
-      seller: await this.ops.getUser(c.order.sellerId),
+      // Reviewers compare the payer's name with the account holder, so names are shown in full here.
+      buyer: await this.ops.getUser(c.order.buyerId, true),
+      seller: await this.ops.getUser(c.order.sellerId, true),
       operatorNames: await this.ops.operatorNames([...new Set(operatorIds)]),
     };
   }
@@ -196,9 +241,11 @@ export class OpsController {
 
   // Users ---------------------------------------------------------------------
 
+  /** Member grid: all members by default, filtered, sorted and paged on the server. */
   @Get('users')
-  async searchUsers(@Query() query: unknown) {
-    return { users: await this.ops.searchUsers(parse(userQuery, query).q) };
+  async users(@Query() query: unknown) {
+    const q = parse(userQuery, query);
+    return { ...(await this.ops.listUsers(q)), page: q.page, pageSize: q.pageSize };
   }
 
   @Get('users/:id')
@@ -209,8 +256,87 @@ export class OpsController {
       balances: await this.wallet.balances(id),
       orders: await this.orders.listForUser(id),
       withdrawals: await this.wallet.listWithdrawals(id),
-      paymentMethods: await this.payments.list(id),
+      paymentMethods: (await this.payments.list(id)).map((m) => ({ ...m, accountHolder: maskName(m.accountHolder) })),
+      ...(await this.ops.userExtras(id)),
     };
+  }
+
+  /** Full phone number and legal name. Needs a reason, and the viewing is audited. */
+  @Post('users/:id/reveal')
+  @HttpCode(200)
+  async revealUser(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    return { pii: await this.ops.revealUser(id, parse(reasonBody, body).reason, operator.id) };
+  }
+
+  @Post('users/:id/kyc-level')
+  @HttpCode(200)
+  async setKycLevel(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    const { level, reason } = parse(kycBody, body);
+    return { user: await this.ops.setKycLevel(id, level, reason, operator.id) };
+  }
+
+  // Ads and orders --------------------------------------------------------------
+
+  @Get('ads')
+  async ads(@Query() query: unknown) {
+    const q = parse(adQuery, query);
+    return { ...(await this.trades.listAds(q)), page: q.page, pageSize: q.pageSize };
+  }
+
+  @Get('ads/:id')
+  async ad(@Param('id', uuid) id: string) {
+    return this.trades.getAd(id);
+  }
+
+  /** Hides (`offline`) or ends (`closed`) an ad. Open orders carry on. */
+  @Post('ads/:id/status')
+  @HttpCode(200)
+  async setAdStatus(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    const { status, reason } = parse(adStatusBody, body);
+    return { ad: await this.trades.setAdStatus(id, status, reason, operator.id) };
+  }
+
+  @Get('orders')
+  async orderList(@Query() query: unknown) {
+    const q = parse(orderQuery, query);
+    return { ...(await this.trades.listOrders(q)), page: q.page, pageSize: q.pageSize };
+  }
+
+  @Get('orders/:id')
+  async order(@Param('id', uuid) id: string) {
+    const detail = await this.trades.getOrder(id);
+    const operatorIds = detail.history.filter((h) => h.actorType === 'operator' && h.actorId).map((h) => h.actorId!);
+    return { ...detail, operatorNames: await this.ops.operatorNames([...new Set(operatorIds)]) };
+  }
+
+  // Markets -----------------------------------------------------------------------
+
+  @Get('markets')
+  async markets() {
+    return listMarkets(this.db);
+  }
+
+  @Put('markets/assets/:code')
+  async setAssetStatus(@CurrentOperator() operator: Operator, @Param('code') code: string, @Body() body: unknown) {
+    assertRole(operator, 'admin');
+    const { status, reason } = parse(assetStatusBody, body);
+    return { asset: await setAssetStatus(this.db, code, status, reason, operator.id) };
+  }
+
+  @Put('markets/:asset/:fiat')
+  async setMarketStatus(
+    @CurrentOperator() operator: Operator,
+    @Param('asset') asset: string,
+    @Param('fiat') fiat: string,
+    @Body() body: unknown,
+  ) {
+    assertRole(operator, 'admin');
+    const { status, reason } = parse(marketStatusBody, body);
+    await setMarketStatus(this.db, asset, fiat, status, reason, operator.id);
+    return listMarkets(this.db);
   }
 
   @Post('users/:id/status')

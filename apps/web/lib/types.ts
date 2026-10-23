@@ -128,6 +128,9 @@ export interface Operator {
 export interface UserSummary {
   id: string;
   email: string | null;
+  /** Masked (010-****-5678) unless revealed. */
+  phone: string | null;
+  /** Masked (홍*동) unless revealed. */
   legalName: string | null;
   kycLevel: number;
   status: 'active' | 'trade_suspended' | 'withdraw_held' | 'closed';
@@ -232,4 +235,51 @@ export interface FeeInvoiceDetail {
     completedAt: string;
   }[];
   payments: { id: string; amountMinor: string; paidAt: string; memo: string; operatorEmail: string | null; createdAt: string }[];
+}
+
+export interface UserRow extends UserSummary {
+  openOrders: number;
+}
+
+export interface OpsAd extends Ad {
+  status: 'online' | 'offline' | 'closed';
+  makerEmail: string;
+  createdAt: string;
+}
+
+export interface OpsOrder {
+  id: string;
+  adId: string;
+  makerId: string;
+  buyerId: string;
+  sellerId: string;
+  buyerEmail: string | null;
+  sellerEmail: string | null;
+  asset: string;
+  fiat: string;
+  priceMinor: string;
+  basePriceMinor: string;
+  amount: string;
+  fiatAmountMinor: string;
+  feeRateBp: number;
+  feeFiatMinor: string;
+  escrowAmount: string;
+  status: Order['status'];
+  createdAt: string;
+  paidAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+}
+
+export interface MarketsOverview {
+  assets: { code: string; network: string; decimals: number; status: 'active' | 'ads_paused' | 'withdrawals_paused' | 'delisted' }[];
+  markets: {
+    asset: string;
+    fiat: string;
+    status: 'open' | 'paused' | 'closed';
+    updatedAt: string;
+    onlineAds: number;
+    openOrders: number;
+  }[];
 }

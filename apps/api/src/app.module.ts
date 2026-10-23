@@ -23,6 +23,7 @@ import { NotificationsService } from './notifications/notifications.service';
 import { DisputesService } from './ops/disputes.service';
 import { OperatorAuthService } from './ops/operator-auth.service';
 import { OpsService } from './ops/ops.service';
+import { OpsTradesService } from './ops/ops-trades.service';
 import { OrderExpiryWorker } from './orders/expiry.worker';
 import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
@@ -90,6 +91,7 @@ import { WalletService } from './wallet/wallet.service';
     EmailWorker,
     { provide: OpsService, inject: [DB], useFactory: (db: Db) => new OpsService(db) },
     { provide: BillingService, inject: [DB], useFactory: (db: Db) => new BillingService(db) },
+    { provide: OpsTradesService, inject: [DB], useFactory: (db: Db) => new OpsTradesService(db) },
     BillingWorker,
     {
       provide: DisputesService,

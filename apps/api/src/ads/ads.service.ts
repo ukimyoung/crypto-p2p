@@ -3,6 +3,7 @@ import { writeAudit } from '../common/audit';
 import { Db, withTransaction } from '../db/database';
 import { NOT_ON_FEE_HOLD, onFeeHold } from '../fees/billing.service';
 import { currentFeeRate, finalPrice } from '../fees/fee-rates';
+import { assertCanPostAd, IN_OPEN_MARKET } from '../ops/markets';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
 
 export interface CreateAdInput {
@@ -62,6 +63,7 @@ export class AdsService {
       throw new DomainError('invalid_request', 'A buy ad pays to the seller, so it takes no payment method');
     }
     return withTransaction(this.db, async (tx) => {
+      await assertCanPostAd(tx, input.asset, input.fiat);
       if (await onFeeHold(tx, input.makerId)) {
         throw new DomainError('fee_overdue', 'Pay the overdue ad fee before posting a new ad');
       }
@@ -105,7 +107,7 @@ export class AdsService {
     const { rows } = await this.db.query(
       `SELECT * FROM ads
        WHERE asset = $1 AND fiat = $2 AND side = $3 AND status = 'online' AND remaining_amount > 0
-         AND ${NOT_ON_FEE_HOLD('ads')}
+         AND ${NOT_ON_FEE_HOLD('ads')} AND ${IN_OPEN_MARKET('ads')}
        ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, created_at
        LIMIT $4`,
       [filter.asset, filter.fiat, filter.side, Math.min(filter.limit ?? 50, 100)],

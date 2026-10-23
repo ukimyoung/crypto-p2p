@@ -18,7 +18,8 @@ export type NotificationType =
   | 'fee.invoice_issued'
   | 'fee.invoice_due_soon'
   | 'fee.invoice_overdue'
-  | 'fee.invoice_paid';
+  | 'fee.invoice_paid'
+  | 'ad.status_changed';
 
 export type Locale = 'ko' | 'en';
 
@@ -132,6 +133,20 @@ const EMAIL: Partial<Record<NotificationType, Record<Locale, Template>>> = {
     en: {
       subject: () => '[P2P] Your account access changed',
       body: () => 'The status of your account changed. Please contact support for details.',
+    },
+  },
+  'ad.status_changed': {
+    ko: {
+      subject: () => '[P2P] 광고가 운영 정책에 따라 내려졌습니다',
+      body: (d) =>
+        d.status === 'closed'
+          ? `${d.asset} 광고가 운영팀에 의해 종료되었습니다. 진행 중인 주문은 그대로 진행됩니다. 자세한 내용은 고객센터에 문의해 주세요.`
+          : `${d.asset} 광고가 운영팀에 의해 비노출로 바뀌었습니다. 진행 중인 주문은 그대로 진행됩니다. 자세한 내용은 고객센터에 문의해 주세요.`,
+    },
+    en: {
+      subject: () => '[P2P] Your ad was taken down',
+      body: (d) =>
+        `Our team ${d.status === 'closed' ? 'closed' : 'hid'} your ${d.asset} ad. Open orders carry on. Please contact support for details.`,
     },
   },
   'fee.invoice_issued': {

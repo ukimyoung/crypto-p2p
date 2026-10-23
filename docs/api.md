@@ -100,8 +100,18 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | GET | `/ops/disputes` | 모두 | 운영 검토 중인 주문 |
 | GET | `/ops/disputes/:orderId` | 모두 | 주문, 당사자, 채팅 전체, 결정 이력 |
 | POST | `/ops/disputes/:orderId/resolve` | reviewer | `{ decision: release \| refund, reason }`. 결정과 동시에 코인 이동. step-up 필요 |
-| GET | `/ops/users?q=` | 모두 | 이메일 일부, 회원 ID, 실명으로 검색 |
-| GET | `/ops/users/:id` | 모두 | 회원 정보, 잔고, 주문, 출금, 계좌(마스킹) |
+| GET | `/ops/users?q=&status=&kycLevel=&from=&to=&sort=&dir=&page=&pageSize=` | 모두 | 회원 그리드. 기본은 전체 회원 가입일 최신순, 페이지당 20·50·100(기본 50). `q`는 이메일 일부, 전화, 실명, 회원 ID. 전화·실명은 가림 |
+| GET | `/ops/users/:id` | 모두 | 회원 정보(가림), 잔고, 주문, 출금, 계좌(가림), 출금 주소, 광고, 로그인 기록, 처리 이력 |
+| POST | `/ops/users/:id/reveal` | reviewer | `{ reason }`. 전체 이메일·전화·실명. 열람 자체가 감사 로그에 남음 |
+| POST | `/ops/users/:id/kyc-level` | reviewer | `{ level, reason }`. 예외용 KYC 등급 수동 조정 |
+| GET | `/ops/ads?asset=&fiat=&side=&status=&makerId=&sort=&dir=&page=&pageSize=` | 모두 | 광고 그리드. 정렬은 `created_at`, `price_minor`, `remaining_amount` |
+| GET | `/ops/ads/:id` | 모두 | 광고, 지금 요율의 최종 가격, 이 광고로 생긴 주문 |
+| POST | `/ops/ads/:id/status` | reviewer | `{ status: offline \| closed, reason }`. 진행 중 주문은 유지. 광고주에게 알림(사유는 안 보냄) |
+| GET | `/ops/orders?status=&asset=&userId=&from=&to=&page=&pageSize=` | 모두 | 전체 주문, 최신순 |
+| GET | `/ops/orders/:id` | 모두 | 주문, 상태 이력, 채팅, 원장 분개 |
+| GET | `/ops/markets` | 모두 | 코인 상태와 마켓(코인 × 법정화폐) 상태, 노출 광고·진행 중 주문 수 |
+| PUT | `/ops/markets/:asset/:fiat` | admin | `{ status: open \| paused \| closed, reason }`. 멈추면 새 광고·주문을 막고 마켓 목록에서 숨김 |
+| PUT | `/ops/markets/assets/:code` | admin | `{ status: active \| ads_paused \| withdrawals_paused \| delisted, reason }` |
 | POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊고 step-up 필요 |
 | GET | `/ops/settings/withdrawal-rules` | 모두 | 코인별 출금 수수료, 최소 수량, 자동 승인 기준, KYC 단계별 24시간 한도 |
 | PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 빠진 KYC 단계는 출금 불가. step-up 필요 |

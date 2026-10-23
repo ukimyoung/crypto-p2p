@@ -78,6 +78,16 @@ export function describe(n: Notification, locale: Locale = 'ko'): { text: string
       };
     case 'fee.invoice_paid':
       return { text: t('광고 수수료 납부가 확인되었습니다.'), href: '/fees' };
+    case 'ad.status_changed':
+      return {
+        text:
+          d.status === 'closed'
+            ? t('{asset} 광고가 운영팀에 의해 종료되었습니다. 진행 중인 주문은 그대로 진행됩니다.', { asset: d.asset ?? '' })
+            : t('{asset} 광고가 운영팀에 의해 비노출로 바뀌었습니다. 진행 중인 주문은 그대로 진행됩니다.', {
+                asset: d.asset ?? '',
+              }),
+        href: null,
+      };
     case 'account.status_changed':
       return { text: t(USER_STATUS_TEXT[d.status ?? ''] ?? '계정 상태가 변경되었습니다.'), href: '/account' };
     default:

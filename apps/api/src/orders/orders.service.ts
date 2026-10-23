@@ -4,6 +4,7 @@ import { toAd } from '../ads/ads.service';
 import { Db, Tx, withTransaction } from '../db/database';
 import { NOT_ON_FEE_HOLD } from '../fees/billing.service';
 import { currentFeeRate, feeOn, finalPrice } from '../fees/fee-rates';
+import { assertCanTrade } from '../ops/markets';
 import { LedgerService, Posting } from '../ledger/ledger.service';
 import { notify } from '../notifications/notify';
 import { NotificationType } from '../notifications/templates';
@@ -73,6 +74,7 @@ export class OrdersService {
 
       // A maker with an overdue fee invoice has their ads hidden.
       if (ad.status !== 'online' || !adRes.rows[0].billable) throw new DomainError('ad_unavailable', 'Ad is not online');
+      await assertCanTrade(tx, ad.asset, ad.fiat);
       if (ad.makerId === takerId) throw new DomainError('self_trade', 'Cannot trade with your own ad');
       if (amount > ad.remainingAmount) throw new DomainError('insufficient_ad_amount', 'Ad has not enough left');
 

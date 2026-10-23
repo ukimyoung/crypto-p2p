@@ -18,6 +18,7 @@ const TYPES = [
   'fee.invoice_due_soon',
   'fee.invoice_overdue',
   'fee.invoice_paid',
+  'ad.status_changed',
 ];
 
 const note = (type: string, data: Record<string, string | null> = {}, locale: 'ko' | 'en' = 'ko') =>
