@@ -88,7 +88,6 @@ export const EN: Record<string, string> = {
   '기본 정보': 'Profile',
   이메일: 'Email',
   '본인인증(KYC)': 'Identity check (KYC)',
-  완료: 'Done',
   '본인인증을 마쳐야 주문을 하고 입금 계좌를 등록할 수 있습니다.':
     'You need to verify your identity before you can order or add a bank account.',
   '본인 인증하기': 'Verify identity',
