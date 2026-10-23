@@ -528,6 +528,33 @@ describe('operations console', () => {
     });
   });
 
+  describe('automatic review', () => {
+    it('lets a reviewer set the wait and counts automatic reviews on the dashboard', async () => {
+      const current = await http().get('/ops/settings/orders').set(bearer(reviewerB)).expect(200);
+      expect(current.body.orders).toEqual({ autoReviewMinutes: 10 });
+      await http().put('/ops/settings/orders').set(bearer(reviewerB)).send({ autoReviewMinutes: 15, reason: 'x' }).expect(403);
+      await http().put('/ops/settings/orders').set(bearer(reviewerA)).send({ autoReviewMinutes: 0, reason: 'x' }).expect(400);
+      const saved = await http()
+        .put('/ops/settings/orders')
+        .set(bearer(reviewerA))
+        .send({ autoReviewMinutes: 15, reason: '야간 응답 지연 고려' })
+        .expect(200);
+      expect(saved.body.orders).toEqual({ autoReviewMinutes: 15 });
+
+      const before = (await http().get('/ops/summary').set(bearer(reviewerB)).expect(200)).body;
+      const { orderId } = await dispute();
+      await db.query(`UPDATE orders SET status = 'paid', review_source = NULL WHERE id = $1`, [orderId]);
+      await db.query(`UPDATE orders SET paid_at = now() - interval '16 minutes' WHERE id = $1`, [orderId]);
+      expect(await app.get(OrdersService).autoReviewDue()).toContain(orderId);
+      const after = (await http().get('/ops/summary').set(bearer(reviewerB)).expect(200)).body;
+      expect(after.autoReviewDisputes).toBe(before.autoReviewDisputes + 1);
+      const list = await http().get('/ops/disputes').set(bearer(reviewerB)).expect(200);
+      expect(list.body.disputes.find((d: { order: { id: string } }) => d.order.id === orderId).order.reviewSource).toBe('system');
+
+      await http().put('/ops/settings/orders').set(bearer(reviewerA)).send({ autoReviewMinutes: 10, reason: '원복' }).expect(200);
+    });
+  });
+
   describe('ads, orders and markets', () => {
     it('lists ads and orders, takes an ad down and tells the maker', async () => {
       const { seller, orderId } = await dispute();

@@ -8,6 +8,7 @@ export type OrderEvent =
   | 'cancel' // buyer gives up before paying
   | 'expire' // payment window ran out without a payment mark
   | 'escalate' // a party asks operators to step in after payment was marked
+  | 'auto_review' // the seller did not release in time after payment was marked
   | 'resolve_release' // operators decide for the buyer
   | 'resolve_refund'; // operators decide for the seller
 
@@ -31,6 +32,7 @@ export const TRANSITIONS: Record<OrderEvent, Transition> = {
   cancel: { from: ['pending_payment'], to: 'cancelled', by: ['buyer'] },
   expire: { from: ['pending_payment'], to: 'cancelled', by: ['system'] },
   escalate: { from: ['paid'], to: 'under_review', by: ['buyer', 'seller'] },
+  auto_review: { from: ['paid'], to: 'under_review', by: ['system'] },
   resolve_release: { from: ['under_review'], to: 'completed', by: ['operator'] },
   resolve_refund: { from: ['under_review'], to: 'cancelled', by: ['operator'] },
 };

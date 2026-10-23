@@ -282,4 +282,51 @@ describe('OrdersService', () => {
     expect(rows.map((r) => r.action)).toEqual(['order.create', 'order.mark_paid', 'order.release']);
     await expect(db.query('DELETE FROM audit_logs')).rejects.toThrow(/append-only/);
   });
+
+  it('sends a paid order to review when the seller does not release within 10 minutes', async () => {
+    const { seller, buyer, ad } = await sellAdScenario();
+    const late = await orders.create(buyer, ad.id, CENTI);
+    const onTime = await orders.create(buyer, ad.id, CENTI);
+    const unpaid = await orders.create(buyer, ad.id, CENTI);
+    await orders.markPaid(late.id, buyer);
+    await orders.markPaid(onTime.id, buyer);
+
+    minutes(9);
+    expect(await orders.autoReviewDue()).not.toContain(late.id);
+    await orders.release(onTime.id, seller);
+    minutes(1);
+    const moved = await orders.autoReviewDue();
+    expect(moved).toContain(late.id);
+    expect(moved).not.toContain(onTime.id);
+    expect(moved).not.toContain(unpaid.id);
+    expect(await orders.get(late.id)).toMatchObject({ status: 'under_review', reviewSource: 'system', escalatedAt: clock });
+    expect(await escrow(seller)).toBe(2n * CENTI); // late + unpaid stay locked
+
+    const { rows } = await db.query(
+      `SELECT user_id, data->>'reason' AS reason FROM notifications WHERE type = 'order.under_review' AND data->>'orderId' = $1`,
+      [late.id],
+    );
+    expect(rows.map((r) => r.user_id).sort()).toEqual([buyer, seller].sort());
+    expect(rows.every((r) => r.reason === 'auto_review')).toBe(true);
+    const audit = await db.query(`SELECT actor_type FROM audit_logs WHERE target_id = $1 AND action = 'order.auto_review'`, [
+      late.id,
+    ]);
+    expect(audit.rows).toEqual([{ actor_type: 'system' }]);
+  });
+
+  it('uses the wait set by operators and records who escalated', async () => {
+    await db.query(`UPDATE ops_settings SET value = '30' WHERE key = 'orders.auto_review_minutes'`);
+    const { buyer, ad } = await sellAdScenario();
+    const order = await orders.create(buyer, ad.id, CENTI);
+    await orders.markPaid(order.id, buyer);
+    minutes(10);
+    expect(await orders.autoReviewDue()).not.toContain(order.id);
+    minutes(20);
+    expect(await orders.autoReviewDue()).toContain(order.id);
+    await db.query(`UPDATE ops_settings SET value = '10' WHERE key = 'orders.auto_review_minutes'`);
+
+    const other = await orders.create(buyer, ad.id, CENTI);
+    await orders.markPaid(other.id, buyer);
+    expect(await orders.escalate(other.id, buyer)).toMatchObject({ status: 'under_review', reviewSource: 'buyer' });
+  });
 });

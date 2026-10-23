@@ -52,6 +52,8 @@ export interface Order {
   completedAt: string | null;
   cancelledAt: string | null;
   createdAt?: string;
+  reviewSource?: 'buyer' | 'seller' | 'system' | null;
+  escalatedAt?: string | null;
 }
 
 export interface PaymentMethod {

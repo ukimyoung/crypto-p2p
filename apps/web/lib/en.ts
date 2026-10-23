@@ -54,8 +54,8 @@ export const EN: Record<string, string> = {
     'Transfer the exact amount from a bank account in your own name to the account below, then press "I\'ve paid". The seller\'s coins are locked in escrow.',
   '구매자의 이체를 기다리고 있습니다. 코인은 에스크로에 잠겨 있습니다. 입금을 계좌에서 확인하기 전에는 절대 코인을 넘기지 마세요.':
     "Waiting for the buyer's transfer. Your coins are locked in escrow. Never release them before you see the payment in your bank account.",
-  '판매자가 입금을 확인하면 코인이 내 지갑으로 들어옵니다. 오래 응답이 없으면 운영 검토를 요청할 수 있습니다.':
-    'The coins arrive in your wallet once the seller confirms your payment. If the seller does not respond for a long time, you can ask for a review.',
+  '판매자가 입금을 확인하면 코인이 내 지갑으로 들어옵니다. 판매자가 정해진 시간 안에 응답하지 않으면 주문이 자동으로 운영 검토로 넘어가고, 그 전에 직접 요청할 수도 있습니다.':
+    "When the seller confirms the payment, the coins arrive in your wallet. If the seller does not respond in time, the order goes to review on its own, and you can ask for review before that too.",
   '구매자가 이체했다고 표시했습니다. 은행 앱에서 입금자명과 금액을 직접 확인한 뒤 코인을 넘겨 주세요. 캡처 화면만 믿지 마세요.':
     'The buyer says they have paid. Check the sender name and amount in your banking app before you release the coins. Do not trust screenshots alone.',
   '운영팀이 확인하고 있습니다. 채팅에 증빙을 남겨 주세요.':
@@ -310,4 +310,6 @@ export const EN: Record<string, string> = {
     'Our team hid your {asset} ad. Open orders carry on.',
   '지금은 이 마켓에서 새 광고나 주문을 받지 않습니다.': 'This market is not taking new ads or orders right now.',
   '지금은 이 코인의 출금이 일시 중지되어 있습니다.': 'Withdrawals of this coin are paused right now.',
+  '판매자가 정해진 시간 안에 코인을 전달하지 않아 주문이 운영 검토로 넘어갔습니다. 채팅에 증빙을 남겨 주세요.':
+    'The seller did not release the coins in time, so the order went to review. Please add evidence in the chat.',
 };

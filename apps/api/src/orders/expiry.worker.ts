@@ -5,7 +5,8 @@ import { OrdersService } from './orders.service';
 
 /**
  * Cancels orders whose payment window ran out and returns the escrow to the
- * seller. Safe to run on several instances: each order is locked while it expires.
+ * seller, and sends paid orders the seller has not released in time to operator
+ * review. Safe to run on several instances: each order is locked while it changes.
  */
 @Injectable()
 export class OrderExpiryWorker implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -33,6 +34,8 @@ export class OrderExpiryWorker implements OnApplicationBootstrap, OnApplicationS
     try {
       const expired = await this.orders.expireDue();
       if (expired.length) this.logger.log(`Expired ${expired.length} unpaid order(s)`);
+      const reviewed = await this.orders.autoReviewDue();
+      if (reviewed.length) this.logger.log(`Sent ${reviewed.length} unreleased order(s) to review`);
     } catch (err) {
       this.logger.error(err);
     } finally {

@@ -8,6 +8,8 @@ const SETTINGS = {
   'billing.cycle': (v: unknown) => v === 'daily' || v === 'monthly',
   /** Days after issue until an invoice is due. */
   'billing.due_days': (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 60,
+  /** Minutes after "paid" before an order goes to operator review on its own. */
+  'orders.auto_review_minutes': (v: unknown) => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 1440,
 } as const;
 
 export type OpsSettingKey = keyof typeof SETTINGS;
@@ -28,6 +30,12 @@ export async function billingSettings(q: Db | Tx): Promise<BillingSettings> {
     cycle: s['billing.cycle'] === 'daily' ? 'daily' : 'monthly',
     dueDays: typeof s['billing.due_days'] === 'number' ? s['billing.due_days'] : 7,
   };
+}
+
+export async function autoReviewMinutes(q: Db | Tx): Promise<number> {
+  const s = await getSettings(q);
+  const v = s['orders.auto_review_minutes'];
+  return typeof v === 'number' ? v : 10;
 }
 
 /** Changes several settings at once. Each change is audited with its old value. */

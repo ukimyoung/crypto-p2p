@@ -33,4 +33,10 @@ describe('order state machine', () => {
     expect(nextStatus('paid', 'escalate', 'seller')).toBe('under_review');
     expect(() => nextStatus('pending_payment', 'escalate', 'buyer')).toThrow();
   });
+
+  it('lets only the system send an unreleased paid order to review', () => {
+    expect(nextStatus('paid', 'auto_review', 'system')).toBe('under_review');
+    expect(() => nextStatus('paid', 'auto_review', 'buyer')).toThrow(/cannot auto_review/);
+    expect(() => nextStatus('pending_payment', 'auto_review', 'system')).toThrow();
+  });
 });

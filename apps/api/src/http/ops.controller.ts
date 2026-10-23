@@ -20,7 +20,7 @@ import { BillingService } from '../fees/billing.service';
 import { feeRateOverview, MAX_FEE_RATE_BP, setFeeRate } from '../fees/fee-rates';
 import { DisputesService } from '../ops/disputes.service';
 import { listMarkets, setAssetStatus, setMarketStatus } from '../ops/markets';
-import { billingSettings, updateSettings } from '../ops/ops-settings';
+import { autoReviewMinutes, billingSettings, updateSettings } from '../ops/ops-settings';
 import { AD_SORTS, OpsTradesService } from '../ops/ops-trades.service';
 import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
 import { maskName, OpsService, USER_SORTS } from '../ops/ops.service';
@@ -60,6 +60,10 @@ const feeRateBody = z.object({
 const billingBody = z.object({
   cycle: z.enum(['daily', 'monthly']),
   dueDays: z.number().int().min(1).max(60),
+  reason: z.string().max(500),
+});
+const orderSettingsBody = z.object({
+  autoReviewMinutes: z.number().int().min(1).max(1440),
   reason: z.string().max(500),
 });
 const INVOICE_STATUSES = ['issued', 'partially_paid', 'paid', 'overdue'] as const;
@@ -181,11 +185,16 @@ export class OpsController {
 
   @Get('summary')
   async summary() {
-    const { rows } = await this.db.query<{ withdrawals: number; disputes: number }>(
+    const { rows } = await this.db.query<{ withdrawals: number; disputes: number; auto: number }>(
       `SELECT (SELECT count(*)::int FROM withdrawals WHERE status = 'requested') AS withdrawals,
-              (SELECT count(*)::int FROM orders WHERE status = 'under_review') AS disputes`,
+              (SELECT count(*)::int FROM orders WHERE status = 'under_review') AS disputes,
+              (SELECT count(*)::int FROM orders WHERE status = 'under_review' AND review_source = 'system') AS auto`,
     );
-    return { pendingWithdrawals: rows[0]!.withdrawals, openDisputes: rows[0]!.disputes };
+    return {
+      pendingWithdrawals: rows[0]!.withdrawals,
+      openDisputes: rows[0]!.disputes,
+      autoReviewDisputes: rows[0]!.auto,
+    };
   }
 
   // Withdrawals ---------------------------------------------------------------
@@ -384,6 +393,21 @@ export class OpsController {
       operator.id,
     );
     return { change };
+  }
+
+  @Get('settings/orders')
+  async orderSettings() {
+    return { orders: { autoReviewMinutes: await autoReviewMinutes(this.db) } };
+  }
+
+  /** How long after "paid" an unreleased order waits before going to review (OPR-3). */
+  @Put('settings/orders')
+  async setOrderSettings(@CurrentOperator() operator: Operator, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const { autoReviewMinutes: minutes, reason } = parse(orderSettingsBody, body);
+    await updateSettings(this.db, { 'orders.auto_review_minutes': minutes }, operator.id, reason);
+    return { orders: { autoReviewMinutes: await autoReviewMinutes(this.db) } };
   }
 
   @Get('settings/billing')
