@@ -8,7 +8,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    # Render builds as a non-root user, so `corepack enable` cannot link pnpm
+    # into Node's bin folder. Run the pinned pnpm through npx instead.
+    buildCommand: npx --yes pnpm@10.28.0 install --frozen-lockfile && npx --yes pnpm@10.28.0 -r build
     startCommand: ./scripts/hosted-demo-start.sh
     healthCheckPath: /
     envVars:
