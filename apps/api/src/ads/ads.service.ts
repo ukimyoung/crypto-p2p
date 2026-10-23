@@ -1,6 +1,8 @@
 import { DomainError } from '../common/errors';
 import { writeAudit } from '../common/audit';
 import { Db, withTransaction } from '../db/database';
+import { NOT_ON_FEE_HOLD, onFeeHold } from '../fees/billing.service';
+import { currentFeeRate, finalPrice } from '../fees/fee-rates';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
 
 export interface CreateAdInput {
@@ -36,6 +38,12 @@ export interface Ad {
   paymentMethodId: string | null;
 }
 
+/** An ad as the market shows it: the maker's price plus the fee. */
+export interface MarketAd extends Ad {
+  feeRateBp: number;
+  finalPriceMinor: bigint;
+}
+
 export class AdsService {
   constructor(
     private readonly db: Db,
@@ -54,6 +62,9 @@ export class AdsService {
       throw new DomainError('invalid_request', 'A buy ad pays to the seller, so it takes no payment method');
     }
     return withTransaction(this.db, async (tx) => {
+      if (await onFeeHold(tx, input.makerId)) {
+        throw new DomainError('fee_overdue', 'Pay the overdue ad fee before posting a new ad');
+      }
       if (input.paymentMethodId) {
         await this.payments.assertUsable(tx, input.makerId, input.paymentMethodId, input.fiat);
       }
@@ -85,17 +96,29 @@ export class AdsService {
 
   /**
    * Market list (AD-1). `side` is the maker's side: a buyer browses `sell` ads.
-   * Best price first: cheapest sell ads, highest buy ads.
+   * Best price first: cheapest sell ads, highest buy ads. One market has one fee rate,
+   * so ordering by the maker's price orders by the final price too. Ads of makers with
+   * an overdue fee invoice are left out (FEE-8).
    */
-  async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<Ad[]> {
+  async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<MarketAd[]> {
+    const feeRateBp = await currentFeeRate(this.db, filter.asset, filter.fiat);
     const { rows } = await this.db.query(
       `SELECT * FROM ads
        WHERE asset = $1 AND fiat = $2 AND side = $3 AND status = 'online' AND remaining_amount > 0
+         AND ${NOT_ON_FEE_HOLD('ads')}
        ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, created_at
        LIMIT $4`,
       [filter.asset, filter.fiat, filter.side, Math.min(filter.limit ?? 50, 100)],
     );
-    return rows.map(toAd);
+    return rows.map((row) => {
+      const ad = toAd(row);
+      return { ...ad, feeRateBp, finalPriceMinor: finalPrice(ad.priceMinor, feeRateBp) };
+    });
+  }
+
+  /** The maker fee rate in force for a market, for the ad form's price preview. */
+  feeRate(asset: string, fiat: string): Promise<number> {
+    return currentFeeRate(this.db, asset, fiat);
   }
 }
 

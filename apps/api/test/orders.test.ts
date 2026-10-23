@@ -8,7 +8,8 @@ import { addBankAccount, BTC, createUser, deposit, setupDb, testSecretBox } from
 
 const PRICE = 100_000_000n; // 100,000,000 KRW per BTC
 const CENTI = BTC / 100n; // 0.01 BTC = 1,000,000 KRW at PRICE
-const FEE_BPS = 10; // 0.1%
+const FEE_BP = 25; // 0.25%, in 0.01% units
+const FEE = 2_500n; // 0.25% of 1,000,000 KRW
 
 describe('OrdersService', () => {
   let db: Db;
@@ -56,7 +57,11 @@ describe('OrdersService', () => {
     db = await setupDb();
     payments = new PaymentMethodsService(db, testSecretBox(), { cooldownHours: 0 }, () => clock);
     ads = new AdsService(db, payments);
-    orders = new OrdersService(db, ledger, payments, { makerFeeBps: FEE_BPS }, () => clock);
+    orders = new OrdersService(db, ledger, payments, () => clock);
+    await db.query(
+      `INSERT INTO fee_rates (asset, fiat, rate_bp, effective_from, reason) VALUES ('BTC', 'KRW', $1, '2026-01-01', 'test')`,
+      [FEE_BP],
+    );
   });
   beforeEach(() => {
     clock = new Date('2026-10-22T00:00:00Z');
@@ -70,17 +75,21 @@ describe('OrdersService', () => {
     const { seller, buyer, ad } = await sellAdScenario();
 
     const order = await orders.create(buyer, ad.id, CENTI);
-    const fee = (CENTI * BigInt(FEE_BPS)) / 10_000n;
+    // The fee is added to the price and paid in KRW; no coins are taken.
     expect(order).toMatchObject({
       status: 'pending_payment',
       buyerId: buyer,
       sellerId: seller,
-      fiatAmountMinor: 1_000_000n,
-      feeAmount: fee,
-      escrowAmount: CENTI + fee,
+      basePriceMinor: PRICE,
+      priceMinor: 100_250_000n,
+      feeRateBp: FEE_BP,
+      feeFiatMinor: FEE,
+      fiatAmountMinor: 1_000_000n + FEE,
+      feeAmount: 0n,
+      escrowAmount: CENTI,
     });
-    expect(await escrow(seller)).toBe(CENTI + fee);
-    expect(await available(seller)).toBe(2n * BTC - CENTI - fee);
+    expect(await escrow(seller)).toBe(CENTI);
+    expect(await available(seller)).toBe(2n * BTC - CENTI);
     expect(await remaining(ad.id)).toBe(BTC - CENTI);
 
     minutes(5);
@@ -90,10 +99,10 @@ describe('OrdersService', () => {
     expect(done.status).toBe('completed');
     expect(await available(buyer)).toBe(CENTI);
     expect(await escrow(seller)).toBe(0n);
-    expect(await feeRevenue()).toBe(fee);
+    expect(await feeRevenue()).toBe(0n);
   });
 
-  it('on a buy ad the taker sells, and the buying maker pays the fee', async () => {
+  it('on a buy ad the taker sells, and the buying maker pays the fee in KRW', async () => {
     const maker = await createUser(db);
     const taker = await createUser(db);
     await deposit(db, ledger, taker, 'BTC', BTC);
@@ -103,14 +112,20 @@ describe('OrdersService', () => {
     await expect(orders.create(taker, ad.id, CENTI)).rejects.toMatchObject({ code: 'payment_method_required' });
     const takerAccount = await addBankAccount(db, payments, taker);
     const order = await orders.create(taker, ad.id, CENTI, takerAccount);
-    expect(order).toMatchObject({ buyerId: maker, sellerId: taker, escrowAmount: CENTI, sellerPaymentMethodId: takerAccount });
+    expect(order).toMatchObject({
+      buyerId: maker,
+      sellerId: taker,
+      escrowAmount: CENTI,
+      sellerPaymentMethodId: takerAccount,
+      fiatAmountMinor: 1_000_000n + FEE,
+      feeFiatMinor: FEE,
+    });
     await orders.markPaid(order.id, maker);
     await orders.release(order.id, taker);
 
-    const fee = (CENTI * BigInt(FEE_BPS)) / 10_000n;
-    expect(await available(maker)).toBe(CENTI - fee);
+    expect(await available(maker)).toBe(CENTI);
     expect(await available(taker)).toBe(BTC - CENTI);
-    expect((await feeRevenue()) - feeBefore).toBe(fee);
+    expect((await feeRevenue()) - feeBefore).toBe(0n);
   });
 
   it('buyer cancel returns escrow to the seller and the amount to the ad', async () => {
@@ -223,8 +238,8 @@ describe('OrdersService', () => {
   });
 
   it('never oversells an ad or the seller balance under concurrent orders', async () => {
-    // Seller can fund at most 5 orders of 0.01 BTC (+fee) but the ad offers 1 BTC.
-    const { seller, ad } = await sellAdScenario(5n * CENTI + 5n * ((CENTI * BigInt(FEE_BPS)) / 10_000n));
+    // Seller can fund at most 5 orders of 0.01 BTC but the ad offers 1 BTC.
+    const { seller, ad } = await sellAdScenario(5n * CENTI);
     const buyers = await Promise.all(Array.from({ length: 12 }, () => createUser(db)));
 
     const results = await Promise.allSettled(buyers.map((b) => orders.create(b, ad.id, CENTI)));
@@ -246,10 +261,9 @@ describe('OrdersService', () => {
 
     expect([release.status, cancel.status].filter((s) => s === 'fulfilled')).toHaveLength(1);
     const final = await orders.get(order.id);
-    const fee = (CENTI * BigInt(FEE_BPS)) / 10_000n;
     if (final?.status === 'completed') {
       expect(await available(buyer)).toBe(CENTI);
-      expect(await available(seller)).toBe(2n * BTC - CENTI - fee);
+      expect(await available(seller)).toBe(2n * BTC - CENTI);
     } else {
       expect(final?.status).toBe('cancelled');
       expect(await available(buyer)).toBe(0n);

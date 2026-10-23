@@ -44,7 +44,7 @@ async function seed(db: Db, secrets: SecretBox) {
   const ledger = new LedgerService();
   const payments = new PaymentMethodsService(db, secrets, { cooldownHours: 0 });
   const ads = new AdsService(db, payments);
-  const orders = new OrdersService(db, ledger, payments, { makerFeeBps: 0 });
+  const orders = new OrdersService(db, ledger, payments);
   const chat = new OrderChatService(db);
   const wallet = new WalletService(db, ledger, { addressCooldownHours: 0 });
   const passwordHash = await hashPassword(DEMO_PASSWORD);

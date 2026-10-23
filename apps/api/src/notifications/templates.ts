@@ -14,7 +14,11 @@ export type NotificationType =
   | 'withdrawal.sent'
   | 'withdrawal.confirmed'
   | 'withdrawal.failed'
-  | 'account.status_changed';
+  | 'account.status_changed'
+  | 'fee.invoice_issued'
+  | 'fee.invoice_due_soon'
+  | 'fee.invoice_overdue'
+  | 'fee.invoice_paid';
 
 export type Locale = 'ko' | 'en';
 
@@ -26,6 +30,15 @@ interface Template {
 }
 
 const orderRef = (d: Data) => (d.orderId ?? '').slice(0, 8);
+
+/** Fiat amounts in fee notifications are minor-unit strings; KRW has no minor unit. */
+const money = (d: Data, locale: Locale) => {
+  const n = Number(d.amountMinor ?? 0) / (d.fiat === 'KRW' ? 1 : 100);
+  return locale === 'ko' && d.fiat === 'KRW' ? `${n.toLocaleString('ko-KR')}원` : `${n.toLocaleString('en-US')} ${d.fiat}`;
+};
+/** Due date (end of the day, Korea time) as YYYY-MM-DD. */
+const dueDate = (d: Data) =>
+  d.dueAt ? new Date(new Date(d.dueAt).getTime() - 1).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }) : '-';
 
 /** Types not listed here are in-app only (chat messages, for instance). */
 const EMAIL: Partial<Record<NotificationType, Record<Locale, Template>>> = {
@@ -119,6 +132,46 @@ const EMAIL: Partial<Record<NotificationType, Record<Locale, Template>>> = {
     en: {
       subject: () => '[P2P] Your account access changed',
       body: () => 'The status of your account changed. Please contact support for details.',
+    },
+  },
+  'fee.invoice_issued': {
+    ko: {
+      subject: () => '[P2P] 광고 수수료 청구서가 발행되었습니다',
+      body: (d) => `광고 수수료 ${money(d, 'ko')}이 청구되었습니다. 납부 기한: ${dueDate(d)}. 기한까지 납부하지 않으면 광고가 노출되지 않습니다.`,
+    },
+    en: {
+      subject: () => '[P2P] New ad fee invoice',
+      body: (d) => `You have an ad fee invoice for ${money(d, 'en')}, due ${dueDate(d)}. If it is not paid by then, your ads are hidden.`,
+    },
+  },
+  'fee.invoice_due_soon': {
+    ko: {
+      subject: () => '[P2P] 광고 수수료 납부 기한이 다가옵니다',
+      body: (d) => `미납 광고 수수료 ${money(d, 'ko')}의 납부 기한은 ${dueDate(d)}입니다. 기한이 지나면 광고가 노출되지 않습니다.`,
+    },
+    en: {
+      subject: () => '[P2P] Ad fee due soon',
+      body: (d) => `${money(d, 'en')} in ad fees is due ${dueDate(d)}. After that, your ads are hidden.`,
+    },
+  },
+  'fee.invoice_overdue': {
+    ko: {
+      subject: () => '[P2P] 광고 수수료가 연체되었습니다',
+      body: (d) => `광고 수수료 ${money(d, 'ko')}이 납부 기한을 넘겼습니다. 완납할 때까지 광고가 노출되지 않고 새 광고를 등록할 수 없습니다.`,
+    },
+    en: {
+      subject: () => '[P2P] Ad fee overdue',
+      body: (d) => `${money(d, 'en')} in ad fees is past due. Until it is paid, your ads are hidden and you cannot post new ones.`,
+    },
+  },
+  'fee.invoice_paid': {
+    ko: {
+      subject: () => '[P2P] 광고 수수료 납부가 확인되었습니다',
+      body: () => '광고 수수료 납부를 확인했습니다. 감사합니다.',
+    },
+    en: {
+      subject: () => '[P2P] Ad fee payment received',
+      body: () => 'We received your ad fee payment. Thank you.',
     },
   },
 };

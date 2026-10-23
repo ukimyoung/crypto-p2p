@@ -40,6 +40,13 @@ export class AdsController {
     return { ads: await this.ads.list(parse(listQuery, query)) };
   }
 
+  /** Maker fee rate of a market, in 0.01% units. */
+  @Get('fee-rate')
+  async feeRate(@Query() query: unknown) {
+    const { asset, fiat } = parse(z.object({ asset: z.string(), fiat: z.string() }), query);
+    return { asset, fiat, feeRateBp: await this.ads.feeRate(asset, fiat) };
+  }
+
   @Post()
   @UseGuards(AuthGuard)
   async create(@CurrentUser() userId: string, @Body() body: unknown) {

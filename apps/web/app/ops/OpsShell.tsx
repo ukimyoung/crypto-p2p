@@ -23,6 +23,7 @@ const LINKS = [
   ['/ops/withdrawals', '출금 검토'],
   ['/ops/disputes', '분쟁'],
   ['/ops/users', '회원'],
+  ['/ops/fees', '수수료 청구'],
   ['/ops/settings', '정책 설정'],
   ['/ops/audit', '감사 로그'],
 ] as const;

@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
 import type { Ad, Me, Order, PaymentMethod } from '@/lib/types';
-import { ASSETS, AssetCode, fiatFor, formatKrw, formatUnits, parseUnits } from '@/lib/units';
+import { ASSETS, AssetCode, formatKrw, formatRate, formatUnits, orderCost, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
 type Mode = 'buy' | 'sell';
@@ -75,8 +75,11 @@ export default function MarketPage() {
           <div key={ad.id}>
             <div className="ad">
               <div>
-                <div className="price">{formatKrw(ad.priceMinor, locale)}</div>
-                <div className="muted small-text">{t('1 {asset} 가격', { asset: ad.asset })}</div>
+                <div className="price">{formatKrw(ad.finalPriceMinor ?? ad.priceMinor, locale)}</div>
+                <div className="muted small-text">
+                  {t('1 {asset} 가격', { asset: ad.asset })}
+                  {ad.feeRateBp ? <> · {t('수수료 {rate} 포함', { rate: formatRate(ad.feeRateBp) })}</> : null}
+                </div>
               </div>
               <div className="small-text">
                 <div>
@@ -134,7 +137,7 @@ function OrderForm({ ad, mode, me }: { ad: Ad; mode: Mode; me: Me }) {
   }, [mode, me.otpEnabled]);
 
   const units = parseUnits(amount, decimals);
-  const cost = units ? fiatFor(units, BigInt(ad.priceMinor), decimals) : null;
+  const cost = units ? orderCost(units, BigInt(ad.priceMinor), ad.feeRateBp ?? 0, decimals) : null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();

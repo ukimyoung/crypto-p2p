@@ -9,8 +9,6 @@ import { addBankAccount, BTC, createUser, deposit, setupDb, TEST_DATABASE_URL, t
 
 const PRICE = 100_000_000n; // 100,000,000 KRW per BTC
 const CENTI = BTC / 100n; // 0.01 BTC = 1,000,000 KRW at PRICE
-const FEE_BPS = 10;
-const fee = (amount: bigint) => (amount * BigInt(FEE_BPS)) / 10_000n;
 
 /** Order states that still hold (or have consumed) part of the ad. */
 const RESERVING = ['pending_payment', 'paid', 'under_review', 'completed'];
@@ -110,7 +108,7 @@ describe('Concurrent orders against one ad', () => {
     db = await setupDb();
     payments = new PaymentMethodsService(db, testSecretBox(), { cooldownHours: 0 }, () => clock);
     ads = new AdsService(db, payments);
-    orders = new OrdersService(db, ledger, payments, { makerFeeBps: FEE_BPS }, () => clock);
+    orders = new OrdersService(db, ledger, payments, () => clock);
   });
   afterAll(async () => {
     expect(await ledger.findMismatchedAccounts(db)).toEqual([]);
@@ -132,7 +130,7 @@ describe('Concurrent orders against one ad', () => {
     for (const err of failed) expect(err).toMatchObject({ code: 'insufficient_ad_amount' });
     expect(await remaining(ad.id)).toBe(0n);
     expect(await reserved(ad.id)).toBe(5n * CENTI);
-    expect(await escrow(seller)).toBe(5n * (CENTI + fee(CENTI)));
+    expect(await escrow(seller)).toBe(5n * CENTI);
   });
 
   it('never reserves more than the ad holds with uneven order sizes', async () => {

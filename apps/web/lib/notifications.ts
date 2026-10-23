@@ -12,6 +12,9 @@ const USER_STATUS_TEXT: Record<string, string> = {
   closed: '계정이 해지되었습니다.',
 };
 
+const feeAmount = (d: Notification['data'], locale: Locale) =>
+  d.fiat === 'KRW' || !d.fiat ? formatKrw(d.amountMinor ?? '0', locale) : `${d.amountMinor} ${d.fiat}`;
+
 /** One-line text and a link for an in-app notification, in the viewer's language. */
 export function describe(n: Notification, locale: Locale = 'ko'): { text: string; href: string | null } {
   const d = n.data;
@@ -58,6 +61,23 @@ export function describe(n: Notification, locale: Locale = 'ko'): { text: string
       return { text: t('출금이 완료되었습니다: {coins}', amount), href: '/wallet' };
     case 'withdrawal.failed':
       return { text: t('출금을 보내지 못해 잔고로 돌려드렸습니다: {coins}', amount), href: '/wallet' };
+    case 'fee.invoice_issued':
+      return { text: t('광고 수수료 {krw}이 청구되었습니다.', { krw: feeAmount(d, locale) }), href: '/fees' };
+    case 'fee.invoice_due_soon':
+      return {
+        text:
+          d.when === 'today'
+            ? t('오늘이 광고 수수료 {krw}의 납부 기한입니다.', { krw: feeAmount(d, locale) })
+            : t('내일이 광고 수수료 {krw}의 납부 기한입니다.', { krw: feeAmount(d, locale) }),
+        href: '/fees',
+      };
+    case 'fee.invoice_overdue':
+      return {
+        text: t('광고 수수료 {krw}이 연체되어 광고가 노출되지 않습니다.', { krw: feeAmount(d, locale) }),
+        href: '/fees',
+      };
+    case 'fee.invoice_paid':
+      return { text: t('광고 수수료 납부가 확인되었습니다.'), href: '/fees' };
     case 'account.status_changed':
       return { text: t(USER_STATUS_TEXT[d.status ?? ''] ?? '계정 상태가 변경되었습니다.'), href: '/account' };
     default:

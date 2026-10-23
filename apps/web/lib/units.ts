@@ -35,3 +35,33 @@ export function formatKrw(value: bigint | string, locale: 'ko' | 'en' = 'ko'): s
 export function fiatFor(amount: bigint, priceMinor: bigint, decimals: number): bigint {
   return (amount * priceMinor) / 10n ** BigInt(decimals);
 }
+
+/** Maker fee on `fiatMinor` at `rateBp` (0.01% units), rounded up like the API. */
+export function feeOn(fiatMinor: bigint, rateBp: number): bigint {
+  return (fiatMinor * BigInt(rateBp) + 9_999n) / 10_000n;
+}
+
+/** What the buyer pays for `amount` coins: the coins' value at the maker's price plus the fee. */
+export function orderCost(amount: bigint, priceMinor: bigint, rateBp: number, decimals: number): bigint {
+  const base = fiatFor(amount, priceMinor, decimals);
+  return base + feeOn(base, rateBp);
+}
+
+/** 25 -> "0.25%". */
+export function formatRate(rateBp: number): string {
+  return `${(rateBp / 100).toFixed(2)}%`;
+}
+
+/** "0.25" (percent) -> 25. Null unless it is 0.00 to 10.00 with at most two decimals. */
+export function parseRate(input: string): number | null {
+  const s = input.trim().replace(/%$/, '');
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(s)) return null;
+  const [whole = '0', frac = ''] = s.split('.');
+  const bp = Number(whole) * 100 + Number(frac.padEnd(2, '0'));
+  return bp <= 1000 ? bp : null;
+}
+
+/** Korea-time calendar date of an instant, as YYYY-MM-DD. Period and due ends are exclusive, so pass `end` to step back a moment. */
+export function kstDate(iso: string, end = false): string {
+  return new Date(new Date(iso).getTime() - (end ? 1 : 0)).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+}

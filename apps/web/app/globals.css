@@ -520,3 +520,27 @@ ul.notifications li.unread {
 .settings-form button {
   margin-top: 12px;
 }
+
+.badge.invoice-issued,
+.badge.invoice-partially_paid {
+  background: var(--accent);
+  color: #fff;
+}
+
+.badge.invoice-paid {
+  background: var(--buy);
+  color: #fff;
+}
+
+.badge.invoice-overdue {
+  background: var(--sell);
+  color: #fff;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}

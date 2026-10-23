@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import type { WithdrawalRules } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
+import { BillingForm, FeeRates } from './FeeSettings';
 
 /** KYC levels that get a daily limit field. A level left empty cannot withdraw. */
 const KYC_LEVELS = [1, 2];
@@ -31,6 +32,14 @@ export default function OpsSettingsPage() {
   return (
     <>
       <h1>정책 설정</h1>
+      <section className="card">
+        <h2>광고 수수료율</h2>
+        <FeeRates />
+      </section>
+      <section className="card">
+        <h2>수수료 청구</h2>
+        <BillingForm />
+      </section>
       <section className="card">
         <h2>출금 수수료와 한도</h2>
         <p className="muted small-text">

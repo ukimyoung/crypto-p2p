@@ -49,7 +49,7 @@ describe('payment methods, order chat and expiry', () => {
     const now = () => clock;
     payments = new PaymentMethodsService(db, testSecretBox(), { cooldownHours: COOLDOWN_HOURS }, now);
     ads = new AdsService(db, payments);
-    orders = new OrdersService(db, ledger, payments, { makerFeeBps: 0 }, now);
+    orders = new OrdersService(db, ledger, payments, now);
     chat = new OrderChatService(db, now);
   });
   beforeEach(() => {
