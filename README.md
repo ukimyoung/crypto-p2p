@@ -37,6 +37,27 @@ docker compose exec api node dist/demo/otp-cli.js
 
 처음 상태로 되돌리려면 `docker compose down -v` 후 다시 `docker compose up`을 실행합니다. 데모 설정(공개된 암호화 키와 OTP 키, 대기 시간 0)은 체험용이므로 실제 서비스에 쓰지 마세요.
 
+### Docker 없이 인터넷에 띄우기 (Supabase + Render)
+
+DB는 Supabase, 서버는 Render 무료 플랜에 올립니다. 저장소의 `render.yaml`이 API와 웹을 서비스 하나로 띄우고, 처음 뜰 때 위 데모 계정과 데이터를 넣습니다.
+
+1. [Supabase](https://supabase.com)에서 새 프로젝트를 만듭니다. 리전은 Seoul(ap-northeast-2)이 가깝습니다. DB 비밀번호를 정해 둡니다.
+2. 프로젝트 상단 **Connect** 버튼에서 **Session pooler** 주소를 복사하고, `[YOUR-PASSWORD]`를 1번에서 정한 비밀번호로 바꿉니다. Render는 IPv4만 쓰므로 Direct connection 주소는 쓸 수 없습니다.
+3. [Render](https://render.com)에 GitHub 계정으로 가입하고 **New → Blueprint**에서 이 저장소를 고릅니다.
+4. `DATABASE_URL`을 물으면 2번 주소를 붙여 넣고 **Apply**를 누릅니다. 첫 빌드는 5분 남짓 걸립니다.
+5. 배포가 끝나면 `https://crypto-p2p-demo-xxxx.onrender.com` 같은 주소가 생깁니다. 운영 콘솔은 그 주소 뒤에 `/ops`입니다.
+
+Render 무료 플랜에서는 명령을 실행할 수 없으므로, OTP 코드는 휴대폰 인증 앱(Google Authenticator 등)에 아래 키를 직접 입력해 받습니다. 키 출처는 `apps/api/src/demo/accounts.ts`입니다.
+
+| 계정 | OTP 키 |
+| --- | --- |
+| `seller@demo.test` | `DEMOSELLERDEMOSELLERDEMOSELLER22` |
+| `buyer@demo.test` | `DEMOBUYERDEMOBUYERDEMOBUYERDEMO2` |
+| `reviewer1@demo.test` | `DEMOREVIEWERONEDEMOREVIEWERONE22` |
+| `reviewer2@demo.test` | `DEMOREVIEWERTWODEMOREVIEWERTWO22` |
+
+무료 플랜은 15분 동안 접속이 없으면 잠들고, 다음 접속 때 30초쯤 걸려 깨어납니다. 주소를 아는 사람은 누구나 공개된 데모 계정으로 들어올 수 있으니 실제 고객 정보나 돈은 넣지 마세요.
+
 ## 개발 환경
 
 필요한 것: Node.js 22 이상, pnpm 10, PostgreSQL 16.
