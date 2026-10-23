@@ -93,7 +93,7 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/ops/auth/logout` | 모두 | |
 | POST | `/ops/auth/step-up` | 모두 | `{ otp }`. 새 OTP 코드로 이 세션의 민감 동작을 5분 동안 허용. 로그인에 쓴 코드는 다시 못 씀 |
 | GET | `/ops/me` | 모두 | 로그인한 운영자와 `stepUpUntil` |
-| GET | `/ops/summary` | 모두 | 검토 대기 출금 수, 진행 중 분쟁 수 |
+| GET | `/ops/summary` | 모두 | 검토 대기 출금 수, 진행 중 분쟁 수, 그중 자동 전환 수 |
 | GET | `/ops/withdrawals?status=` | 모두 | 상태별 출금(기본 `requested`), 오래된 순 |
 | POST | `/ops/withdrawals/:id/approve` | reviewer | OTP 재확인(step-up) 필요 |
 | POST | `/ops/withdrawals/:id/reject` | reviewer | `{ note }`. 사유는 이용자에게 보임 |
@@ -117,6 +117,8 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 빠진 KYC 단계는 출금 불가. step-up 필요 |
 | GET | `/ops/settings/fee-rates` | 모두 | 기본 요율, 마켓별 지금 요율, 예약된 변경, 변경 이력 |
 | POST | `/ops/settings/fee-rates` | reviewer | `{ asset?, fiat?, rateBp, effectiveFrom?, reason }`. 둘 다 빼면 기본 요율. 마켓에 `rateBp: null`이면 기본 요율로 되돌림. step-up 필요 |
+| GET | `/ops/settings/orders` | 모두 | `{ autoReviewMinutes }` |
+| PUT | `/ops/settings/orders` | reviewer | `{ autoReviewMinutes: 1~1440, reason }`. 결제 완료 후 이 시간 동안 릴리즈가 없으면 자동 운영 검토. step-up 필요 |
 | GET | `/ops/settings/billing` | 모두 | `{ cycle: daily \| monthly, dueDays }` |
 | PUT | `/ops/settings/billing` | reviewer | `{ cycle, dueDays, reason }`. step-up 필요 |
 | GET | `/ops/fees/summary?from=&to=` | 모두 | 기간(기본 이번 달) 확정·청구 전·납부 합계, 전체 미납·연체, 미납 광고주, 코인별 출금 수수료 누적 |

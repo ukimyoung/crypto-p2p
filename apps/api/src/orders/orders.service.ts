@@ -5,6 +5,7 @@ import { Db, Tx, withTransaction } from '../db/database';
 import { NOT_ON_FEE_HOLD } from '../fees/billing.service';
 import { currentFeeRate, feeOn, finalPrice } from '../fees/fee-rates';
 import { assertCanTrade } from '../ops/markets';
+import { autoReviewMinutes } from '../ops/ops-settings';
 import { LedgerService, Posting } from '../ledger/ledger.service';
 import { notify } from '../notifications/notify';
 import { NotificationType } from '../notifications/templates';
@@ -41,6 +42,9 @@ export interface Order {
   createdAt: Date;
   cancelReason: string | null;
   sellerPaymentMethodId: string;
+  /** Who sent the order to review: a party, or the system after the wait ran out. */
+  reviewSource: 'buyer' | 'seller' | 'system' | null;
+  escalatedAt: Date | null;
 }
 
 /**
@@ -187,6 +191,32 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Sends orders to operator review when the seller has not released them within the
+   * set time (default 10 minutes) after the buyer marked them paid (ORD-3). Run by a
+   * scheduled worker; both parties are notified.
+   */
+  async autoReviewDue(): Promise<string[]> {
+    const minutes = await autoReviewMinutes(this.db);
+    const cutoff = new Date(this.now().getTime() - minutes * 60_000);
+    const { rows } = await this.db.query<{ id: string }>(
+      `SELECT id FROM orders WHERE status = 'paid' AND paid_at <= $1 ORDER BY paid_at`,
+      [cutoff],
+    );
+    const moved: string[] = [];
+    for (const { id } of rows) {
+      try {
+        await this.apply(id, 'auto_review', { type: 'system' });
+        moved.push(id);
+      } catch (err) {
+        // The seller released or a party escalated in the meantime.
+        if (err instanceof DomainError && err.code === 'invalid_transition') continue;
+        throw err;
+      }
+    }
+    return moved;
+  }
+
   /** Cancels every order whose payment window has passed. Run by a scheduled worker. */
   async expireDue(): Promise<string[]> {
     const { rows } = await this.db.query<{ id: string }>(
@@ -266,10 +296,12 @@ export class OrdersService {
          paid_at = CASE WHEN $2 = 'paid' THEN $3 ELSE paid_at END,
          completed_at = CASE WHEN $2 = 'completed' THEN $3 ELSE completed_at END,
          cancelled_at = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancelled_at END,
-         cancel_reason = CASE WHEN $2 = 'cancelled' THEN $4 ELSE cancel_reason END
+         cancel_reason = CASE WHEN $2 = 'cancelled' THEN $4 ELSE cancel_reason END,
+         review_source = CASE WHEN $2 = 'under_review' THEN $5 ELSE review_source END,
+         escalated_at = CASE WHEN $2 = 'under_review' THEN $3 ELSE escalated_at END
        WHERE id = $1
        RETURNING *`,
-      [orderId, status, now, event],
+      [orderId, status, now, event, role],
     );
     const after = toOrder(updated.rows[0]);
 
@@ -366,6 +398,8 @@ function toOrder(row: any): Order {
     createdAt: row.created_at,
     cancelReason: row.cancel_reason,
     sellerPaymentMethodId: row.seller_payment_method_id,
+    reviewSource: row.review_source ?? null,
+    escalatedAt: row.escalated_at ?? null,
   };
 }
 

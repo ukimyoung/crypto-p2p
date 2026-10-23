@@ -43,7 +43,13 @@ export function describe(n: Notification, locale: Locale = 'ko'): { text: string
         href: order,
       };
     case 'order.under_review':
-      return { text: t('주문이 운영 검토로 넘어갔습니다. 채팅에 증빙을 남겨 주세요.'), href: order };
+      return {
+        text:
+          d.reason === 'auto_review'
+            ? t('판매자가 정해진 시간 안에 코인을 전달하지 않아 주문이 운영 검토로 넘어갔습니다. 채팅에 증빙을 남겨 주세요.')
+            : t('주문이 운영 검토로 넘어갔습니다. 채팅에 증빙을 남겨 주세요.'),
+        href: order,
+      };
     case 'order.message':
       return { text: t('주문 채팅에 새 메시지가 있습니다.'), href: order };
     case 'withdrawal.approved':

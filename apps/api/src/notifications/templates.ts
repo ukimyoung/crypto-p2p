@@ -88,11 +88,15 @@ const EMAIL: Partial<Record<NotificationType, Record<Locale, Template>>> = {
   'order.under_review': {
     ko: {
       subject: (d) => `[P2P] 주문이 운영 검토로 넘어갔습니다 (${orderRef(d)})`,
-      body: () => '운영팀이 거래 내용을 확인합니다. 주문 채팅에 이체 확인증 등 증빙을 남겨 주세요.',
+      body: (d) =>
+        (d.reason === 'auto_review' ? '판매자가 정해진 시간 안에 코인을 전달하지 않았습니다. ' : '') +
+        '운영팀이 거래 내용을 확인합니다. 주문 채팅에 이체 확인증 등 증빙을 남겨 주세요.',
     },
     en: {
       subject: (d) => `[P2P] Order sent to review (${orderRef(d)})`,
-      body: () => 'Our team will look into this trade. Please add evidence, such as a transfer receipt, in the order chat.',
+      body: (d) =>
+        (d.reason === 'auto_review' ? 'The seller did not release the coins in time. ' : '') +
+        'Our team will look into this trade. Please add evidence, such as a transfer receipt, in the order chat.',
     },
   },
   'withdrawal.rejected': {

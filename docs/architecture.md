@@ -25,11 +25,13 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 | `cancel` | 구매자 | `pending_payment` | `cancelled` | 에스크로 → 판매자 가용 |
 | `expire` | 시스템 | `pending_payment` (기한 초과) | `cancelled` | 에스크로 → 판매자 가용 |
 | `escalate` | 구매자, 판매자 | `paid` | `under_review` | 변화 없음 |
+| `auto_review` | 시스템 | `paid` (정해진 시간 동안 릴리즈 없음) | `under_review` | 변화 없음 |
 | `resolve_release` | 운영자 | `under_review` | `completed` | 에스크로 → 구매자 가용 |
 | `resolve_refund` | 운영자 | `under_review` | `cancelled` | 에스크로 → 판매자 가용 |
 
 - 판매자는 구매자가 결제 완료를 누르기 전에도 입금을 확인했다면 릴리즈할 수 있습니다.
 - 구매자는 결제 완료를 누른 뒤에는 취소할 수 없습니다. 이후 분쟁은 운영 검토로 갑니다.
+- 구매자가 결제 완료를 누른 뒤 `orders.auto_review_minutes`(기본 10분, `정책 설정`에서 변경) 안에 판매자가 릴리즈하지 않으면 주문 만료 워커가 `auto_review`로 운영 검토에 넘기고 두 당사자에게 알립니다. 누가 검토로 보냈는지는 `review_source`(`buyer`, `seller`, `system`)와 `escalated_at`에 남고, 분쟁 목록과 대시보드에 `자동 전환`으로 표시됩니다.
 - 정산 분개는 주문당 `order:{id}:settle` 키 하나를 씁니다. 릴리즈와 반환이 동시에 와도 한쪽만 반영됩니다.
 
 ## 수수료

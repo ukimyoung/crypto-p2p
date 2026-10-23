@@ -190,6 +190,66 @@ export function FeeRates() {
   );
 }
 
+/** How long a paid order waits for the seller before it goes to review on its own (OPR-3). */
+export function OrderSettingsForm() {
+  const [minutes, setMinutes] = useState<number | null>(null);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    void api<{ orders: { autoReviewMinutes: number } }>('ops/settings/orders').then((r) =>
+      setMinutes(r.orders.autoReviewMinutes),
+    );
+  }, []);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (minutes === null) return;
+    setError(null);
+    setSaved(false);
+    try {
+      const res = await withStepUp(() =>
+        api<{ orders: { autoReviewMinutes: number } }>('ops/settings/orders', {
+          method: 'PUT',
+          body: { autoReviewMinutes: minutes, reason },
+        }),
+      );
+      if (!res) return;
+      setMinutes(res.orders.autoReviewMinutes);
+      setReason('');
+      setSaved(true);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  if (minutes === null) return <p className="muted">불러오는 중…</p>;
+
+  return (
+    <form onSubmit={save} className="settings-form">
+      <p className="muted small-text">
+        구매자가 이체 완료를 누른 뒤 이 시간 안에 판매자가 코인을 전달하지 않으면, 주문이 자동으로 운영 검토로
+        넘어가고 두 당사자에게 알림이 갑니다. 분쟁 목록에는 &lsquo;자동 전환&rsquo;으로 표시됩니다.
+      </p>
+      <label htmlFor="auto-review">자동 운영 검토 전환 (분, 1 ~ 1440)</label>
+      <input
+        id="auto-review"
+        type="number"
+        min={1}
+        max={1440}
+        value={minutes}
+        onChange={(e) => setMinutes(Number(e.target.value))}
+      />
+      <label htmlFor="auto-review-reason">변경 사유 (감사 로그에 남습니다)</label>
+      <input id="auto-review-reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+      <button>저장 (OTP 확인)</button>
+      {saved && <p className="muted small-text">저장했습니다.</p>}
+      <ErrorText error={error} />
+    </form>
+  );
+}
+
 /** How often fee invoices are issued and how long makers have to pay (FEE-6). */
 export function BillingForm() {
   const [billing, setBilling] = useState<BillingSettings | null>(null);
