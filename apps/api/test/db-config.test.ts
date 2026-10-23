@@ -12,4 +12,10 @@ describe('database connection settings', () => {
     const config = poolConfig(`${URL_}?sslmode=require`, { DATABASE_SSL: 'require', DATABASE_POOL_MAX: '5' });
     expect(config).toEqual({ connectionString: URL_, max: 5, ssl: { rejectUnauthorized: false } });
   });
+
+  it('explains a malformed URL without printing the password', () => {
+    const bad = URL_.replace(':pw@', ':se#cret@');
+    expect(() => poolConfig(bad, { DATABASE_SSL: 'require' })).toThrow(/percent-encode/);
+    expect(() => poolConfig(bad, { DATABASE_SSL: 'require' })).not.toThrow(/se#cret/);
+  });
 });

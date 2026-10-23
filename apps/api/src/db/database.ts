@@ -14,9 +14,21 @@ export function poolConfig(connectionString: string, env: NodeJS.ProcessEnv = pr
   const max = Number(env.DATABASE_POOL_MAX ?? 20);
   if (env.DATABASE_SSL !== 'require') return { connectionString, max };
   // An sslmode in the URL would override the ssl option below, so drop it.
-  const url = new URL(connectionString);
+  const url = parseUrl(connectionString);
   url.searchParams.delete('sslmode');
   return { connectionString: url.toString(), max, ssl: { rejectUnauthorized: false } };
+}
+
+/** Never echoes the value: it holds the database password. */
+function parseUrl(connectionString: string): URL {
+  try {
+    return new URL(connectionString.trim());
+  } catch {
+    throw new Error(
+      'DATABASE_URL is not a valid postgres:// URL. Check for quotes or a "DATABASE_URL=" prefix, ' +
+        'and percent-encode #, / or ? in the password (or use a password of letters and digits).',
+    );
+  }
 }
 
 export function createPool(connectionString: string): Pool {
