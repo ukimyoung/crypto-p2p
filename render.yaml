@@ -1,0 +1,28 @@
+# Render Blueprint for the hosted demo: one free web service runs both the API
+# and the web app (scripts/hosted-demo-start.sh). The database is external
+# (Supabase); paste its session pooler URL as DATABASE_URL when Render asks.
+# Demo data is seeded on first start. Not for real money or real customers.
+services:
+  - type: web
+    name: crypto-p2p-demo
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: ./scripts/hosted-demo-start.sh
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: require
+      - key: DATABASE_POOL_MAX
+        value: '5'
+      - key: OTP_ENCRYPTION_KEY
+        generateValue: true
+      - key: PAYMENT_METHOD_COOLDOWN_HOURS
+        value: '0'
+      - key: ADDRESS_COOLDOWN_HOURS
+        value: '0'
