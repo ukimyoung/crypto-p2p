@@ -7,10 +7,11 @@ import { AuditTable } from '@/components/AuditTable';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { BANKS, ORDER_STATUS, USER_STATUS, WITHDRAWAL_STATUS } from '@/lib/messages';
-import { AD_STATUS } from '@/lib/ops-labels';
+import { AD_STATUS, KYC_LEVEL } from '@/lib/ops-labels';
 import type { AuditEntry, Balance, Order, PaymentMethod, UserSummary, Withdrawal } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
+import { KycTab } from './KycTab';
 
 interface Detail {
   user: UserSummary;
@@ -34,6 +35,7 @@ interface Detail {
 
 const TABS = [
   ['balances', '잔고'],
+  ['kyc', 'KYC'],
   ['orders', '주문'],
   ['withdrawals', '출금'],
   ['payment', '결제수단'],
@@ -104,7 +106,7 @@ export default function OpsUserPage() {
   async function changeKyc(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!window.confirm(`KYC 등급을 ${kycLevel}(으)로 바꿀까요? 보통은 본인인증 결과로 정해집니다.`)) return;
+    if (!window.confirm(`KYC 등급을 '${KYC_LEVEL[kycLevel]}'(으)로 바꿀까요? 보통은 본인인증 결과로 정해집니다.`)) return;
     try {
       await api(`ops/users/${id}/kyc-level`, { body: { level: kycLevel, reason: kycReason } });
       setKycReason('');
@@ -141,7 +143,7 @@ export default function OpsUserPage() {
             <dt>실명</dt>
             <dd>{pii ? (pii.legalName ?? '미인증') : (user.legalName ?? '미인증')}</dd>
             <dt>KYC</dt>
-            <dd>{user.kycLevel}단계</dd>
+            <dd>{KYC_LEVEL[user.kycLevel] ?? user.kycLevel}</dd>
             <dt>OTP</dt>
             <dd>{user.otpEnabled ? '사용 중' : '미등록'}</dd>
             <dt>가입일</dt>
@@ -186,9 +188,9 @@ export default function OpsUserPage() {
               <div>
                 <label htmlFor="kyc">등급</label>
                 <select id="kyc" value={kycLevel} onChange={(e) => setKycLevel(Number(e.target.value))}>
-                  {[0, 1, 2, 3].map((n) => (
+                  {[0, 1].map((n) => (
                     <option key={n} value={n}>
-                      {n}단계
+                      {KYC_LEVEL[n]}
                     </option>
                   ))}
                 </select>
@@ -212,6 +214,7 @@ export default function OpsUserPage() {
       </div>
 
       <section className="card">
+        {tab === 'kyc' && <KycTab userId={id} onChanged={load} />}
         {tab === 'balances' && (
           <Table head={['코인', '사용 가능', '거래 중 잠김', '출금 처리 중']} empty="잔고가 없습니다.">
             {data.balances.map((b) => (

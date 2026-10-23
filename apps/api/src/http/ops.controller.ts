@@ -18,6 +18,7 @@ import { DomainError } from '../common/errors';
 import { Db } from '../db/database';
 import { BillingService } from '../fees/billing.service';
 import { feeRateOverview, MAX_FEE_RATE_BP, setFeeRate } from '../fees/fee-rates';
+import { KycService } from '../kyc/kyc.service';
 import { DisputesService } from '../ops/disputes.service';
 import { listMarkets, setAssetStatus, setMarketStatus } from '../ops/markets';
 import { autoReviewMinutes, billingSettings, updateSettings } from '../ops/ops-settings';
@@ -47,7 +48,7 @@ const withdrawalRulesBody = z.object({
   fee: units,
   minAmount: units,
   autoApproveMax: units,
-  dailyLimits: z.record(z.string().regex(/^\d{1,2}$/), units),
+  dailyLimits: z.record(z.string().regex(/^[01]$/, 'KYC level is 0 or 1'), units),
   reason: z.string().max(500),
 });
 const feeRateBody = z.object({
@@ -93,7 +94,7 @@ const paging = {
 const userQuery = z.object({
   q: z.string().max(200).optional(),
   status: z.enum(USER_STATUSES).optional(),
-  kycLevel: z.coerce.number().int().min(0).max(3).optional(),
+  kycLevel: z.coerce.number().int().min(0).max(1).optional(),
   from: dateTime.optional(),
   to: dateTime.optional(),
   sort: z.enum(USER_SORTS).default('created_at'),
@@ -101,7 +102,7 @@ const userQuery = z.object({
   ...paging,
 });
 const reasonBody = z.object({ reason: z.string().max(500) });
-const kycBody = z.object({ level: z.number().int().min(0).max(3), reason: z.string().max(500) });
+const kycBody = z.object({ level: z.number().int().min(0).max(1), reason: z.string().max(500) });
 const adQuery = z.object({
   asset: z.string().max(10).optional(),
   fiat: z.string().max(10).optional(),
@@ -162,6 +163,7 @@ export class OpsController {
     @Inject(PaymentMethodsService) private readonly payments: PaymentMethodsService,
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(OpsTradesService) private readonly trades: OpsTradesService,
+    @Inject(KycService) private readonly kyc: KycService,
     @Inject(DB) private readonly db: Db,
   ) {}
 
@@ -287,6 +289,31 @@ export class OpsController {
     return { user: await this.ops.setKycLevel(id, level, reason, operator.id) };
   }
 
+  /** Sumsub status, result and console link for the member's KYC tab (KYC-4). */
+  @Get('users/:id/kyc')
+  async userKyc(@Param('id', uuid) id: string) {
+    return this.kyc.forOperator(id);
+  }
+
+  /** Reads the applicant back from Sumsub, for a webhook that never arrived (KYC-5). */
+  @Post('users/:id/kyc/sync')
+  @HttpCode(200)
+  async syncKyc(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string) {
+    assertRole(operator, 'reviewer');
+    await this.kyc.sync(id, operator.id);
+    return this.kyc.forOperator(id);
+  }
+
+  /** Asks Sumsub to review the applicant again (KYC-5). */
+  @Post('users/:id/kyc/request-check')
+  @HttpCode(200)
+  async requestKycCheck(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    const { reason } = parse(reasonBody, body);
+    await this.kyc.requestCheck(id, reason, operator.id);
+    return this.kyc.forOperator(id);
+  }
+
   // Ads and orders --------------------------------------------------------------
 
   @Get('ads')
@@ -393,6 +420,12 @@ export class OpsController {
       operator.id,
     );
     return { change };
+  }
+
+  /** Whether the Sumsub keys are set and when a webhook last came in (KYC-6). */
+  @Get('settings/kyc')
+  async kycSettings() {
+    return { kyc: await this.kyc.connection() };
   }
 
   @Get('settings/orders')

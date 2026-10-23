@@ -103,7 +103,7 @@ export default function OpsDisputePage() {
                 <dd>
                   <Link href={`/ops/users/${u.id}`}>{u.legalName ?? u.email ?? u.id.slice(0, 8)}</Link>{' '}
                   <span className="muted small-text">
-                    KYC {u.kycLevel} · {USER_STATUS[u.status]}
+                    {u.kycLevel >= 1 ? '인증 완료' : '미인증'} · {USER_STATUS[u.status]}
                   </span>
                 </dd>
               </div>

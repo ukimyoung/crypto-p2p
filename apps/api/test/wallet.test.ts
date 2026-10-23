@@ -249,7 +249,7 @@ describe('wallet', () => {
       expect((await wallet.limits(userId)).find((l) => l.asset === 'BTC')).toMatchObject({ dailyLimit: BTC / 10n });
 
       // A level left out of the new rules can no longer withdraw.
-      await db.query('UPDATE users SET kyc_level = 2 WHERE id = $1', [userId]);
+      await db.query('UPDATE users SET kyc_level = 0 WHERE id = $1', [userId]);
       await expect(wallet.requestWithdrawal(userId, addressId, BTC / 100n)).rejects.toMatchObject({
         code: 'kyc_required',
       });

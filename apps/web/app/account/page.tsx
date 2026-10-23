@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import QRCode from 'qrcode';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
@@ -28,13 +29,14 @@ export default function AccountPage() {
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
           <dt>{t('본인인증(KYC)')}</dt>
-          <dd>{me.kycLevel > 0 ? t('{n}단계 완료', { n: me.kycLevel }) : t('미완료')}</dd>
+          <dd>{me.kycLevel > 0 ? t('완료') : t('미완료')}</dd>
           <dt>OTP</dt>
           <dd>{t(me.otpEnabled ? '사용 중' : '미등록')}</dd>
         </dl>
         {me.kycLevel === 0 && (
           <p className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
-            {t('본인인증 기능은 준비 중입니다. 인증을 마쳐야 주문을 하고 입금 계좌를 등록할 수 있습니다.')}
+            {t('본인인증을 마쳐야 주문을 하고 입금 계좌를 등록할 수 있습니다.')}{' '}
+            <Link href="/account/verify">{t('본인 인증하기')}</Link>
           </p>
         )}
       </section>

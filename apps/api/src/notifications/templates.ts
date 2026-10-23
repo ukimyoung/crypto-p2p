@@ -19,7 +19,9 @@ export type NotificationType =
   | 'fee.invoice_due_soon'
   | 'fee.invoice_overdue'
   | 'fee.invoice_paid'
-  | 'ad.status_changed';
+  | 'ad.status_changed'
+  | 'kyc.approved'
+  | 'kyc.rejected';
 
 export type Locale = 'ko' | 'en';
 
@@ -151,6 +153,34 @@ const EMAIL: Partial<Record<NotificationType, Record<Locale, Template>>> = {
       subject: () => '[P2P] Your ad was taken down',
       body: (d) =>
         `Our team ${d.status === 'closed' ? 'closed' : 'hid'} your ${d.asset} ad. Open orders carry on. Please contact support for details.`,
+    },
+  },
+  'kyc.approved': {
+    ko: {
+      subject: () => '[P2P] 본인 인증이 완료되었습니다',
+      body: () => '본인 인증이 완료되었습니다. 이제 입금 계좌를 등록하고 거래와 출금을 이용할 수 있습니다.',
+    },
+    en: {
+      subject: () => '[P2P] Identity verification complete',
+      body: () => 'Your identity is verified. You can now add a bank account, trade and withdraw.',
+    },
+  },
+  'kyc.rejected': {
+    ko: {
+      subject: () => '[P2P] 본인 인증이 승인되지 않았습니다',
+      body: (d) =>
+        (d.final === 'true'
+          ? '본인 인증이 최종 거절되었습니다. 자세한 내용은 고객센터에 문의해 주세요.'
+          : '본인 인증이 승인되지 않았습니다. 내 계정의 본인 인증 화면에서 안내에 따라 다시 제출해 주세요.') +
+        (d.comment ? `\n\n사유: ${d.comment}` : ''),
+    },
+    en: {
+      subject: () => '[P2P] Identity verification not approved',
+      body: (d) =>
+        (d.final === 'true'
+          ? 'Your identity verification was rejected. Please contact support for details.'
+          : 'Your identity verification was not approved. Please submit again from identity verification in your account.') +
+        (d.comment ? `\n\nReason: ${d.comment}` : ''),
     },
   },
   'fee.invoice_issued': {
