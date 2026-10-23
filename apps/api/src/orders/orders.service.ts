@@ -2,16 +2,13 @@ import { Actor, writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { toAd } from '../ads/ads.service';
 import { Db, Tx, withTransaction } from '../db/database';
+import { NOT_ON_FEE_HOLD } from '../fees/billing.service';
+import { currentFeeRate, feeOn, finalPrice } from '../fees/fee-rates';
 import { LedgerService, Posting } from '../ledger/ledger.service';
 import { notify } from '../notifications/notify';
 import { NotificationType } from '../notifications/templates';
 import { PaymentDetails, PaymentMethodsService } from '../payments/payment-methods.service';
 import { nextStatus, OrderEvent, OrderRole, OrderStatus } from './order-state';
-
-export interface OrdersConfig {
-  /** Maker (advertiser) fee in basis points, charged in the traded coin. */
-  makerFeeBps: number;
-}
 
 export interface Order {
   id: string;
@@ -21,9 +18,18 @@ export interface Order {
   sellerId: string;
   asset: string;
   fiat: string;
+  /** Final price per coin, with the maker fee. */
   priceMinor: bigint;
+  /** The price the maker entered. */
+  basePriceMinor: bigint;
   amount: bigint;
+  /** What the buyer transfers: the coins' value plus the maker fee. */
   fiatAmountMinor: bigint;
+  /** Maker fee rate in 0.01% units, fixed when the order opened. */
+  feeRateBp: number;
+  /** Maker fee in fiat, billed to the maker once the order completes. */
+  feeFiatMinor: bigint;
+  /** Coin fee of orders from before fees moved to fiat. 0 on new orders. */
   feeAmount: bigint;
   escrowAmount: bigint;
   status: OrderStatus;
@@ -46,23 +52,27 @@ export class OrdersService {
     private readonly db: Db,
     private readonly ledger: LedgerService,
     private readonly payments: PaymentMethodsService,
-    private readonly config: OrdersConfig,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
   /**
    * Taker opens an order against an ad for `amount` coins (smallest unit).
    * On a buy ad the taker is the seller and names the account that receives the fiat.
+   * The maker fee is added to the price and paid in fiat by the buyer (FEE-2); the coins
+   * the seller locks are the coins the buyer receives.
    */
   async create(takerId: string, adId: string, amount: bigint, takerPaymentMethodId?: string): Promise<Order> {
     if (amount <= 0n) throw new DomainError('invalid_amount', 'Amount must be positive');
 
     return withTransaction(this.db, async (tx) => {
-      const adRes = await tx.query('SELECT * FROM ads WHERE id = $1 FOR UPDATE', [adId]);
+      const adRes = await tx.query(`SELECT *, ${NOT_ON_FEE_HOLD('ads')} AS billable FROM ads WHERE id = $1 FOR UPDATE`, [
+        adId,
+      ]);
       if (!adRes.rows[0]) throw new DomainError('not_found', 'Ad not found');
       const ad = toAd(adRes.rows[0]);
 
-      if (ad.status !== 'online') throw new DomainError('ad_unavailable', 'Ad is not online');
+      // A maker with an overdue fee invoice has their ads hidden.
+      if (ad.status !== 'online' || !adRes.rows[0].billable) throw new DomainError('ad_unavailable', 'Ad is not online');
       if (ad.makerId === takerId) throw new DomainError('self_trade', 'Cannot trade with your own ad');
       if (amount > ad.remainingAmount) throw new DomainError('insufficient_ad_amount', 'Ad has not enough left');
 
@@ -79,18 +89,20 @@ export class OrdersService {
       }
 
       const decimals = await assetDecimals(tx, ad.asset);
-      const fiatAmountMinor = (amount * ad.priceMinor) / 10n ** BigInt(decimals);
+      const now = this.now();
+      const feeRateBp = await currentFeeRate(tx, ad.asset, ad.fiat, now);
+      const baseFiatMinor = (amount * ad.priceMinor) / 10n ** BigInt(decimals);
+      const feeFiatMinor = feeOn(baseFiatMinor, feeRateBp);
+      const fiatAmountMinor = baseFiatMinor + feeFiatMinor;
       if (fiatAmountMinor < ad.minOrderFiatMinor || fiatAmountMinor > ad.maxOrderFiatMinor) {
         throw new DomainError('outside_order_limits', 'Order amount is outside the ad limits');
       }
 
-      const feeAmount = (amount * BigInt(this.config.makerFeeBps)) / 10_000n;
       const makerIsSeller = ad.side === 'sell';
       const sellerId = makerIsSeller ? ad.makerId : takerId;
       const buyerId = makerIsSeller ? takerId : ad.makerId;
-      // A selling maker pays the fee on top of the amount; a buying maker receives amount minus fee.
-      const escrowAmount = makerIsSeller ? amount + feeAmount : amount;
-      const deadline = new Date(this.now().getTime() + ad.paymentWindowMinutes * 60_000);
+      const escrowAmount = amount;
+      const deadline = new Date(now.getTime() + ad.paymentWindowMinutes * 60_000);
 
       const sellerPaymentMethodId = makerIsSeller ? ad.paymentMethodId : takerPaymentMethodId;
       if (!sellerPaymentMethodId) {
@@ -101,8 +113,8 @@ export class OrdersService {
       const inserted = await tx.query(
         `INSERT INTO orders (ad_id, maker_id, buyer_id, seller_id, asset, fiat, price_minor, amount,
                              fiat_amount_minor, fee_amount, escrow_amount, status, payment_deadline, created_at,
-                             seller_payment_method_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_payment', $12, $13, $14)
+                             seller_payment_method_id, base_price_minor, fee_rate_bp, fee_fiat_minor)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, 'pending_payment', $11, $12, $13, $14, $15, $16)
          RETURNING *`,
         [
           ad.id,
@@ -111,14 +123,16 @@ export class OrdersService {
           sellerId,
           ad.asset,
           ad.fiat,
-          ad.priceMinor.toString(),
+          finalPrice(ad.priceMinor, feeRateBp).toString(),
           amount.toString(),
           fiatAmountMinor.toString(),
-          feeAmount.toString(),
           escrowAmount.toString(),
           deadline,
-          this.now(),
+          now,
           sellerPaymentMethodId,
+          ad.priceMinor.toString(),
+          feeRateBp,
+          feeFiatMinor.toString(),
         ],
       );
       const order = toOrder(inserted.rows[0]);
@@ -271,6 +285,8 @@ export class OrdersService {
   }
 
   private async settleToBuyer(tx: Tx, order: Order): Promise<void> {
+    // feeAmount is only set on orders from before the fee moved to fiat. The fiat fee
+    // needs no posting: completed orders are billed to the maker (BillingService).
     const makerIsBuyer = order.makerId === order.buyerId;
     const buyerReceives = makerIsBuyer ? order.amount - order.feeAmount : order.amount;
     const postings: Posting[] = [
@@ -333,8 +349,11 @@ function toOrder(row: any): Order {
     asset: row.asset,
     fiat: row.fiat,
     priceMinor: BigInt(row.price_minor),
+    basePriceMinor: BigInt(row.base_price_minor),
     amount: BigInt(row.amount),
     fiatAmountMinor: BigInt(row.fiat_amount_minor),
+    feeRateBp: row.fee_rate_bp,
+    feeFiatMinor: BigInt(row.fee_fiat_minor),
     feeAmount: BigInt(row.fee_amount),
     escrowAmount: BigInt(row.escrow_amount),
     status: row.status,

@@ -58,11 +58,11 @@ describe('HTTP API', () => {
     db = await setupDb();
     process.env.DATABASE_URL = TEST_DATABASE_URL;
     process.env.OTP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
-    process.env.MAKER_FEE_BPS = '0';
     process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
     process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
     process.env.ADDRESS_COOLDOWN_HOURS = '0';
     process.env.EMAIL_INTERVAL_SECONDS = '0';
+    process.env.BILLING_INTERVAL_SECONDS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);

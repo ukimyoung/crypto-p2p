@@ -14,8 +14,12 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { DomainError } from '../common/errors';
 import { Db } from '../db/database';
+import { BillingService } from '../fees/billing.service';
+import { feeRateOverview, MAX_FEE_RATE_BP, setFeeRate } from '../fees/fee-rates';
 import { DisputesService } from '../ops/disputes.service';
+import { billingSettings, updateSettings } from '../ops/ops-settings';
 import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
 import { OpsService } from '../ops/ops.service';
 import { OrdersService } from '../orders/orders.service';
@@ -43,6 +47,36 @@ const withdrawalRulesBody = z.object({
   autoApproveMax: units,
   dailyLimits: z.record(z.string().regex(/^\d{1,2}$/), units),
   reason: z.string().max(500),
+});
+const feeRateBody = z.object({
+  asset: z.string().max(10).optional(),
+  fiat: z.string().max(10).optional(),
+  rateBp: z.number().int().min(0).max(MAX_FEE_RATE_BP).nullable(),
+  effectiveFrom: z.iso.datetime({ offset: true }).optional(),
+  reason: z.string().max(500),
+});
+const billingBody = z.object({
+  cycle: z.enum(['daily', 'monthly']),
+  dueDays: z.number().int().min(1).max(60),
+  reason: z.string().max(500),
+});
+const INVOICE_STATUSES = ['issued', 'partially_paid', 'paid', 'overdue'] as const;
+const invoiceQuery = z.object({
+  status: z.enum(INVOICE_STATUSES).optional(),
+  makerId: z.uuid().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+});
+const paymentBody = z.object({
+  amountMinor: z
+    .string()
+    .regex(/^[1-9]\d{0,40}$/, 'must be a positive integer string')
+    .transform((v) => BigInt(v)),
+  paidAt: z.iso.datetime({ offset: true }),
+  memo: z.string().max(500).default(''),
+});
+const summaryQuery = z.object({
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
 });
 const userQuery = z.object({ q: z.string().max(200).default('') });
 const statusBody = z.object({
@@ -79,6 +113,7 @@ export class OpsController {
     @Inject(WalletService) private readonly wallet: WalletService,
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentMethodsService) private readonly payments: PaymentMethodsService,
+    @Inject(BillingService) private readonly billing: BillingService,
     @Inject(DB) private readonly db: Db,
   ) {}
 
@@ -203,6 +238,92 @@ export class OpsController {
     return {
       rules: await updateWithdrawalRules(this.db, asset, { ...input, dailyLimitByKycLevel }, operator.id, input.reason),
     };
+  }
+
+  @Get('settings/fee-rates')
+  async feeRates() {
+    return feeRateOverview(this.db);
+  }
+
+  /** Changes the default rate or one market's rate, now or from a later time (FEE-4). */
+  @Post('settings/fee-rates')
+  async setFeeRate(@CurrentOperator() operator: Operator, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const input = parse(feeRateBody, body);
+    const change = await setFeeRate(
+      this.db,
+      { ...input, effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : undefined },
+      operator.id,
+    );
+    return { change };
+  }
+
+  @Get('settings/billing')
+  async billingSettings() {
+    return { billing: await billingSettings(this.db) };
+  }
+
+  @Put('settings/billing')
+  async setBillingSettings(@CurrentOperator() operator: Operator, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const { cycle, dueDays, reason } = parse(billingBody, body);
+    await updateSettings(this.db, { 'billing.cycle': cycle, 'billing.due_days': dueDays }, operator.id, reason);
+    return { billing: await billingSettings(this.db) };
+  }
+
+  // Fees and billing --------------------------------------------------------------
+
+  /** Fee totals for a range (this month in Korea time by default), unpaid makers, withdrawal fees. */
+  @Get('fees/summary')
+  async feeSummary(@Query() query: unknown) {
+    const q = parse(summaryQuery, query);
+    const { rows } = await this.db.query<{ start: Date; end: Date }>(
+      `SELECT date_trunc('month', now() AT TIME ZONE 'Asia/Seoul') AT TIME ZONE 'Asia/Seoul' AS start,
+              (date_trunc('month', now() AT TIME ZONE 'Asia/Seoul') + interval '1 month') AT TIME ZONE 'Asia/Seoul' AS end`,
+    );
+    const from = q.from ? new Date(q.from) : rows[0]!.start;
+    const to = q.to ? new Date(q.to) : rows[0]!.end;
+    const withdrawalFees = await this.db.query<{ asset: string; balance: string }>(
+      `SELECT asset, balance::text FROM ledger_accounts WHERE kind = 'fee_revenue' ORDER BY asset`,
+    );
+    return {
+      from,
+      to,
+      ...(await this.billing.summary(from, to)),
+      feeRevenueByAsset: withdrawalFees.rows.map((r) => ({ asset: r.asset, amount: r.balance })),
+    };
+  }
+
+  @Get('fee-invoices')
+  async feeInvoices(@Query() query: unknown) {
+    const q = parse(invoiceQuery, query);
+    return { ...(await this.billing.list(q)), page: q.page, pageSize: 20 };
+  }
+
+  @Get('fee-invoices/:id')
+  async feeInvoice(@Param('id', uuid) id: string) {
+    const detail = await this.billing.get(id);
+    if (!detail) throw new DomainError('not_found', 'Invoice not found');
+    return detail;
+  }
+
+  /** Records a payment confirmed outside the system (FEE-7). */
+  @Post('fee-invoices/:id/payments')
+  async recordFeePayment(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const { amountMinor, paidAt, memo } = parse(paymentBody, body);
+    return this.billing.recordPayment(id, { amountMinor, paidAt: new Date(paidAt), memo }, operator.id);
+  }
+
+  /** Runs the billing pass now instead of waiting for the worker. */
+  @Post('fees/run-billing')
+  @HttpCode(200)
+  async runBilling(@CurrentOperator() operator: Operator) {
+    assertRole(operator, 'admin');
+    return this.billing.run();
   }
 
   @Get('audit')

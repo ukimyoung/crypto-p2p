@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fiatFor, formatKrw, formatUnits, parseUnits } from '../lib/units';
+import { feeOn, fiatFor, formatKrw, formatRate, formatUnits, orderCost, parseRate, parseUnits } from '../lib/units';
 
 describe('units', () => {
   it('parses decimal coin amounts into smallest units', () => {
@@ -26,5 +26,21 @@ describe('units', () => {
     expect(fiatFor(1n, 100_000_000n, 8)).toBe(1n);
     expect(fiatFor(1n, 99_999_999n, 8)).toBe(0n);
     expect(formatKrw(1_234_567n)).toBe('1,234,567원');
+  });
+
+  it('adds the maker fee like the API, rounding up', () => {
+    expect(feeOn(10_000_000n, 25)).toBe(25_000n);
+    expect(feeOn(1_001n, 25)).toBe(3n);
+    // 0.1 BTC at 100,000,000 KRW with 0.25%: 10,025,000 KRW.
+    expect(orderCost(10_000_000n, 100_000_000n, 25, 8)).toBe(10_025_000n);
+  });
+
+  it('reads and shows fee rates in percent', () => {
+    expect(formatRate(25)).toBe('0.25%');
+    expect(formatRate(0)).toBe('0.00%');
+    expect(parseRate('0.25')).toBe(25);
+    expect(parseRate('1.5%')).toBe(150);
+    expect(parseRate('10')).toBe(1000);
+    for (const bad of ['', '10.01', '-1', '0.255', 'abc', '100']) expect(parseRate(bad)).toBeNull();
   });
 });

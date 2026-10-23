@@ -35,6 +35,7 @@ const ERRORS: Record<string, string> = {
   daily_limit_exceeded: '24시간 출금 한도를 넘습니다.',
   user_restricted: '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.',
   step_up_required: '보안을 위해 OTP 코드를 다시 입력해 주세요.',
+  fee_overdue: '연체된 광고 수수료가 있어 새 광고를 올릴 수 없습니다. 수수료 청구 화면을 확인해 주세요.',
 };
 
 export function errorText(code: string, fallback: string): string {
@@ -64,6 +65,13 @@ export const USER_STATUS: Record<string, string> = {
   trade_suspended: '거래 정지',
   withdraw_held: '출금 보류',
   closed: '해지',
+};
+
+export const INVOICE_STATUS: Record<string, string> = {
+  issued: '발행',
+  partially_paid: '일부 납부',
+  paid: '납부 완료',
+  overdue: '연체',
 };
 
 export const OPERATOR_ROLE: Record<string, string> = {

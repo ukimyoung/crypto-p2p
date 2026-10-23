@@ -8,13 +8,13 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
 import type { PaymentMethod } from '@/lib/types';
-import { ASSETS, AssetCode, parseUnits } from '@/lib/units';
+import { ASSETS, AssetCode, feeOn, formatKrw, formatRate, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
 export default function NewAdPage() {
   const { me } = useMe();
   const router = useRouter();
-  const { t } = useT();
+  const { t, locale } = useT();
   const [side, setSide] = useState<'sell' | 'buy'>('sell');
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [price, setPrice] = useState('');
@@ -25,6 +25,18 @@ export default function NewAdPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [methodId, setMethodId] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [feeRateBp, setFeeRateBp] = useState<number | null>(null);
+
+  useEffect(() => {
+    setFeeRateBp(null);
+    void api<{ feeRateBp: number }>(`ads/fee-rate?asset=${asset}&fiat=KRW`).then((res) => setFeeRateBp(res.feeRateBp));
+  }, [asset]);
+
+  const priceInput = price.replaceAll(',', '');
+  const finalPrice =
+    feeRateBp !== null && /^\d+$/.test(priceInput) && BigInt(priceInput) > 0n
+      ? BigInt(priceInput) + feeOn(BigInt(priceInput), feeRateBp)
+      : null;
 
   useEffect(() => {
     if (!me?.otpEnabled) return;
@@ -96,6 +108,26 @@ export default function NewAdPage() {
             <label htmlFor="price">{t('1 {asset} 가격 (원)', { asset })}</label>
             <input id="price" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} required />
           </div>
+          {feeRateBp !== null && (
+            <p className="muted small-text" style={{ gridColumn: '1 / -1', margin: 0 }}>
+              {t(
+                side === 'sell'
+                  ? '광고 수수료 {rate}가 가격에 더해져 구매자에게 보입니다. 수수료는 거래가 끝난 뒤 원화로 청구됩니다.'
+                  : '광고 수수료 {rate}가 가격에 더해집니다. 판매자에게는 수수료를 더한 금액을 이체하고, 수수료는 거래가 끝난 뒤 원화로 청구됩니다.',
+                { rate: formatRate(feeRateBp) },
+              )}
+              {finalPrice !== null && (
+                <>
+                  {' '}
+                  <strong>
+                    {t(side === 'sell' ? '최종 광고 가격 {price}' : '수수료 포함 실제 입금 가격 {price}', {
+                      price: formatKrw(finalPrice, locale),
+                    })}
+                  </strong>
+                </>
+              )}
+            </p>
+          )}
           <div>
             <label htmlFor="total">{t('총 수량 ({asset})', { asset })}</label>
             <input id="total" inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} required />

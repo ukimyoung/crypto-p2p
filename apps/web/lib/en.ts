@@ -271,4 +271,37 @@ export const EN: Record<string, string> = {
     'Withdrawal could not be sent and was returned to your balance: {coins}',
   '계정 상태가 변경되었습니다.': 'Your account status has changed.',
   '새 알림이 있습니다.': 'You have a new notification.',
+  '수수료 {rate} 포함': '{rate} fee included',
+  '광고 수수료': 'Ad fee',
+  '거래가 완료되면 수수료 청구서에 포함됩니다.': 'Added to your fee invoice once the trade completes.',
+  '광고 수수료 {rate}가 가격에 더해져 구매자에게 보입니다. 수수료는 거래가 끝난 뒤 원화로 청구됩니다.':
+    'The {rate} ad fee is added to your price for buyers. The fee is billed in KRW after the trade.',
+  '광고 수수료 {rate}가 가격에 더해집니다. 판매자에게는 수수료를 더한 금액을 이체하고, 수수료는 거래가 끝난 뒤 원화로 청구됩니다.':
+    'The {rate} ad fee is added to your price. You transfer the price with the fee to the seller, and the fee is billed in KRW after the trade.',
+  '최종 광고 가격 {price}': 'Final ad price {price}',
+  '수수료 포함 실제 입금 가격 {price}': 'You transfer {price} (fee included)',
+  수수료: 'Fees',
+  '수수료 청구': 'Fee invoices',
+  '광고 수수료는 거래 가격에 포함되어 구매자가 함께 이체하고, 거래가 끝난 뒤 청구 주기마다 원화로 청구됩니다. 납부 기한이 지나면 완납할 때까지 광고가 노출되지 않습니다.':
+    'The ad fee is part of the trade price that the buyer transfers, and is billed to you in KRW each billing period after the trade. If an invoice is past due, your ads are hidden until it is paid in full.',
+  '연체된 수수료가 있어 광고가 노출되지 않고 새 광고를 올릴 수 없습니다. 납부 후 고객센터에 알려 주세요.':
+    'You have an overdue fee, so your ads are hidden and you cannot post new ones. Let support know once you have paid.',
+  '아직 청구되지 않은 수수료': 'Fees not billed yet',
+  청구서: 'Invoices',
+  '청구서가 없습니다.': 'No invoices yet.',
+  기간: 'Period',
+  '청구 금액': 'Amount',
+  '납부한 금액': 'Paid',
+  '납부 기한': 'Due date',
+  발행: 'Issued',
+  '일부 납부': 'Partly paid',
+  '납부 완료': 'Paid',
+  연체: 'Overdue',
+  '연체된 광고 수수료가 있어 새 광고를 올릴 수 없습니다. 수수료 청구 화면을 확인해 주세요.':
+    'You have an overdue ad fee, so you cannot post new ads. Please check your fee invoices.',
+  '광고 수수료 {krw}이 청구되었습니다.': 'You have a new ad fee invoice for {krw}.',
+  '오늘이 광고 수수료 {krw}의 납부 기한입니다.': 'Your ad fee of {krw} is due today.',
+  '내일이 광고 수수료 {krw}의 납부 기한입니다.': 'Your ad fee of {krw} is due tomorrow.',
+  '광고 수수료 {krw}이 연체되어 광고가 노출되지 않습니다.': 'Your ad fee of {krw} is overdue, so your ads are hidden.',
+  '광고 수수료 납부가 확인되었습니다.': 'We received your ad fee payment.',
 };

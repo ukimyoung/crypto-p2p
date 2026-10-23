@@ -86,11 +86,11 @@ describe('operations console', () => {
     db = await setupDb();
     process.env.DATABASE_URL = TEST_DATABASE_URL;
     process.env.OTP_ENCRYPTION_KEY = randomBytes(32).toString('base64');
-    process.env.MAKER_FEE_BPS = '0';
     process.env.PAYMENT_METHOD_COOLDOWN_HOURS = '0';
     process.env.ORDER_EXPIRY_INTERVAL_SECONDS = '0';
     process.env.ADDRESS_COOLDOWN_HOURS = '0';
     process.env.EMAIL_INTERVAL_SECONDS = '0';
+    process.env.BILLING_INTERVAL_SECONDS = '0';
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -305,6 +305,111 @@ describe('operations console', () => {
         .put('/ops/settings/withdrawal-rules/BTC')
         .set(bearer(reviewerA))
         .send({ fee: '20000', minAmount: '50000', autoApproveMax: '10000000', dailyLimits: { 1: '100000000', 2: '1000000000' }, reason: '원복' })
+        .expect(200);
+    });
+  });
+
+  describe('fees and billing', () => {
+    it('sets fee rates and billing terms, bills a maker and records the payment', async () => {
+      const rateBody = { asset: 'BTC', fiat: 'KRW', rateBp: 25, reason: 'BTC 0.25%' };
+      const noStepUp = await http().post('/ops/settings/fee-rates').set(bearer(reviewerB)).send(rateBody).expect(403);
+      expect(noStepUp.body.error.code).toBe('step_up_required');
+      await http()
+        .post('/ops/settings/fee-rates')
+        .set(bearer(reviewerA))
+        .send({ ...rateBody, rateBp: 1001 })
+        .expect(400);
+      await http().post('/ops/settings/fee-rates').set(bearer(reviewerA)).send(rateBody).expect(201);
+      const rates = await http().get('/ops/settings/fee-rates').set(bearer(reviewerB)).expect(200);
+      expect(rates.body.defaultRateBp).toBe(0);
+      expect(rates.body.markets).toContainEqual({ asset: 'BTC', fiat: 'KRW', ownRateBp: 25, rateBp: 25 });
+      await http().get('/ads/fee-rate').query({ asset: 'BTC', fiat: 'KRW' }).expect(200, {
+        asset: 'BTC',
+        fiat: 'KRW',
+        feeRateBp: 25,
+      });
+
+      await http()
+        .put('/ops/settings/billing')
+        .set(bearer(reviewerA))
+        .send({ cycle: 'weekly', dueDays: 7, reason: 'x' })
+        .expect(400);
+      const billing = await http()
+        .put('/ops/settings/billing')
+        .set(bearer(reviewerA))
+        .send({ cycle: 'monthly', dueDays: 5, reason: '납부 기한 5일' })
+        .expect(200);
+      expect(billing.body.billing).toEqual({ cycle: 'monthly', dueDays: 5 });
+
+      // A trade at 0.25%, completed last month.
+      const auth = app.get(AuthService);
+      const user = await auth.signUp('maker@example.com', 'customer password 1');
+      const makerToken = await auth.login(user.email, 'customer password 1', undefined, {});
+      await deposit(db, ledger, user.id, 'BTC', BTC);
+      const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), user.id);
+      const ad = await app.get(AdsService).create({
+        makerId: user.id,
+        side: 'sell',
+        asset: 'BTC',
+        fiat: 'KRW',
+        priceMinor: 100_000_000n,
+        totalAmount: BTC,
+        minOrderFiatMinor: 10_000n,
+        maxOrderFiatMinor: 50_000_000n,
+        paymentMethodId,
+      });
+      const market = await http().get('/ads').query({ asset: 'BTC', fiat: 'KRW', side: 'sell' }).expect(200);
+      expect(market.body.ads.find((a: { id: string }) => a.id === ad.id)).toMatchObject({
+        priceMinor: '100000000',
+        finalPriceMinor: '100250000',
+        feeRateBp: 25,
+      });
+      const buyer = await createUser(db);
+      const orders = app.get(OrdersService);
+      const order = await orders.create(buyer, ad.id, BTC / 10n);
+      expect(order).toMatchObject({ fiatAmountMinor: 10_025_000n, feeFiatMinor: 25_000n });
+      await orders.markPaid(order.id, buyer);
+      await orders.release(order.id, user.id);
+      await db.query(`UPDATE orders SET completed_at = completed_at - interval '40 days' WHERE id = $1`, [order.id]);
+
+      await http().post('/ops/fees/run-billing').set(bearer(reviewerA)).expect(403);
+      const run = await http().post('/ops/fees/run-billing').set(bearer(admin)).expect(200);
+      expect(run.body.issued).toBe(1);
+
+      const list = await http().get('/ops/fee-invoices').query({ status: 'issued' }).set(bearer(reviewerB)).expect(200);
+      expect(list.body).toMatchObject({ total: 1, page: 1 });
+      const invoice = list.body.invoices[0];
+      expect(invoice).toMatchObject({ makerEmail: 'maker@example.com', totalMinor: '25000', status: 'issued' });
+
+      const mine = await http().get('/fees/invoices').set(bearer(makerToken)).expect(200);
+      expect(mine.body.invoices.map((i: { id: string }) => i.id)).toEqual([invoice.id]);
+
+      const payment = { amountMinor: '25000', paidAt: new Date().toISOString(), memo: '국민은행 입금 확인' };
+      await http().post(`/ops/fee-invoices/${invoice.id}/payments`).set(bearer(reviewerB)).send(payment).expect(403);
+      const paid = await http()
+        .post(`/ops/fee-invoices/${invoice.id}/payments`)
+        .set(bearer(reviewerA))
+        .send(payment)
+        .expect(201);
+      expect(paid.body.invoice).toMatchObject({ status: 'paid', paidMinor: '25000' });
+      expect(paid.body.orders).toHaveLength(1);
+      expect(paid.body.payments[0]).toMatchObject({ memo: '국민은행 입금 확인', operatorEmail: 'alice@ops.test' });
+
+      const summary = await http()
+        .get('/ops/fees/summary')
+        .query({ from: '2000-01-01T00:00:00Z', to: '2100-01-01T00:00:00Z' })
+        .set(bearer(reviewerB))
+        .expect(200);
+      expect(summary.body.totals.find((t: { fiat: string }) => t.fiat === 'KRW')).toMatchObject({
+        earnedMinor: '25000',
+        paidMinor: '25000',
+        outstandingMinor: '0',
+      });
+
+      await http()
+        .put('/ops/settings/billing')
+        .set(bearer(reviewerA))
+        .send({ cycle: 'monthly', dueDays: 7, reason: '원복' })
         .expect(200);
     });
   });

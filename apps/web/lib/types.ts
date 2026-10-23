@@ -20,6 +20,10 @@ export interface Ad {
   maxOrderFiatMinor: string;
   paymentWindowMinutes: number;
   minTakerKycLevel: number;
+  /** Maker fee in 0.01% units (25 = 0.25%). Present on market lists. */
+  feeRateBp?: number;
+  /** The price buyers see: the maker's price plus the fee. */
+  finalPriceMinor?: string;
 }
 
 export interface Order {
@@ -30,9 +34,16 @@ export interface Order {
   sellerId: string;
   asset: string;
   fiat: string;
+  /** Final price per coin, with the maker fee. */
   priceMinor: string;
+  /** The price the maker entered. */
+  basePriceMinor: string;
   amount: string;
+  /** What the buyer transfers, fee included. */
   fiatAmountMinor: string;
+  feeRateBp: number;
+  /** The maker's fee in fiat, billed later. */
+  feeFiatMinor: string;
   feeAmount: string;
   escrowAmount: string;
   status: 'pending_payment' | 'paid' | 'completed' | 'cancelled' | 'under_review';
@@ -165,4 +176,60 @@ export interface WithdrawalRules {
   autoApproveMax: string;
   /** Rolling 24-hour limit keyed by KYC level. A missing level cannot withdraw. */
   dailyLimitByKycLevel: Record<string, string>;
+}
+
+export interface FeeRateChange {
+  id: string;
+  asset: string | null;
+  fiat: string | null;
+  rateBp: number | null;
+  effectiveFrom: string;
+  reason: string;
+  createdByEmail: string | null;
+  createdAt: string;
+}
+
+export interface FeeRateOverview {
+  defaultRateBp: number;
+  markets: { asset: string; fiat: string; ownRateBp: number | null; rateBp: number }[];
+  scheduled: FeeRateChange[];
+  history: FeeRateChange[];
+}
+
+export interface BillingSettings {
+  cycle: 'daily' | 'monthly';
+  dueDays: number;
+}
+
+export type InvoiceStatus = 'issued' | 'partially_paid' | 'paid' | 'overdue';
+
+export interface FeeInvoice {
+  id: string;
+  makerId: string;
+  makerEmail: string | null;
+  fiat: string;
+  periodStart: string;
+  periodEnd: string;
+  totalMinor: string;
+  paidMinor: string;
+  status: InvoiceStatus;
+  /** End of the due date. */
+  dueAt: string;
+  issuedAt: string;
+  paidAt: string | null;
+}
+
+export interface FeeInvoiceDetail {
+  invoice: FeeInvoice;
+  orders: {
+    id: string;
+    asset: string;
+    amount: string;
+    basePriceMinor: string;
+    feeRateBp: number;
+    fiatAmountMinor: string;
+    feeFiatMinor: string;
+    completedAt: string;
+  }[];
+  payments: { id: string; amountMinor: string; paidAt: string; memo: string; operatorEmail: string | null; createdAt: string }[];
 }

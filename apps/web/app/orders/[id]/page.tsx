@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS, ORDER_STATUS } from '@/lib/messages';
 import type { Me, Message, Order, PaymentDetails } from '@/lib/types';
-import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
+import { ASSETS, AssetCode, formatKrw, formatRate, formatUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
 const POLL_MS = 3000;
@@ -60,7 +60,22 @@ export default function OrderPage() {
           <dt>{t('가격')}</dt>
           <dd>
             1 {order.asset} = {formatKrw(order.priceMinor, locale)}
+            {order.feeRateBp > 0 && (
+              <span className="muted small-text">
+                {' '}
+                ({t('수수료 {rate} 포함', { rate: formatRate(order.feeRateBp) })})
+              </span>
+            )}
           </dd>
+          {order.makerId === me.id && BigInt(order.feeFiatMinor) > 0n && (
+            <>
+              <dt>{t('광고 수수료')}</dt>
+              <dd>
+                {formatKrw(order.feeFiatMinor, locale)}{' '}
+                <span className="muted small-text">{t('거래가 완료되면 수수료 청구서에 포함됩니다.')}</span>
+              </dd>
+            </>
+          )}
           {order.status === 'pending_payment' && (
             <>
               <dt>{t('결제 기한')}</dt>

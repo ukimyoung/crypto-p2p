@@ -41,6 +41,7 @@ export function Header() {
               <Link href="/orders">{t('내 주문')}</Link>
               <Link href="/ads/new">{t('광고 등록')}</Link>
               <Link href="/wallet">{t('내 지갑')}</Link>
+              <Link href="/fees">{t('수수료')}</Link>
               <Link href="/notifications" aria-label={t('알림 {n}건 안 읽음', { n: unread })}>
                 {t('알림')}
                 {unread > 0 && <span className="count">{unread > 99 ? '99+' : unread}</span>}

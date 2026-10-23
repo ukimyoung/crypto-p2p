@@ -14,6 +14,10 @@ const TYPES = [
   'withdrawal.confirmed',
   'withdrawal.failed',
   'account.status_changed',
+  'fee.invoice_issued',
+  'fee.invoice_due_soon',
+  'fee.invoice_overdue',
+  'fee.invoice_paid',
 ];
 
 const note = (type: string, data: Record<string, string | null> = {}, locale: 'ko' | 'en' = 'ko') =>

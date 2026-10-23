@@ -23,7 +23,8 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 좋은 가격 순 |
+| GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 좋은 가격 순. 각 광고에 `feeRateBp`와 수수료를 더한 `finalPriceMinor`. 연체 광고주의 광고는 빠짐 |
+| GET | `/ads/fee-rate?asset=BTC&fiat=KRW` | - | 마켓의 지금 광고 수수료율 `{ feeRateBp }` (0.01% 단위). 광고 등록 화면의 가격 미리보기용 |
 | POST | `/ads` | O + OTP 활성 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel?, paymentMethodId? }`. 판매 광고는 입금받을 `paymentMethodId` 필수 |
 
 ## 결제수단 (PAY-1)
@@ -66,6 +67,12 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 
 새 주소는 등록 후 `ADDRESS_COOLDOWN_HOURS`(기본 24시간)가 지나야 출금에 쓸 수 있습니다.
 
+## 광고 수수료 청구 (FEE-6)
+
+| 메서드 | 경로 | 인증 | 설명 |
+| --- | --- | --- | --- |
+| GET | `/fees/invoices` | O | 내 청구서(최근 100건)와 아직 청구되지 않은 수수료 합계 |
+
 ## 알림 (NOTI-1)
 
 | 메서드 | 경로 | 인증 | 설명 |
@@ -98,5 +105,14 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊고 step-up 필요 |
 | GET | `/ops/settings/withdrawal-rules` | 모두 | 코인별 출금 수수료, 최소 수량, 자동 승인 기준, KYC 단계별 24시간 한도 |
 | PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 빠진 KYC 단계는 출금 불가. step-up 필요 |
+| GET | `/ops/settings/fee-rates` | 모두 | 기본 요율, 마켓별 지금 요율, 예약된 변경, 변경 이력 |
+| POST | `/ops/settings/fee-rates` | reviewer | `{ asset?, fiat?, rateBp, effectiveFrom?, reason }`. 둘 다 빼면 기본 요율. 마켓에 `rateBp: null`이면 기본 요율로 되돌림. step-up 필요 |
+| GET | `/ops/settings/billing` | 모두 | `{ cycle: daily \| monthly, dueDays }` |
+| PUT | `/ops/settings/billing` | reviewer | `{ cycle, dueDays, reason }`. step-up 필요 |
+| GET | `/ops/fees/summary?from=&to=` | 모두 | 기간(기본 이번 달) 확정·청구 전·납부 합계, 전체 미납·연체, 미납 광고주, 코인별 출금 수수료 누적 |
+| GET | `/ops/fee-invoices?status=&makerId=&page=` | 모두 | 청구서 목록, 20건씩 |
+| GET | `/ops/fee-invoices/:id` | 모두 | 청구서, 포함된 주문, 납부 내역 |
+| POST | `/ops/fee-invoices/:id/payments` | reviewer | `{ amountMinor, paidAt, memo }`. 시스템 밖 입금을 기록. step-up 필요 |
+| POST | `/ops/fees/run-billing` | admin | 청구 작업을 바로 실행 |
 | GET | `/ops/audit?targetId=&actorId=` | 모두 | 최근 100건. `targetId`는 회원·주문 ID나 코인 코드 |
 

@@ -1,7 +1,6 @@
 export interface AppConfig {
   databaseUrl: string;
   port: number;
-  makerFeeBps: number;
   /** 32-byte key, base64. Encrypts OTP secrets at rest. */
   otpEncryptionKey: string;
   sessionTtlHours: number;
@@ -15,6 +14,8 @@ export interface AppConfig {
   opsSessionTtlHours: number;
   /** How often queued emails are sent. 0 turns the worker off. */
   emailIntervalSeconds: number;
+  /** How often fee invoices are issued and checked for due dates. 0 turns the worker off. */
+  billingIntervalSeconds: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -22,14 +23,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (!databaseUrl) throw new Error('DATABASE_URL is not set');
   const otpEncryptionKey = env.OTP_ENCRYPTION_KEY;
   if (!otpEncryptionKey) throw new Error('OTP_ENCRYPTION_KEY is not set');
-  const makerFeeBps = Number(env.MAKER_FEE_BPS ?? 0);
-  if (!Number.isInteger(makerFeeBps) || makerFeeBps < 0 || makerFeeBps > 1000) {
-    throw new Error('MAKER_FEE_BPS must be an integer between 0 and 1000');
-  }
   return {
     databaseUrl,
     port: Number(env.PORT ?? 3000),
-    makerFeeBps,
     otpEncryptionKey,
     sessionTtlHours: Number(env.SESSION_TTL_HOURS ?? 12),
     paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 24),
@@ -37,5 +33,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     addressCooldownHours: Number(env.ADDRESS_COOLDOWN_HOURS ?? 24),
     opsSessionTtlHours: Number(env.OPS_SESSION_TTL_HOURS ?? 8),
     emailIntervalSeconds: Number(env.EMAIL_INTERVAL_SECONDS ?? 10),
+    billingIntervalSeconds: Number(env.BILLING_INTERVAL_SECONDS ?? 300),
   };
 }

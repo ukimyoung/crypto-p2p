@@ -4,10 +4,13 @@ import { AuthService } from './auth/auth.service';
 import { SecretBox } from './auth/secret-box';
 import { AppConfig, loadConfig } from './config';
 import { createPool, Db } from './db/database';
+import { BillingService } from './fees/billing.service';
+import { BillingWorker } from './fees/billing.worker';
 import { HealthController } from './health/health.controller';
 import { AdsController } from './http/ads.controller';
 import { AuthController } from './http/auth.controller';
 import { AuthGuard } from './http/auth.guard';
+import { FeesController } from './http/fees.controller';
 import { OrdersController } from './http/orders.controller';
 import { PaymentMethodsController } from './http/payment-methods.controller';
 import { NotificationsController } from './http/notifications.controller';
@@ -28,7 +31,7 @@ import { CONFIG, DB, EMAIL_SENDER } from './tokens';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController, NotificationsController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController, NotificationsController, FeesController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
@@ -58,9 +61,9 @@ import { WalletService } from './wallet/wallet.service';
     },
     {
       provide: OrdersService,
-      inject: [DB, LedgerService, PaymentMethodsService, CONFIG],
-      useFactory: (db: Db, ledger: LedgerService, payments: PaymentMethodsService, config: AppConfig) =>
-        new OrdersService(db, ledger, payments, { makerFeeBps: config.makerFeeBps }),
+      inject: [DB, LedgerService, PaymentMethodsService],
+      useFactory: (db: Db, ledger: LedgerService, payments: PaymentMethodsService) =>
+        new OrdersService(db, ledger, payments),
     },
     { provide: OrderChatService, inject: [DB], useFactory: (db: Db) => new OrderChatService(db) },
     OrderExpiryWorker,
@@ -86,6 +89,8 @@ import { WalletService } from './wallet/wallet.service';
     { provide: EMAIL_SENDER, useFactory: () => new LogEmailSender() },
     EmailWorker,
     { provide: OpsService, inject: [DB], useFactory: (db: Db) => new OpsService(db) },
+    { provide: BillingService, inject: [DB], useFactory: (db: Db) => new BillingService(db) },
+    BillingWorker,
     {
       provide: DisputesService,
       inject: [DB, OrdersService],
