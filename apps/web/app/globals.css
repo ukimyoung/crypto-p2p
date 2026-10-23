@@ -505,3 +505,18 @@ ul.notifications li.unread a,
 ul.notifications li.unread {
   font-weight: 600;
 }
+
+.settings-form {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.settings-form h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.settings-form button {
+  margin-top: 12px;
+}

@@ -25,8 +25,8 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 | `cancel` | 구매자 | `pending_payment` | `cancelled` | 에스크로 → 판매자 가용 |
 | `expire` | 시스템 | `pending_payment` (기한 초과) | `cancelled` | 에스크로 → 판매자 가용 |
 | `escalate` | 구매자, 판매자 | `paid` | `under_review` | 변화 없음 |
-| `resolve_release` | 운영자 2인 | `under_review` | `completed` | 에스크로 → 구매자 가용 |
-| `resolve_refund` | 운영자 2인 | `under_review` | `cancelled` | 에스크로 → 판매자 가용 |
+| `resolve_release` | 운영자 | `under_review` | `completed` | 에스크로 → 구매자 가용 |
+| `resolve_refund` | 운영자 | `under_review` | `cancelled` | 에스크로 → 판매자 가용 |
 
 - 판매자는 구매자가 결제 완료를 누르기 전에도 입금을 확인했다면 릴리즈할 수 있습니다.
 - 구매자는 결제 완료를 누른 뒤에는 취소할 수 없습니다. 이후 분쟁은 운영 검토로 갑니다.
@@ -54,14 +54,17 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 - 자동 승인 기준(`autoApproveMax`) 이하는 바로 `approved`, 넘으면 운영자 검토로 갑니다. 운영자 승인·거절과 커스터디 콜백(`markSent`, `markConfirmed`, `markFailed`)은 서비스에만 있고, 운영 도구와 커스터디 연동 때 HTTP로 엽니다.
 - 한도는 KYC 단계별·코인별 24시간 누적(거절·취소·실패 건 제외)입니다. 같은 사용자의 신청은 사용자 행 잠금으로 직렬화해 동시 신청으로 한도를 넘을 수 없습니다.
 - 출금은 화이트리스트에 등록하고 쿨다운이 지난 주소로만 갈 수 있습니다. 주소 등록·삭제와 출금 신청에 OTP가 필요합니다. `withdraw_held`나 `closed` 상태 계정은 출금할 수 없습니다.
-- 수수료·최소 수량·한도 숫자는 `apps/api/src/wallet/wallet-config.ts`의 임시값입니다. 원화 환산 한도는 시세 피드가 붙은 뒤에 바꿉니다.
+- 수수료·최소 수량·자동 승인 기준·KYC 단계별 한도는 `withdrawal_rules`, `withdrawal_daily_limits` 테이블에 있고 운영 콘솔 `정책 설정`에서 바꿉니다. 출금 신청마다 DB에서 읽으므로 바꾼 값은 다음 신청부터 적용됩니다. 원화 환산 한도는 시세 피드가 붙은 뒤에 바꿉니다.
 - 주소 검사는 형식만 봅니다(비트코인 bech32/base58, 이더리움 0x+40자리). 체크섬 검증은 커스터디 연동 때 서명 전에 한 번 더 합니다.
 
 ## 운영 콘솔
 
 - 운영자는 `operators` 테이블에 따로 있고 세션(`operator_sessions`, 기본 8시간)과 로그인 기록도 이용자와 분리합니다. 이용자 토큰은 `/ops`에서, 운영자 토큰은 이용자 API에서 통하지 않습니다. 웹도 쿠키를 따로 씁니다(`p2p_ops_session`).
 - 로그인할 때마다 OTP가 필요하고, 계정은 CLI로만 만듭니다.
-- 분쟁 해결은 `dispute_resolutions`에 제안을 남기고, 다른 운영자가 승인하면 같은 트랜잭션에서 주문을 `completed`/`cancelled`로 바꾸고 에스크로를 옮깁니다. 같은 사람이 승인하는 것은 서비스와 DB 제약 양쪽에서 막습니다.
+- 역할은 `reviewer`와 `admin` 둘입니다. 2인 승인은 없고 reviewer 한 명이 바로 처리합니다.
+- 분쟁 해결은 reviewer가 사유와 함께 결정하면 같은 트랜잭션에서 주문을 `completed`/`cancelled`로 바꾸고 에스크로를 옮긴 뒤 `dispute_resolutions`에 기록합니다.
+- 분쟁 결정, 출금 승인, 출금 한도 변경, 계정 해지는 재확인(step-up)이 필요합니다. 새 OTP 코드를 넣으면 그 세션의 `step_up_until`이 5분 뒤로 잡힙니다. 코드는 로그인과 같은 카운터를 써서 한 번만 쓸 수 있습니다.
+- 설정 변경은 감사 로그에 변경 전·후 값을 함께 남깁니다. 감사 로그의 `target_id`는 회원·주문 ID뿐 아니라 코인 코드 같은 설정 키도 담도록 text입니다.
 - 계정 제한: `trade_suspended`는 주문을, `withdraw_held`는 출금을, `closed`는 로그인을 막습니다. 진행 중인 주문과 출금은 그대로 둡니다.
 - 운영자 동작마다 `audit_logs`에 `actor_type = 'operator'`로 남습니다.
 

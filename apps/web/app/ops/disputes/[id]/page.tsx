@@ -8,8 +8,7 @@ import { api } from '@/lib/api';
 import { ORDER_STATUS, USER_STATUS } from '@/lib/messages';
 import type { DisputeResolution, Message, Order, UserSummary } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
-import { canAct } from '@/lib/use-operator';
-import { useCurrentOperator } from '../../OpsShell';
+import { withStepUp } from '@/lib/use-operator';
 
 interface Case {
   order: Order;
@@ -21,11 +20,11 @@ interface Case {
 }
 
 const DECISION = { release: '구매자에게 코인 지급', refund: '판매자에게 환불' };
-const RESOLUTION_STATUS = { proposed: '승인 대기', approved: '승인됨', declined: '반려됨' };
+// Proposals left over from the old two-person flow were closed as declined.
+const RESOLUTION_STATUS = { proposed: '대기', approved: '실행됨', declined: '취소됨' };
 
 export default function OpsDisputePage() {
   const { id } = useParams<{ id: string }>();
-  const operator = useCurrentOperator();
   const [data, setData] = useState<Case | null>(null);
   const [decision, setDecision] = useState<'release' | 'refund'>('release');
   const [reason, setReason] = useState('');
@@ -50,15 +49,14 @@ export default function OpsDisputePage() {
   if (!data) return <p className="muted">불러오는 중…</p>;
   const { order, buyer, seller } = data;
   const decimals = ASSETS[order.asset as AssetCode]?.decimals ?? 0;
-  const pending = data.resolutions.find((r) => r.status === 'proposed');
   const name = (opId: string | null) => (opId ? (data.operatorNames[opId] ?? opId.slice(0, 8)) : '-');
   const role = (senderId: string) => (senderId === order.buyerId ? '구매자' : '판매자');
 
-  function propose(e: FormEvent) {
+  function resolve(e: FormEvent) {
     e.preventDefault();
+    if (!window.confirm(`${DECISION[decision]}를 실행할까요? 코인이 바로 이동하고 되돌릴 수 없습니다.`)) return;
     void run(async () => {
-      await api(`ops/disputes/${id}/proposals`, { body: { decision, reason } });
-      setReason('');
+      if (await withStepUp(() => api(`ops/disputes/${id}/resolve`, { body: { decision, reason } }))) setReason('');
     });
   }
 
@@ -136,11 +134,11 @@ export default function OpsDisputePage() {
             <table>
               <thead>
                 <tr>
-                  <th>제안</th>
+                  <th>결정</th>
                   <th>사유</th>
-                  <th>제안자</th>
+                  <th>처리자</th>
                   <th>상태</th>
-                  <th>결정자</th>
+                  <th>시각</th>
                 </tr>
               </thead>
               <tbody>
@@ -148,9 +146,9 @@ export default function OpsDisputePage() {
                   <tr key={r.id}>
                     <td>{DECISION[r.decision]}</td>
                     <td>{r.reason}</td>
-                    <td>{name(r.proposedBy)}</td>
+                    <td>{name(r.decidedBy ?? r.proposedBy)}</td>
                     <td>{RESOLUTION_STATUS[r.status]}</td>
-                    <td>{name(r.decidedBy)}</td>
+                    <td>{new Date(r.decidedAt ?? r.createdAt).toLocaleString('ko-KR')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -158,46 +156,16 @@ export default function OpsDisputePage() {
           </div>
         )}
 
-        {order.status === 'under_review' && canAct(operator) && pending && (
-          <div style={{ marginTop: 16 }}>
-            <p className="notice">
-              {name(pending.proposedBy)}님이 <strong>{DECISION[pending.decision]}</strong>를 제안했습니다. 다른
-              운영자가 승인하면 즉시 코인이 이동합니다.
-            </p>
-            <div className="actions">
-              <button
-                type="button"
-                disabled={pending.proposedBy === operator.id}
-                title={pending.proposedBy === operator.id ? '본인이 제안한 건은 승인할 수 없습니다' : undefined}
-                onClick={() => {
-                  if (window.confirm(`${DECISION[pending.decision]}를 승인할까요? 되돌릴 수 없습니다.`)) {
-                    void run(() => api(`ops/proposals/${pending.id}/approve`, { method: 'POST' }));
-                  }
-                }}
-              >
-                승인하고 실행
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => void run(() => api(`ops/proposals/${pending.id}/decline`, { method: 'POST' }))}
-              >
-                반려
-              </button>
-            </div>
-          </div>
-        )}
-
-        {order.status === 'under_review' && canAct(operator) && !pending && (
-          <form onSubmit={propose} style={{ marginTop: 16 }}>
+        {order.status === 'under_review' && (
+          <form onSubmit={resolve} style={{ marginTop: 16 }}>
             <label htmlFor="decision">결정</label>
             <select id="decision" value={decision} onChange={(e) => setDecision(e.target.value as 'release' | 'refund')}>
               <option value="release">{DECISION.release}</option>
               <option value="refund">{DECISION.refund}</option>
             </select>
-            <label htmlFor="reason">사유와 근거</label>
+            <label htmlFor="reason">사유와 근거 (감사 로그에 남습니다)</label>
             <textarea id="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} required />
-            <button className="full">제안하기 (다른 운영자 승인 필요)</button>
+            <button className="full">결정하고 실행 (OTP 확인)</button>
           </form>
         )}
         {order.status !== 'under_review' && <p className="muted">이 주문은 처리가 끝났습니다.</p>}

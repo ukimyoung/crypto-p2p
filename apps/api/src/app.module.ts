@@ -25,7 +25,6 @@ import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
 import { PaymentMethodsService } from './payments/payment-methods.service';
 import { CONFIG, DB, EMAIL_SENDER } from './tokens';
-import { DEFAULT_WALLET_CONFIG } from './wallet/wallet-config';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
@@ -69,7 +68,7 @@ import { WalletService } from './wallet/wallet.service';
       provide: WalletService,
       inject: [DB, LedgerService, CONFIG],
       useFactory: (db: Db, ledger: LedgerService, config: AppConfig) =>
-        new WalletService(db, ledger, { ...DEFAULT_WALLET_CONFIG, addressCooldownHours: config.addressCooldownHours }),
+        new WalletService(db, ledger, { addressCooldownHours: config.addressCooldownHours }),
     },
     {
       provide: OperatorAuthService,

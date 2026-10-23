@@ -84,18 +84,19 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | --- | --- | --- | --- |
 | POST | `/ops/auth/login` | - | `{ email, password, otp }`. OTP 항상 필수. 5회 실패 시 15분 잠금 |
 | POST | `/ops/auth/logout` | 모두 | |
-| GET | `/ops/me` | 모두 | 로그인한 운영자 |
+| POST | `/ops/auth/step-up` | 모두 | `{ otp }`. 새 OTP 코드로 이 세션의 민감 동작을 5분 동안 허용. 로그인에 쓴 코드는 다시 못 씀 |
+| GET | `/ops/me` | 모두 | 로그인한 운영자와 `stepUpUntil` |
 | GET | `/ops/summary` | 모두 | 검토 대기 출금 수, 진행 중 분쟁 수 |
 | GET | `/ops/withdrawals?status=` | 모두 | 상태별 출금(기본 `requested`), 오래된 순 |
-| POST | `/ops/withdrawals/:id/approve` | reviewer | |
+| POST | `/ops/withdrawals/:id/approve` | reviewer | OTP 재확인(step-up) 필요 |
 | POST | `/ops/withdrawals/:id/reject` | reviewer | `{ note }`. 사유는 이용자에게 보임 |
-| GET | `/ops/disputes` | 모두 | 운영 검토 중인 주문과 대기 중인 제안 |
-| GET | `/ops/disputes/:orderId` | 모두 | 주문, 당사자, 채팅 전체, 제안 이력 |
-| POST | `/ops/disputes/:orderId/proposals` | reviewer | `{ decision: release \| refund, reason }`. 주문당 대기 제안은 하나 |
-| POST | `/ops/proposals/:id/approve` | reviewer | 제안자가 아닌 운영자만. 승인과 동시에 코인 이동 |
-| POST | `/ops/proposals/:id/decline` | reviewer | 제안자 본인도 가능 |
+| GET | `/ops/disputes` | 모두 | 운영 검토 중인 주문 |
+| GET | `/ops/disputes/:orderId` | 모두 | 주문, 당사자, 채팅 전체, 결정 이력 |
+| POST | `/ops/disputes/:orderId/resolve` | reviewer | `{ decision: release \| refund, reason }`. 결정과 동시에 코인 이동. step-up 필요 |
 | GET | `/ops/users?q=` | 모두 | 이메일 일부, 회원 ID, 실명으로 검색 |
 | GET | `/ops/users/:id` | 모두 | 회원 정보, 잔고, 주문, 출금, 계좌(마스킹) |
-| POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊음 |
-| GET | `/ops/audit?targetId=&actorId=` | 모두 | 최근 100건 |
+| POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊고 step-up 필요 |
+| GET | `/ops/settings/withdrawal-rules` | 모두 | 코인별 출금 수수료, 최소 수량, 자동 승인 기준, KYC 단계별 24시간 한도 |
+| PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 빠진 KYC 단계는 출금 불가. step-up 필요 |
+| GET | `/ops/audit?targetId=&actorId=` | 모두 | 최근 100건. `targetId`는 회원·주문 ID나 코인 코드 |
 

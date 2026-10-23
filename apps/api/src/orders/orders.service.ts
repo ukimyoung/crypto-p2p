@@ -161,23 +161,13 @@ export class OrdersService {
   }
 
   /**
-   * Operator decision on an order under review. Moving escrow needs two
-   * different operators (PRD section 7): one proposes, the other approves.
+   * A reviewer's decision on an order under review: release to the buyer or refund the seller.
    * Runs in the caller's transaction so the decision record commits with it.
    */
-  resolve(
-    tx: Tx,
-    orderId: string,
-    decision: 'release' | 'refund',
-    operators: { requestedBy: string; approvedBy: string },
-  ): Promise<Order> {
-    if (operators.requestedBy === operators.approvedBy) {
-      throw new DomainError('two_person_rule', 'Requester and approver must be different operators');
-    }
+  resolve(tx: Tx, orderId: string, decision: 'release' | 'refund', operatorId: string): Promise<Order> {
     return this.applyIn(tx, orderId, decision === 'release' ? 'resolve_release' : 'resolve_refund', {
       type: 'operator',
-      id: operators.approvedBy,
-      requestedBy: operators.requestedBy,
+      id: operatorId,
     });
   }
 
@@ -234,7 +224,7 @@ export class OrdersService {
     tx: Tx,
     orderId: string,
     event: OrderEvent,
-    actor: Actor | { type: 'operator'; id: string; requestedBy: string },
+    actor: Actor,
   ): Promise<Order> {
     const res = await tx.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [orderId]);
     if (!res.rows[0]) throw new DomainError('not_found', 'Order not found');
@@ -267,9 +257,7 @@ export class OrdersService {
     );
     const after = toOrder(updated.rows[0]);
 
-    const auditActor: Actor = actor.type === 'system' ? actor : { type: actor.type, id: actor.id };
-    const auditAfter = 'requestedBy' in actor ? { ...after, requestedBy: actor.requestedBy } : after;
-    await writeAudit(tx, auditActor, `order.${event}`, { type: 'order', id: orderId }, before, auditAfter);
+    await writeAudit(tx, actor, `order.${event}`, { type: 'order', id: orderId }, before, after);
 
     // Tell the parties, except the one who just acted.
     const type = NOTIFY_ON[status];

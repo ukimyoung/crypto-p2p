@@ -5,7 +5,7 @@ import { OperatorAuthService, OperatorRole } from './operator-auth.service';
 /**
  * Creates a staff account. There is no sign-up page for operators.
  *
- *   OPERATOR_PASSWORD=... node dist/ops/create-operator-cli.js <email> <name> <support|reviewer|admin>
+ *   OPERATOR_PASSWORD=... node dist/ops/create-operator-cli.js <email> <name> <reviewer|admin>
  *
  * Prints the OTP secret once; it must go into the operator's authenticator app.
  */
@@ -13,7 +13,7 @@ async function main() {
   const [email, name, role] = process.argv.slice(2);
   const password = process.env.OPERATOR_PASSWORD;
   if (!email || !name || !role || !password) {
-    throw new Error('Usage: OPERATOR_PASSWORD=... create-operator <email> <name> <support|reviewer|admin>');
+    throw new Error('Usage: OPERATOR_PASSWORD=... create-operator <email> <name> <reviewer|admin>');
   }
   const url = process.env.DATABASE_URL;
   const key = process.env.OTP_ENCRYPTION_KEY;

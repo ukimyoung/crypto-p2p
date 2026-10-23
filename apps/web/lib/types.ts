@@ -109,7 +109,9 @@ export interface Operator {
   id: string;
   email: string;
   name: string;
-  role: 'support' | 'reviewer' | 'admin';
+  role: 'reviewer' | 'admin';
+  /** Sensitive actions are unlocked until this time. */
+  stepUpUntil: string | null;
 }
 
 export interface UserSummary {
@@ -153,4 +155,14 @@ export interface Notification {
   data: Record<string, string | null>;
   createdAt: string;
   readAt: string | null;
+}
+
+/** Withdrawal rules for one coin. Amounts are in the coin's smallest unit. */
+export interface WithdrawalRules {
+  asset: string;
+  fee: string;
+  minAmount: string;
+  autoApproveMax: string;
+  /** Rolling 24-hour limit keyed by KYC level. A missing level cannot withdraw. */
+  dailyLimitByKycLevel: Record<string, string>;
 }

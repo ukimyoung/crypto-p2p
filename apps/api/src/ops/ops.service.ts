@@ -95,7 +95,7 @@ export class OpsService {
   async audit(filter: { targetId?: string; actorId?: string; limit?: number }): Promise<AuditEntry[]> {
     const { rows } = await this.db.query(
       `SELECT * FROM audit_logs
-       WHERE ($1::uuid IS NULL OR target_id = $1) AND ($2::uuid IS NULL OR actor_id = $2)
+       WHERE ($1::text IS NULL OR target_id = $1) AND ($2::uuid IS NULL OR actor_id = $2)
        ORDER BY id DESC LIMIT $3`,
       [filter.targetId ?? null, filter.actorId ?? null, Math.min(filter.limit ?? 100, 500)],
     );

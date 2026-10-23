@@ -171,28 +171,23 @@ describe('OrdersService', () => {
     expect(await available(buyer)).toBe(CENTI);
   });
 
-  it('settles an escalated order only with two different operators', async () => {
+  it('lets one operator settle an escalated order', async () => {
     const { seller, buyer, ad } = await sellAdScenario();
-    const opA = await createUser(db);
-    const opB = await createUser(db);
+    const operator = await createUser(db);
     const order = await orders.create(buyer, ad.id, CENTI);
     await orders.markPaid(order.id, buyer);
     expect((await orders.escalate(order.id, buyer)).status).toBe('under_review');
 
     await expect(orders.release(order.id, seller)).rejects.toMatchObject({ code: 'invalid_transition' });
-    const resolve = (requestedBy: string, approvedBy: string) =>
-      withTransaction(db, (tx) => orders.resolve(tx, order.id, 'release', { requestedBy, approvedBy }));
-    await expect(resolve(opA, opA)).rejects.toThrow(/different operators/);
-
-    const resolved = await resolve(opA, opB);
+    const resolved = await withTransaction(db, (tx) => orders.resolve(tx, order.id, 'release', operator));
     expect(resolved.status).toBe('completed');
     expect(await available(buyer)).toBe(CENTI);
 
     const audit = await db.query(
-      "SELECT actor_type, actor_id, after->>'requestedBy' AS requested_by FROM audit_logs WHERE target_id = $1 AND action = 'order.resolve_release'",
+      "SELECT actor_type, actor_id FROM audit_logs WHERE target_id = $1 AND action = 'order.resolve_release'",
       [order.id],
     );
-    expect(audit.rows).toEqual([{ actor_type: 'operator', actor_id: opB, requested_by: opA }]);
+    expect(audit.rows).toEqual([{ actor_type: 'operator', actor_id: operator }]);
   });
 
   it('refunds the seller when operators decide against the buyer', async () => {
@@ -201,8 +196,8 @@ describe('OrdersService', () => {
     await orders.markPaid(order.id, buyer);
     await orders.escalate(order.id, seller);
 
-    const operators = { requestedBy: await createUser(db), approvedBy: await createUser(db) };
-    await withTransaction(db, (tx) => orders.resolve(tx, order.id, 'refund', operators));
+    const operator = await createUser(db);
+    await withTransaction(db, (tx) => orders.resolve(tx, order.id, 'refund', operator));
 
     expect(await available(seller)).toBe(2n * BTC);
     expect(await available(buyer)).toBe(0n);

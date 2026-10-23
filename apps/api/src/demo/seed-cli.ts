@@ -7,7 +7,6 @@ import { LedgerService } from '../ledger/ledger.service';
 import { OrderChatService } from '../orders/order-chat.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
-import { DEFAULT_WALLET_CONFIG } from '../wallet/wallet-config';
 import { WalletService } from '../wallet/wallet.service';
 import { DEMO_OPERATORS, DEMO_PASSWORD, DEMO_USERS } from './accounts';
 
@@ -47,7 +46,7 @@ async function seed(db: Db, secrets: SecretBox) {
   const ads = new AdsService(db, payments);
   const orders = new OrdersService(db, ledger, payments, { makerFeeBps: 0 });
   const chat = new OrderChatService(db);
-  const wallet = new WalletService(db, ledger, { ...DEFAULT_WALLET_CONFIG, addressCooldownHours: 0 });
+  const wallet = new WalletService(db, ledger, { addressCooldownHours: 0 });
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   const ids: string[] = [];
