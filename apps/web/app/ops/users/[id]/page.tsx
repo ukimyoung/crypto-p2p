@@ -79,7 +79,9 @@ export default function OpsUserPage() {
     if (!why?.trim()) return;
     setError(null);
     try {
-      setPii((await api<{ pii: typeof pii }>(`ops/users/${id}/reveal`, { body: { reason: why } })).pii);
+      const res = await withStepUp(() => api<{ pii: typeof pii }>(`ops/users/${id}/reveal`, { body: { reason: why } }));
+      if (!res) return;
+      setPii(res.pii);
       await load();
     } catch (err) {
       setError(messageOf(err));
@@ -153,7 +155,7 @@ export default function OpsUserPage() {
           </dl>
           {!pii && (
             <button type="button" className="small secondary" onClick={reveal}>
-              개인정보 전체 보기 (사유 필요)
+              개인정보 전체 보기 (사유와 OTP 필요)
             </button>
           )}
         </section>

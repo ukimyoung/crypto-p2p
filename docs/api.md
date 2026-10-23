@@ -102,7 +102,7 @@ OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 
 | POST | `/ops/disputes/:orderId/resolve` | reviewer | `{ decision: release \| refund, reason }`. 결정과 동시에 코인 이동. step-up 필요 |
 | GET | `/ops/users?q=&status=&kycLevel=&from=&to=&sort=&dir=&page=&pageSize=` | 모두 | 회원 그리드. 기본은 전체 회원 가입일 최신순, 페이지당 20·50·100(기본 50). `q`는 이메일 일부, 전화, 실명, 회원 ID. 전화·실명은 가림 |
 | GET | `/ops/users/:id` | 모두 | 회원 정보(가림), 잔고, 주문, 출금, 계좌(가림), 출금 주소, 광고, 로그인 기록, 처리 이력 |
-| POST | `/ops/users/:id/reveal` | reviewer | `{ reason }`. 전체 이메일·전화·실명. 열람 자체가 감사 로그에 남음 |
+| POST | `/ops/users/:id/reveal` | reviewer | `{ reason }`. 전체 이메일·전화·실명. step-up 필요. 열람 자체가 감사 로그에 남음 |
 | POST | `/ops/users/:id/kyc-level` | reviewer | `{ level, reason }`. 예외용 KYC 등급 수동 조정 |
 | GET | `/ops/ads?asset=&fiat=&side=&status=&makerId=&sort=&dir=&page=&pageSize=` | 모두 | 광고 그리드. 정렬은 `created_at`, `price_minor`, `remaining_amount` |
 | GET | `/ops/ads/:id` | 모두 | 광고, 지금 요율의 최종 가격, 이 광고로 생긴 주문 |

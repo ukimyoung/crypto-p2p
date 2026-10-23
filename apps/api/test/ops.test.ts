@@ -499,10 +499,17 @@ describe('operations console', () => {
       const byPhone = await http().get('/ops/users').query({ q: '01012345671' }).set(bearer(reviewerB)).expect(200);
       expect(byPhone.body.users.map((u: { id: string }) => u.id)).toEqual([ids[1]]);
 
-      await http().post(`/ops/users/${ids[0]}/reveal`).set(bearer(reviewerB)).send({ reason: ' ' }).expect(400);
-      const revealed = await http()
+      // Showing personal details needs a fresh OTP code and a reason.
+      const noStepUp = await http()
         .post(`/ops/users/${ids[0]}/reveal`)
         .set(bearer(reviewerB))
+        .send({ reason: '본인 확인 전화' })
+        .expect(403);
+      expect(noStepUp.body.error.code).toBe('step_up_required');
+      await http().post(`/ops/users/${ids[0]}/reveal`).set(bearer(reviewerA)).send({ reason: ' ' }).expect(400);
+      const revealed = await http()
+        .post(`/ops/users/${ids[0]}/reveal`)
+        .set(bearer(reviewerA))
         .send({ reason: '본인 확인 전화' })
         .expect(200);
       expect(revealed.body.pii).toEqual({ email: 'grid0@example.com', phone: '010-1234-5670', legalName: '홍길동' });

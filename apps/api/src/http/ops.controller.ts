@@ -261,11 +261,12 @@ export class OpsController {
     };
   }
 
-  /** Full phone number and legal name. Needs a reason, and the viewing is audited. */
+  /** Full phone number and legal name. Needs a reason and a step-up, and the viewing is audited. */
   @Post('users/:id/reveal')
   @HttpCode(200)
   async revealUser(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
     assertRole(operator, 'reviewer');
+    assertStepUp(operator);
     return { pii: await this.ops.revealUser(id, parse(reasonBody, body).reason, operator.id) };
   }
 
