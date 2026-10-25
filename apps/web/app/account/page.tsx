@@ -15,6 +15,7 @@ import { useMe } from '@/lib/use-me';
 export default function AccountPage() {
   const { me, reload } = useMe();
   const { t } = useT();
+  const [editingPhone, setEditingPhone] = useState(false);
 
   if (me === undefined) return <p className="muted">{t('불러오는 중…')}</p>;
   if (me === null) {
@@ -35,7 +36,20 @@ export default function AccountPage() {
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
           <dt>{t('휴대폰 번호')}</dt>
-          <dd>{me.phone ?? t('미등록')}</dd>
+          <dd>
+            {me.phone ? (
+              <span className="row">
+                <strong>{me.phone}</strong>
+                {!editingPhone && (
+                  <button type="button" className="secondary inline-action" onClick={() => setEditingPhone(true)}>
+                    {t('휴대폰 번호 변경')}
+                  </button>
+                )}
+              </span>
+            ) : (
+              t('미등록')
+            )}
+          </dd>
           <dt>{t('본인인증(KYC)')}</dt>
           <dd>{me.kycLevel > 0 ? t('완료') : t('미완료')}</dd>
           <dt>OTP</dt>
@@ -48,7 +62,7 @@ export default function AccountPage() {
           </p>
         )}
       </section>
-      <PhoneEdit me={me} onSaved={reload} />
+      {(!me.phone || editingPhone) && <PhoneEdit me={me} onSaved={reload} onClose={() => setEditingPhone(false)} />}
       {!me.otpEnabled && <OtpSetup onEnabled={reload} />}
       {me.otpEnabled && <PaymentMethods />}
     </>
@@ -112,10 +126,9 @@ function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> })
   );
 }
 
-/** Members who joined before phone numbers were asked add one here; others can change theirs. */
-function PhoneEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+/** Members who joined before phone numbers were asked add one here; others open it from the button beside their number. */
+function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<void>; onClose: () => void }) {
   const { t } = useT();
-  const [open, setOpen] = useState(false);
   const [country, setCountry] = useState(me.phoneCountry ?? 'KR');
   const [number, setNumber] = useState(me.phoneNational ?? '');
   const [otp, setOtp] = useState('');
@@ -131,23 +144,13 @@ function PhoneEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
         body: { phoneCountry: country, phoneNumber: number, ...(me.otpEnabled ? { otp } : {}) },
       });
       setOtp('');
-      setOpen(false);
+      onClose();
       await onSaved();
     } catch (err) {
       setError(messageOf(err));
     } finally {
       setBusy(false);
     }
-  }
-
-  if (me.phone && !open) {
-    return (
-      <p className="small-text">
-        <button className="link-button" onClick={() => setOpen(true)}>
-          {t('휴대폰 번호 변경')}
-        </button>
-      </p>
-    );
   }
 
   return (
@@ -172,7 +175,7 @@ function PhoneEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
         <div className="row" style={{ marginTop: 16 }}>
           <button disabled={busy}>{t('저장')}</button>
           {me.phone && (
-            <button type="button" className="secondary" onClick={() => setOpen(false)}>
+            <button type="button" className="secondary" onClick={onClose}>
               {t('취소')}
             </button>
           )}
