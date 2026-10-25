@@ -167,7 +167,7 @@ describe('HTTP API', () => {
       expect((await confirm('named2@example.com').expect(200)).body.user).toMatchObject({ firstName: '길동', lastName: '홍' });
     });
 
-    it('lets a member set or change their name', async () => {
+    it('lets a member without a name enter it once', async () => {
       const user = await signUpAndLogin('rename@example.com');
       // Members who joined before signup asked for a name have none.
       await db.query('UPDATE users SET first_name = NULL, last_name = NULL WHERE id = $1', [user.id]);
@@ -178,6 +178,11 @@ describe('HTTP API', () => {
       expect(ok.body.user).toMatchObject({ firstName: '민수', lastName: '김' });
       const { rows } = await db.query("SELECT after FROM audit_logs WHERE action = 'user.name_change' AND target_id = $1", [user.id]);
       expect(rows[0].after).toEqual({ firstName: '민수', lastName: '김' });
+      // Once set, the name stays.
+      const again = await http().post('/me/name').set(auth(user)).send({ firstName: '철수', lastName: '김' }).expect(409);
+      expect(again.body.error.code).toBe('name_locked');
+      const named = await signUpAndLogin('named3@example.com');
+      await http().post('/me/name').set(auth(named)).send({ firstName: '철수', lastName: '김' }).expect(409);
     });
 
     it('reports a mail failure and lets the member try again', async () => {
@@ -229,7 +234,7 @@ describe('HTTP API', () => {
       expect(taken.body.error.code).toBe('phone_taken');
     });
 
-    it('requires a valid, unused nickname and lets the member change it', async () => {
+    it('requires a valid, unused nickname that cannot be changed later', async () => {
       const base = { password: PASSWORD, ...NAME };
       for (const nickname of ['a', 'has space', 'x'.repeat(17), 'bad!']) {
         const res = await http()
@@ -253,11 +258,28 @@ describe('HTTP API', () => {
 
       const login = await http().post('/auth/login').send({ email: 'nick@example.com', password: PASSWORD }).expect(200);
       const headers = { Authorization: `Bearer ${login.body.token}` };
-      const changed = await http().post('/me/nickname').set(headers).send({ nickname: '새이름' }).expect(200);
-      expect(changed.body.user.nickname).toBe('새이름');
-      const other = await signUpAndLogin('nick3@example.com');
-      const clash = await http().post('/me/nickname').set(auth(other)).send({ nickname: '새이름' }).expect(409);
-      expect(clash.body.error.code).toBe('nickname_taken');
+      // A nickname the member chose cannot be changed.
+      const locked = await http().post('/me/nickname').set(headers).send({ nickname: '새이름' }).expect(409);
+      expect(locked.body.error.code).toBe('nickname_locked');
+      expect((await http().get('/me').set(headers).expect(200)).body.user.temporaryNickname).toBe(false);
+      // The placeholder form is reserved.
+      const reserved = await http()
+        .post('/auth/signup')
+        .send({ ...base, email: 'nick4@example.com', nickname: 'user_1a2b3c4d', ...nextPhone() })
+        .expect(400);
+      expect(reserved.body.error.code).toBe('invalid_nickname');
+    });
+
+    it('lets a member with a placeholder nickname pick one once', async () => {
+      const user = await signUpAndLogin('oldnick@example.com');
+      await db.query("UPDATE users SET nickname = 'user_0f0f0f0f' WHERE id = $1", [user.id]);
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user).toMatchObject({ temporaryNickname: true });
+      const taken = await http().post('/me/nickname').set(auth(user)).send({ nickname: '코인_Lover1' }).expect(409);
+      expect(taken.body.error.code).toBe('nickname_taken');
+      const changed = await http().post('/me/nickname').set(auth(user)).send({ nickname: '새이름' }).expect(200);
+      expect(changed.body.user).toMatchObject({ nickname: '새이름', temporaryNickname: false });
+      const again = await http().post('/me/nickname').set(auth(user)).send({ nickname: '다른이름' }).expect(409);
+      expect(again.body.error.code).toBe('nickname_locked');
     });
 
     it('lets a member change the phone number', async () => {

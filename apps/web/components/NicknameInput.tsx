@@ -21,7 +21,7 @@ export function NicknameInput({ value, onChange, id = 'nickname' }: { value: str
         required
       />
       <p className="muted small-text" style={{ margin: '6px 0 0' }}>
-        {t('마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있습니다.')}
+        {t('마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있고, 정한 뒤에는 바꿀 수 없습니다.')}
       </p>
     </>
   );
