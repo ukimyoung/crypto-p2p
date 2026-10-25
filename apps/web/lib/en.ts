@@ -447,6 +447,7 @@ export const EN: Record<string, string> = {
   '은행 이체': 'Bank transfer',
   // Nicknames
   닉네임: 'Nickname',
+  변경: 'Change',
   '2~16자 한글, 영문, 숫자, 밑줄(_)': '2-16 letters, digits or underscores',
   '마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있고, 정한 뒤에는 바꿀 수 없습니다.':
     'The name other members see on the market. 2-16 letters, digits or underscores; it cannot be changed later.',
