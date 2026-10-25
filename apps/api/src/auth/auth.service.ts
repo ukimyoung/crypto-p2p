@@ -297,6 +297,49 @@ export class AuthService {
     });
   }
 
+  /**
+   * Changes the password after checking the current one. Wrong guesses count towards the same lockout as
+   * logins. Every other session of the member is signed out; the one making the change stays signed in.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    currentToken: string,
+    meta: RequestMeta,
+  ): Promise<void> {
+    const { rows } = await this.db.query('SELECT id, email, password_hash FROM users WHERE id = $1', [userId]);
+    const user = rows[0];
+    if (!user) throw new DomainError('not_found', 'User not found');
+
+    const failures = await this.db.query<{ n: string }>(
+      `SELECT count(*) AS n FROM login_attempts
+       WHERE email = $1 AND NOT success AND created_at > $2`,
+      [user.email, new Date(this.now().getTime() - this.config.lockoutMinutes * 60_000)],
+    );
+    if (Number(failures.rows[0]!.n) >= this.config.maxFailedLogins) {
+      throw new DomainError('too_many_attempts', 'Too many failed attempts. Try again later');
+    }
+    if (!user.password_hash || !(await verifyPassword(currentPassword, user.password_hash))) {
+      await this.recordAttempt(user.email, user.id, false, 'password_change', meta);
+      throw new DomainError('wrong_password', 'The current password is incorrect');
+    }
+    assertPasswordPolicy(newPassword);
+    if (newPassword === currentPassword) {
+      throw new DomainError('same_password', 'Choose a password different from the current one');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await withTransaction(this.db, async (tx) => {
+      await tx.query('UPDATE users SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+      await tx.query(
+        'UPDATE sessions SET revoked_at = $3 WHERE user_id = $1 AND token_hash <> $2 AND revoked_at IS NULL',
+        [userId, hashToken(currentToken), this.now()],
+      );
+      await writeAudit(tx, { type: 'user', id: userId }, 'user.password_change', { type: 'user', id: userId }, null, null);
+    });
+  }
+
   /** Returns a bearer token. */
   async login(rawEmail: string, password: string, meta: RequestMeta): Promise<string> {
     const email = normalizeEmail(rawEmail);

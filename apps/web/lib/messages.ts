@@ -2,8 +2,10 @@
 const ERRORS: Record<string, string> = {
   unauthorized: '로그인이 필요합니다.',
   invalid_credentials: '이메일 또는 비밀번호가 맞지 않습니다.',
-  too_many_attempts: '로그인 실패가 많아 잠시 잠겼습니다. 15분 뒤에 다시 시도해 주세요.',
+  too_many_attempts: '비밀번호를 여러 번 틀려 잠시 잠겼습니다. 15분 뒤에 다시 시도해 주세요.',
   invalid_otp: 'OTP 코드가 맞지 않거나 이미 사용한 코드입니다. 다음 코드를 입력해 주세요.',
+  wrong_password: '현재 비밀번호가 맞지 않습니다.',
+  same_password: '지금 쓰는 비밀번호와 다른 비밀번호를 정해 주세요.',
   weak_password: '비밀번호는 10자 이상이고 영문과 숫자를 모두 포함해야 합니다. 특수문자(! @ # 등)도 쓸 수 있습니다.',
   invalid_email: '이메일 주소 형식이 올바르지 않습니다.',
   email_taken: '이미 가입된 이메일입니다.',

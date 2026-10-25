@@ -17,6 +17,7 @@ export default function AccountPage() {
   const { me, reload } = useMe();
   const { t } = useT();
   const [editingPhone, setEditingPhone] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   if (me === undefined) return <p className="muted">{t('불러오는 중…')}</p>;
   if (me === null) {
@@ -55,6 +56,17 @@ export default function AccountPage() {
               t('미등록')
             )}
           </dd>
+          <dt>{t('비밀번호')}</dt>
+          <dd>
+            <span className="row">
+              <strong aria-hidden>••••••••••</strong>
+              {!changingPassword && (
+                <button type="button" className="secondary inline-action" onClick={() => setChangingPassword(true)}>
+                  {t('비밀번호 변경')}
+                </button>
+              )}
+            </span>
+          </dd>
           <dt>{t('본인인증(KYC)')}</dt>
           <dd>{me.kycLevel > 0 ? t('완료') : t('미완료')}</dd>
         </dl>
@@ -66,6 +78,7 @@ export default function AccountPage() {
         )}
       </section>
       {(!me.phone || editingPhone) && <PhoneEdit me={me} onSaved={reload} onClose={() => setEditingPhone(false)} />}
+      {changingPassword && <PasswordChange onClose={() => setChangingPassword(false)} />}
       {me.kycLevel > 0 && <PaymentMethods />}
       {me.kycLevel > 0 && <ReceivingAddresses />}
     </>
@@ -265,6 +278,91 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
         </div>
       </form>
       <ErrorText error={error} />
+    </section>
+  );
+}
+
+/** Changes the password after checking the current one. Other devices are signed out. */
+function PasswordChange({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (newPassword !== confirm) {
+      setError(t('비밀번호 확인이 일치하지 않습니다.'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await api('me/password', { body: { currentPassword, newPassword } });
+      setDone(true);
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <section className="card">
+        <h2>{t('비밀번호 변경')}</h2>
+        <p>{t('비밀번호를 변경했습니다. 다른 기기에서는 로그아웃되었습니다.')}</p>
+        <button type="button" className="secondary" onClick={onClose}>
+          {t('닫기')}
+        </button>
+      </section>
+    );
+  }
+  return (
+    <section className="card">
+      <h2>{t('비밀번호 변경')}</h2>
+      <form onSubmit={save} style={{ maxWidth: 420 }}>
+        <label htmlFor="current-password">{t('현재 비밀번호')}</label>
+        <input
+          id="current-password"
+          type="password"
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          required
+        />
+        <label htmlFor="new-password">{t('새 비밀번호 (10자 이상, 영문과 숫자 포함, 특수문자 사용 가능)')}</label>
+        <input
+          id="new-password"
+          type="password"
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+        />
+        <label htmlFor="confirm-password">{t('새 비밀번호 확인')}</label>
+        <input
+          id="confirm-password"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          required
+        />
+        <p className="muted small-text" style={{ margin: '6px 0 0' }}>
+          {t('변경하면 지금 쓰는 기기를 뺀 다른 기기에서는 모두 로그아웃됩니다.')}
+        </p>
+        <ErrorText error={error} />
+        <div className="row" style={{ marginTop: 16 }}>
+          <button disabled={busy}>{t('저장')}</button>
+          <button type="button" className="secondary" onClick={onClose}>
+            {t('취소')}
+          </button>
+        </div>
+      </form>
     </section>
   );
 }

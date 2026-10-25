@@ -204,8 +204,16 @@ export const EN: Record<string, string> = {
   '요청을 처리하지 못했습니다.': 'We could not process your request.',
   '로그인이 필요합니다.': 'Please log in.',
   '이메일 또는 비밀번호가 맞지 않습니다.': 'Email or password is incorrect.',
-  '로그인 실패가 많아 잠시 잠겼습니다. 15분 뒤에 다시 시도해 주세요.':
-    'Too many failed logins. Try again in 15 minutes.',
+  '비밀번호를 여러 번 틀려 잠시 잠겼습니다. 15분 뒤에 다시 시도해 주세요.': 'Too many wrong passwords. Try again in 15 minutes.',
+  '현재 비밀번호가 맞지 않습니다.': 'The current password is incorrect.',
+  '지금 쓰는 비밀번호와 다른 비밀번호를 정해 주세요.': 'Choose a password different from the current one.',
+  '비밀번호 변경': 'Change password',
+  닫기: 'Close',
+  '현재 비밀번호': 'Current password',
+  '새 비밀번호 (10자 이상, 영문과 숫자 포함, 특수문자 사용 가능)': 'New password (10+ characters with letters and digits; special characters allowed)',
+  '새 비밀번호 확인': 'Confirm new password',
+  '변경하면 지금 쓰는 기기를 뺀 다른 기기에서는 모두 로그아웃됩니다.': 'Changing it signs you out on every other device.',
+  '비밀번호를 변경했습니다. 다른 기기에서는 로그아웃되었습니다.': 'Your password has been changed. Other devices have been signed out.',
   '비밀번호는 10자 이상이고 영문과 숫자를 모두 포함해야 합니다. 특수문자(! @ # 등)도 쓸 수 있습니다.':
     'A password needs at least 10 characters with both letters and numbers. Special characters (! @ # etc.) are allowed.',
   '이메일 주소 형식이 올바르지 않습니다.': 'That email address is not valid.',
