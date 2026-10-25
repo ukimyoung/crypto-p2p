@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import { AuthService, Me } from '../src/auth/auth.service';
 import { SecretBox } from '../src/auth/secret-box';
 import { createPool, Db, withTransaction } from '../src/db/database';
 import { migrate } from '../src/db/migrate';
 import { LedgerService } from '../src/ledger/ledger.service';
+import { EmailMessage, EmailSender } from '../src/notifications/email.worker';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
 
 export const TEST_DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres@localhost:5432/p2p_test';
@@ -80,4 +82,34 @@ export async function addBankAccount(
 
 export function testSecretBox(): SecretBox {
   return new SecretBox(randomBytes(32).toString('base64'));
+}
+
+/** Keeps sent emails in memory so tests can open the links in them. */
+export class MemoryEmailSender implements EmailSender {
+  sent: EmailMessage[] = [];
+  fail = false;
+
+  async send(message: EmailMessage): Promise<void> {
+    if (this.fail) throw new Error('mail server down');
+    this.sent.push(message);
+  }
+
+  /** The token in the latest signup link sent to `email`. */
+  signupToken(email: string): string {
+    const message = this.sent.filter((m) => m.to === email.toLowerCase()).at(-1);
+    const token = message?.body.match(/\/signup\/verify\?token=([\w-]+)/)?.[1];
+    if (!token) throw new Error(`No signup link was sent to ${email}`);
+    return token;
+  }
+}
+
+/** Signs a member up and opens the emailed link, as a new member does. */
+export async function signUpConfirmed(
+  auth: AuthService,
+  mail: MemoryEmailSender,
+  email: string,
+  password: string,
+): Promise<Me> {
+  await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname() });
+  return (await auth.completeSignUp(mail.signupToken(email), {})).user;
 }

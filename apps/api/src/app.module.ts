@@ -21,8 +21,9 @@ import { WalletController } from './http/wallet.controller';
 import { KycService } from './kyc/kyc.service';
 import { loadSumsubConfig, SumsubClient } from './kyc/sumsub.client';
 import { LedgerService } from './ledger/ledger.service';
-import { EmailWorker, LogEmailSender } from './notifications/email.worker';
+import { EmailSender, EmailWorker, LogEmailSender } from './notifications/email.worker';
 import { NotificationsService } from './notifications/notifications.service';
+import { loadResendConfig, ResendEmailSender } from './notifications/resend.client';
 import { DisputesService } from './ops/disputes.service';
 import { OperatorAuthService } from './ops/operator-auth.service';
 import { OpsService } from './ops/ops.service';
@@ -42,12 +43,14 @@ import { WalletService } from './wallet/wallet.service';
     { provide: SecretBox, inject: [CONFIG], useFactory: (config: AppConfig) => new SecretBox(config.otpEncryptionKey) },
     {
       provide: AuthService,
-      inject: [DB, SecretBox, CONFIG],
-      useFactory: (db: Db, secrets: SecretBox, config: AppConfig) =>
-        new AuthService(db, secrets, {
+      inject: [DB, SecretBox, EMAIL_SENDER, CONFIG],
+      useFactory: (db: Db, secrets: SecretBox, mailer: EmailSender, config: AppConfig) =>
+        new AuthService(db, secrets, mailer, {
           sessionTtlHours: config.sessionTtlHours,
           maxFailedLogins: 5,
           lockoutMinutes: 15,
+          appUrl: config.appUrl,
+          signupLinkTtlHours: config.signupLinkTtlHours,
         }),
     },
     AuthGuard,
@@ -89,8 +92,14 @@ import { WalletService } from './wallet/wallet.service';
     },
     OpsGuard,
     { provide: NotificationsService, inject: [DB], useFactory: (db: Db) => new NotificationsService(db) },
-    // Swap for a real provider (SES, SendGrid, ...) once one is chosen.
-    { provide: EMAIL_SENDER, useFactory: () => new LogEmailSender() },
+    {
+      // Without a Resend API key in the environment, emails are written to the log instead of sent.
+      provide: EMAIL_SENDER,
+      useFactory: () => {
+        const resend = loadResendConfig();
+        return resend ? new ResendEmailSender(resend) : new LogEmailSender();
+      },
+    },
     EmailWorker,
     { provide: OpsService, inject: [DB], useFactory: (db: Db) => new OpsService(db) },
     { provide: BillingService, inject: [DB], useFactory: (db: Db) => new BillingService(db) },
