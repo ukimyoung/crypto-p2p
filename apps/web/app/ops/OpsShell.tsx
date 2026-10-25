@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, ReactNode, useContext, useEffect } from 'react';
+import { LogoMark } from '@/components/Logo';
 import { api } from '@/lib/api';
 import { LocaleProvider } from '@/lib/i18n';
 import { OPERATOR_ROLE } from '@/lib/messages';
@@ -58,27 +59,32 @@ export function OpsShell({ children }: { children: ReactNode }) {
   return (
     <LocaleProvider locale="ko">
       <OperatorContext.Provider value={operator}>
-        <header className="header ops-header">
-          <nav className="nav">
+        <div className="ops-layout">
+          <aside className="ops-side">
             <Link href="/ops" className="brand">
-              운영 콘솔
+              <LogoMark />
+              <span>
+                운영 콘솔
+                <small>OPERATIONS</small>
+              </span>
             </Link>
-            <div className="nav-links">
+            <nav>
               {LINKS.map(([href, label]) => (
                 <Link key={href} href={href} className={(href === '/ops' ? pathname === href : pathname.startsWith(href)) ? 'active' : undefined}>
                   {label}
                 </Link>
               ))}
-              <span className="muted small-text">
-                {operator.name} · {OPERATOR_ROLE[operator.role]}
-              </span>
+            </nav>
+            <div className="ops-user">
+              <strong>{operator.name}</strong>
+              <span>{OPERATOR_ROLE[operator.role]}</span>
               <button type="button" className="link-button" onClick={logout}>
                 로그아웃
               </button>
             </div>
-          </nav>
-        </header>
-        <main className="wide">{children}</main>
+          </aside>
+          <main className="wide">{children}</main>
+        </div>
       </OperatorContext.Provider>
     </LocaleProvider>
   );
