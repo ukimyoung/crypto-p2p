@@ -117,6 +117,9 @@ import { WalletService } from './wallet/wallet.service';
       inject: [DB],
       useFactory: (db: Db) => {
         const sumsub = loadSumsubConfig();
+        const logger = new Logger('KYC');
+        if (sumsub) logger.log(`Identity verification through Sumsub, level ${sumsub.levelName}`);
+        else logger.warn('Sumsub keys are not set: identity verification is turned off');
         return new KycService(db, sumsub ? new SumsubClient(sumsub) : null);
       },
     },

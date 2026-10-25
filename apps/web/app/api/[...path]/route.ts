@@ -24,12 +24,20 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
   if (userAgent) headers['User-Agent'] = userAgent;
   const forwardedFor = req.headers.get('x-forwarded-for');
   if (forwardedFor) headers['X-Forwarded-For'] = forwardedFor;
+  // Sumsub signs the exact body bytes; pass its signature headers and the body through untouched.
+  const isWebhook = path === 'kyc/sumsub/webhook';
+  if (isWebhook) {
+    for (const name of ['x-payload-digest', 'x-payload-digest-alg']) {
+      const value = req.headers.get(name);
+      if (value) headers[name] = value;
+    }
+  }
 
   const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
   const upstream = await fetch(`${API_URL}/${path}${req.nextUrl.search}`, {
     method: req.method,
     headers,
-    body: hasBody ? await req.text() : undefined,
+    body: hasBody ? (isWebhook ? await req.arrayBuffer() : await req.text()) : undefined,
     cache: 'no-store',
   });
 

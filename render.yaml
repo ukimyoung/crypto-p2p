@@ -33,3 +33,12 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Identity verification through Sumsub (see README "본인 인증 (Sumsub)"). All four are needed.
+      - key: SUMSUB_APP_TOKEN
+        sync: false
+      - key: SUMSUB_SECRET_KEY
+        sync: false
+      - key: SUMSUB_WEBHOOK_SECRET
+        sync: false
+      - key: SUMSUB_LEVEL_NAME
+        sync: false

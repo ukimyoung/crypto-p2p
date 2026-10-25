@@ -35,6 +35,11 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       APP_URL: ${APP_URL:-http://localhost:3001}
+      # Identity verification through Sumsub (see README "본인 인증 (Sumsub)"). All four are needed.
+      SUMSUB_APP_TOKEN: ${SUMSUB_APP_TOKEN:-}
+      SUMSUB_SECRET_KEY: ${SUMSUB_SECRET_KEY:-}
+      SUMSUB_WEBHOOK_SECRET: ${SUMSUB_WEBHOOK_SECRET:-}
+      SUMSUB_LEVEL_NAME: ${SUMSUB_LEVEL_NAME:-}
     depends_on:
       db:
         condition: service_healthy

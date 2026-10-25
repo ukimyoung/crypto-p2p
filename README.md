@@ -51,6 +51,24 @@ docker compose exec api node dist/demo/otp-cli.js
 
 Docker로 띄울 때는 `docker-compose.yml`과 같은 폴더에 `.env` 파일을 만들어 위 값을 적고 `docker compose up -d`를 다시 실행합니다. Render는 서비스의 **Environment** 탭에 넣으면 다시 배포됩니다.
 
+### 본인 인증 (Sumsub)
+
+회원 본인 인증은 [Sumsub](https://sumsub.com) WebSDK로 합니다. 설정하지 않으면 본인 인증 화면이 "아직 이용할 수 없습니다"로 뜹니다. 서버가 뜰 때 로그에 `Identity verification through Sumsub`이 나오면 연동된 것이고, `Sumsub keys are not set`이 나오면 키가 전달되지 않은 것입니다.
+
+1. Sumsub 대시보드 **Integrations → Levels**(또는 **Applicant levels**)에서 레벨 하나를 만듭니다. 신분증과 셀피(Liveness)를 확인하게 하고, 이름을 기억해 둡니다(예: `basic-kyc-level`).
+2. **Dev space → App tokens**에서 앱 토큰을 만듭니다. 이때 한 번만 보이는 **App token**과 **Secret key**를 복사해 둡니다.
+3. **Dev space → Webhooks**에서 웹훅을 만듭니다.
+   - 주소: `https://<서비스 주소>/api/kyc/sumsub/webhook` (Docker로 띄우면 웹 주소 뒤에 같은 경로)
+   - 받을 이벤트: `applicantReviewed`, `applicantPending`, `applicantOnHold`, `applicantReset`, `applicantCreated`
+   - 서명 알고리즘은 기본값(HMAC SHA256)으로 두고, **Secret key**를 정해 복사합니다.
+4. 서버에 아래 값을 넣고 다시 시작합니다.
+   - `SUMSUB_APP_TOKEN` 2번의 App token
+   - `SUMSUB_SECRET_KEY` 2번의 Secret key
+   - `SUMSUB_WEBHOOK_SECRET` 3번의 웹훅 Secret key
+   - `SUMSUB_LEVEL_NAME` 1번의 레벨 이름
+
+Render는 서비스의 **Environment** 탭에, Docker는 `.env` 파일에 넣습니다. 운영 콘솔 **정책 설정 → 본인 인증 (Sumsub)**에서 연결 상태와 마지막 웹훅 수신 시각을 볼 수 있습니다. 처음에는 Sumsub의 Sandbox 토큰으로 시험하고, 실제 회원을 받을 때 Production 토큰으로 바꾸세요.
+
 ### Docker 없이 인터넷에 띄우기 (Supabase + Render)
 
 DB는 Supabase, 서버는 Render 무료 플랜에 올립니다. 저장소의 `render.yaml`이 API와 웹을 서비스 하나로 띄우고, 처음 뜰 때 위 데모 계정과 데이터를 넣습니다.
