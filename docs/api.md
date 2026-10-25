@@ -15,6 +15,7 @@
 | POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |
 | POST | `/auth/logout` | O | 현재 세션 만료 |
 | GET | `/me` | O | 내 정보 (`nickname`, `firstName`, `lastName`, `kycLevel`, `otpEnabled`, `locale` 등). 이름 도입 전 가입자는 `firstName`·`lastName`이 null |
+| POST | `/me/name` | O | `{ firstName, lastName }`. 이름 입력·변경(형식은 가입과 같음, 400 `invalid_name`). 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/nickname` | O | `{ nickname }`. 닉네임 변경. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/phone` | O | `{ phoneCountry, phoneNumber, otp? }`. 휴대폰 번호 등록·변경. OTP를 켠 회원은 `otp` 필요. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |

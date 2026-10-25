@@ -34,8 +34,10 @@ export default function AccountPage() {
           <dd>
             <NicknameEdit me={me} onSaved={reload} />
           </dd>
-          <dt>{t('성명')}</dt>
-          <dd>{fullName(me.firstName, me.lastName) ?? t('미입력')}</dd>
+          <dt>{t('이름')}</dt>
+          <dd>
+            <NameEdit me={me} onSaved={reload} />
+          </dd>
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
           <dt>{t('휴대폰 번호')}</dt>
@@ -119,6 +121,89 @@ function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> })
           onClick={() => {
             setOpen(false);
             setNickname(me.nickname);
+            setError(null);
+          }}
+        >
+          {t('취소')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Shows the name typed at signup. Members who joined before it was asked enter it here. */
+function NameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [firstName, setFirstName] = useState(me.firstName ?? '');
+  const [lastName, setLastName] = useState(me.lastName ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const name = fullName(me.firstName, me.lastName);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('me/name', { body: { firstName, lastName } });
+      setOpen(false);
+      await onSaved();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <span className="row">
+        {name ? <strong>{name}</strong> : <span className="muted">{t('미입력')}</span>}
+        <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
+          {t(name ? '변경' : '입력')}
+        </button>
+      </span>
+    );
+  }
+  return (
+    <form onSubmit={save} style={{ maxWidth: 420 }}>
+      <div className="name-fields">
+        <div>
+          <label htmlFor="firstName-edit">{t('이름 (First name)')}</label>
+          <input
+            id="firstName-edit"
+            autoComplete="given-name"
+            maxLength={50}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="lastName-edit">{t('성 (Last name)')}</label>
+          <input
+            id="lastName-edit"
+            autoComplete="family-name"
+            maxLength={50}
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <ErrorText error={error} />
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="small" disabled={busy}>
+          {t('저장')}
+        </button>
+        <button
+          type="button"
+          className="secondary small"
+          onClick={() => {
+            setOpen(false);
+            setFirstName(me.firstName ?? '');
+            setLastName(me.lastName ?? '');
             setError(null);
           }}
         >

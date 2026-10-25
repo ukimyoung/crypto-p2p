@@ -172,7 +172,7 @@ export const EN: Record<string, string> = {
   '출금 주소 관리': 'Withdrawal addresses',
   '등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.':
     'You can withdraw only to addresses you have added. To protect against account takeover, a new address can be used 24 hours after you add it.',
-  이름: 'Label',
+  이름: 'Name',
   삭제: 'Delete',
   '이름 (선택)': 'Label (optional)',
   '주소 등록': 'Add address',
@@ -222,7 +222,7 @@ export const EN: Record<string, string> = {
   '이름 (First name)': 'First name',
   '성 (Last name)': 'Last name',
   미입력: 'Not entered',
-  성명: 'Name',
+  입력: 'Add',
   '인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.': 'We could not send the confirmation email. Please try again later.',
   '인증 링크가 올바르지 않습니다. 이미 사용했거나 새 링크로 바뀌었을 수 있습니다.':
     'This link is not valid. It may have been used already or replaced by a newer one.',

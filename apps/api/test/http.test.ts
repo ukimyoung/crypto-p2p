@@ -181,6 +181,19 @@ describe('HTTP API', () => {
       expect((await confirm('named2@example.com').expect(200)).body.user).toMatchObject({ firstName: '길동', lastName: '홍' });
     });
 
+    it('lets a member set or change their name', async () => {
+      const user = await signUpAndLogin('rename@example.com');
+      // Members who joined before signup asked for a name have none.
+      await db.query('UPDATE users SET first_name = NULL, last_name = NULL WHERE id = $1', [user.id]);
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user).toMatchObject({ firstName: null, lastName: null });
+      const bad = await http().post('/me/name').set(auth(user)).send({ firstName: '1', lastName: 'Kim' }).expect(400);
+      expect(bad.body.error.code).toBe('invalid_name');
+      const ok = await http().post('/me/name').set(auth(user)).send({ firstName: ' 민수 ', lastName: '김' }).expect(200);
+      expect(ok.body.user).toMatchObject({ firstName: '민수', lastName: '김' });
+      const { rows } = await db.query("SELECT after FROM audit_logs WHERE action = 'user.name_change' AND target_id = $1", [user.id]);
+      expect(rows[0].after).toEqual({ firstName: '민수', lastName: '김' });
+    });
+
     it('reports a mail failure and lets the member try again', async () => {
       mail.fail = true;
       const body = { email: 'nomail@example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME };

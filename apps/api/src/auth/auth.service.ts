@@ -267,6 +267,33 @@ export class AuthService {
     });
   }
 
+  /** Sets the member's first and last name, e.g. for members who joined before signup asked for it. */
+  async setName(userId: string, rawFirstName: string, rawLastName: string): Promise<Me> {
+    const firstName = normalizePersonName(rawFirstName);
+    const lastName = normalizePersonName(rawLastName);
+    return withTransaction(this.db, async (tx) => {
+      const before = await tx.query<{ first_name: string | null; last_name: string | null }>(
+        'SELECT first_name, last_name FROM users WHERE id = $1 FOR UPDATE',
+        [userId],
+      );
+      if (!before.rows[0]) throw new DomainError('not_found', 'User not found');
+      const { rows } = await tx.query('UPDATE users SET first_name = $2, last_name = $3 WHERE id = $1 RETURNING *', [
+        userId,
+        firstName,
+        lastName,
+      ]);
+      await writeAudit(
+        tx,
+        { type: 'user', id: userId },
+        'user.name_change',
+        { type: 'user', id: userId },
+        { firstName: before.rows[0].first_name, lastName: before.rows[0].last_name },
+        { firstName, lastName },
+      );
+      return toMe(rows[0]);
+    });
+  }
+
   /** Returns a bearer token. Once OTP is enabled, a valid code is required too. */
   async login(rawEmail: string, password: string, otp: string | undefined, meta: RequestMeta): Promise<string> {
     const email = normalizeEmail(rawEmail);
