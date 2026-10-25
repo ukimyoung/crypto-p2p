@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { DomainError } from '../common/errors';
 
 export interface SumsubConfig {
@@ -69,6 +70,8 @@ export function verifySumsubDigest(
 
 /** Sumsub REST API with the app-token signature on every request. */
 export class SumsubClient implements SumsubApi {
+  private readonly logger = new Logger('Sumsub');
+
   constructor(
     private readonly config: SumsubConfig,
     private readonly fetchFn: typeof fetch = fetch,
@@ -123,11 +126,15 @@ export class SumsubClient implements SumsubApi {
         },
         body: text || undefined,
       });
-    } catch {
+    } catch (err) {
+      this.logger.error(`${method} ${path.split('?')[0]} failed: ${err instanceof Error ? err.message : err}`);
       throw new DomainError('kyc_provider_error', 'Could not reach the identity verification service');
     }
     if (allowMissing && res.status === 404) return null;
     if (!res.ok) {
+      // Sumsub explains a refused request (wrong token or signature, unknown level) in the body.
+      const detail = (await res.text().catch(() => '')).slice(0, 300);
+      this.logger.error(`${method} ${path.split('?')[0]} answered ${res.status}: ${detail}`);
       throw new DomainError('kyc_provider_error', `Identity verification service answered ${res.status}`);
     }
     const out = await res.text();
