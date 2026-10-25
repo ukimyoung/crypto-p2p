@@ -124,6 +124,7 @@ export interface Withdrawal {
   id: string;
   userId: string;
   asset: string;
+  network: string;
   addressId: string;
   address: string;
   amount: string;

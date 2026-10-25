@@ -118,8 +118,8 @@ export const EN: Record<string, string> = {
   '계좌 변경': 'Change account',
   '입금받을 암호화폐 주소': 'Crypto addresses for receiving coins',
   '출금 주소': 'Withdrawal addresses',
-  '내 지갑에서 출금하면 코인별로 등록한 이 주소로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다. 네트워크는 지금 출금을 지원하는 것만 고를 수 있습니다.':
-    'Withdrawals from My wallet go only to the address registered here for each coin. To prevent theft, a new or changed address can receive withdrawals after 24 hours. Only networks that withdrawals currently support can be chosen.',
+  '내 지갑에서 출금하면 코인별로 등록한 이 주소와 네트워크로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다.':
+    'Withdrawals from My wallet go only to the address and network registered here for each coin. To prevent theft, a new or changed address can receive withdrawals after 24 hours.',
   '{asset} 출금 주소 변경': 'Change {asset} withdrawal address',
   '{asset} 출금 주소 등록': 'Add {asset} withdrawal address',
   '{asset} 출금 주소를 삭제할까요?': 'Delete your {asset} withdrawal address?',

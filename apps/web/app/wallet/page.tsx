@@ -147,9 +147,9 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
           <div>
             <label htmlFor="w-asset">{t('코인')}</label>
             <select id="w-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
-              {Object.entries(ASSETS).map(([code, a]) => (
+              {Object.keys(ASSETS).map((code) => (
                 <option key={code} value={code}>
-                  {code} · {a.network}
+                  {code}
                 </option>
               ))}
             </select>
@@ -259,6 +259,7 @@ function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChang
                 </td>
                 <td className="address" title={w.address}>
                   {shortAddress(w.address)}
+                  <div className="muted small-text">{networkLabel(w.asset, w.network)}</div>
                 </td>
                 <td>
                   <span className={`badge ${w.status}`}>{t(WITHDRAWAL_STATUS[w.status] ?? w.status)}</span>

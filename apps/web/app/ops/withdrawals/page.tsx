@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { WITHDRAWAL_STATUS } from '@/lib/messages';
+import { networkLabel } from '@/lib/networks';
 import type { Withdrawal, WithdrawalStatus } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
@@ -82,7 +83,10 @@ export default function OpsWithdrawalsPage() {
                       {fmt(w.amount, w.asset)}
                       <div className="muted small-text">수수료 {fmt(w.fee, w.asset)}</div>
                     </td>
-                    <td className="address">{w.address}</td>
+                    <td className="address">
+                      {w.address}
+                      <div className="muted small-text">{networkLabel(w.asset, w.network)}</div>
+                    </td>
                     <td>
                       <span className={`badge ${w.status}`}>{WITHDRAWAL_STATUS[w.status]}</span>
                       {w.reviewNote && <div className="muted small-text">{w.reviewNote}</div>}

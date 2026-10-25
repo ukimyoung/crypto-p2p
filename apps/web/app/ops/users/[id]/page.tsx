@@ -269,7 +269,10 @@ export default function OpsUserPage() {
               <tr key={w.id}>
                 <td>{when(w.createdAt)}</td>
                 <td>{fmt(w.amount, w.asset)}</td>
-                <td className="address">{w.address}</td>
+                <td className="address">
+                  {w.address}
+                  <div className="muted small-text">{networkLabel(w.asset, w.network)}</div>
+                </td>
                 <td>{WITHDRAWAL_STATUS[w.status]}</td>
               </tr>
             ))}

@@ -534,7 +534,7 @@ function WithdrawalAddresses() {
     <AddressSection
       title={t('출금 주소')}
       description={t(
-        '내 지갑에서 출금하면 코인별로 등록한 이 주소로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다. 네트워크는 지금 출금을 지원하는 것만 고를 수 있습니다.',
+        '내 지갑에서 출금하면 코인별로 등록한 이 주소와 네트워크로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다.',
       )}
       networks={WITHDRAWAL_NETWORKS}
       path="wallet/addresses"
