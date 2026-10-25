@@ -17,6 +17,7 @@ const signUpBody = credentials.extend({
 const emailBody = z.object({ email: z.string() });
 const tokenBody = z.object({ token: z.string().max(200) });
 const nicknameBody = z.object({ nickname: z.string().max(40) });
+const nameBody = z.object({ firstName: z.string().max(100), lastName: z.string().max(100) });
 const phoneBody = z.object({ ...phoneFields, otp: z.string().optional() });
 const loginBody = credentials.extend({ otp: z.string().optional() });
 const otpBody = z.object({ code: z.string() });
@@ -97,6 +98,14 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async setNickname(@CurrentUser() userId: string, @Body() body: unknown) {
     return { user: await this.auth.setNickname(userId, parse(nicknameBody, body).nickname) };
+  }
+
+  @Post('me/name')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async setName(@CurrentUser() userId: string, @Body() body: unknown) {
+    const { firstName, lastName } = parse(nameBody, body);
+    return { user: await this.auth.setName(userId, firstName, lastName) };
   }
 
   @Post('auth/otp/setup')
