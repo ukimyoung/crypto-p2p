@@ -144,7 +144,10 @@ describe('payment methods, order chat and expiry', () => {
       const input = { fiat: 'KRW', bankCode: '088', accountHolder: '홍길동', accountNumber: '110-222-333444' };
       await expect(payments.addBankAccount(user, input)).rejects.toMatchObject({ code: 'payment_method_exists' });
 
+      // Changing during the first account's cooldown does not restart it.
+      hours(1);
       const changed = await payments.changeBankAccount(user, first, input);
+      expect(changed.usableFrom.getTime()).toBe(clock.getTime() + (COOLDOWN_HOURS - 1) * 3_600_000);
       expect(changed).toMatchObject({ bankCode: '088', accountMasked: '****3444', fiat: 'KRW' });
       expect(await payments.list(user)).toEqual([changed]);
       expect((await payments.details(changed.id)).accountNumber).toBe('110222333444');
@@ -172,10 +175,9 @@ describe('payment methods, order chat and expiry', () => {
       expect(rows[0].payment_method_id).toBe(changed.id);
       expect(await orders.paymentDetails(order, buyer)).toEqual(old);
 
-      // The new account goes through the cooldown before the ad takes orders again.
+      // The changed account keeps the old one's cooldown, so the ad takes orders right away.
+      expect(changed.usableFrom.getTime()).toBeLessThanOrEqual(clock.getTime());
       const other = await createUser(db);
-      await expect(orders.create(other, ad.id, BTC / 100n)).rejects.toMatchObject({ code: 'payment_method_cooldown' });
-      hours(COOLDOWN_HOURS);
       const next = await orders.create(other, ad.id, BTC / 100n);
       expect((await orders.paymentDetails(next, other))?.accountNumber).toBe('110222333555');
     });

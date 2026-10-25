@@ -61,7 +61,7 @@ export class PaymentMethodsService {
         throw new DomainError('payment_method_exists', 'You already have a bank account; change it instead');
       }
 
-      const method = await this.insert(tx, userId, input.fiat, input.bankCode, legalName, accountNumber);
+      const method = await this.insert(tx, userId, input.fiat, input.bankCode, legalName, accountNumber, this.now());
       await writeAudit(
         tx,
         { type: 'user', id: userId },
@@ -77,7 +77,8 @@ export class PaymentMethodsService {
   /**
    * Replaces the member's account with new details. The old row is kept as `removed` so orders
    * already opened still show the account the buyer was told to pay into, while the member's open
-   * ads move to the new account. The new account goes through the cooldown again.
+   * ads move to the new account. The new account keeps the old one's cooldown, so it can be used
+   * right away once the member's first account was past it.
    */
   async changeBankAccount(userId: string, id: string, input: ChangeBankAccountInput): Promise<PaymentMethod> {
     const accountNumber = validateAccount(input);
@@ -92,7 +93,15 @@ export class PaymentMethodsService {
       const before = this.toMasked(rows[0]);
 
       await tx.query(`UPDATE payment_methods SET status = 'removed', removed_at = $2 WHERE id = $1`, [id, this.now()]);
-      const method = await this.insert(tx, userId, before.fiat, input.bankCode, legalName, accountNumber);
+      const method = await this.insert(
+        tx,
+        userId,
+        before.fiat,
+        input.bankCode,
+        legalName,
+        accountNumber,
+        rows[0].cooldown_from,
+      );
       await tx.query(
         `UPDATE ads SET payment_method_id = $2 WHERE payment_method_id = $1 AND status <> 'closed'`,
         [id, method.id],
@@ -130,12 +139,23 @@ export class PaymentMethodsService {
     bankCode: string,
     legalName: string,
     accountNumber: string,
+    cooldownFrom: Date,
   ): Promise<PaymentMethod> {
     const inserted = await tx.query(
-      `INSERT INTO payment_methods (user_id, fiat, bank_code, account_holder, account_number_enc, account_last4, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO payment_methods (user_id, fiat, bank_code, account_holder, account_number_enc, account_last4,
+                                    created_at, cooldown_from)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [userId, fiat, bankCode, legalName, this.secrets.seal(accountNumber), accountNumber.slice(-4), this.now()],
+      [
+        userId,
+        fiat,
+        bankCode,
+        legalName,
+        this.secrets.seal(accountNumber),
+        accountNumber.slice(-4),
+        this.now(),
+        cooldownFrom,
+      ],
     );
     return this.toMasked(inserted.rows[0]);
   }
@@ -190,7 +210,7 @@ export class PaymentMethodsService {
       bankCode: row.bank_code,
       accountHolder: row.account_holder,
       accountMasked: `****${row.account_last4}`,
-      usableFrom: new Date(row.created_at.getTime() + this.config.cooldownHours * 3_600_000),
+      usableFrom: new Date(row.cooldown_from.getTime() + this.config.cooldownHours * 3_600_000),
     };
   }
 }

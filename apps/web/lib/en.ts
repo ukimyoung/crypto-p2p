@@ -124,8 +124,8 @@ export const EN: Record<string, string> = {
   '인증 앱에 표시된 6자리 코드': '6-digit code from your authenticator app',
   'OTP 사용 시작': 'Turn on OTP',
   '입금받을 계좌': 'Account for receiving payment',
-  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 새로 등록하거나 변경한 계좌는 24시간 뒤부터 사용할 수 있습니다.':
-    'When you sell coins, buyers pay into this account. You can register one account in your own name, and it can be used 24 hours after you add or change it.',
+  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 처음 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다. 등록된 계좌를 변경하면 바로 사용할 수 있습니다.':
+    'When you sell coins, buyers pay into this account. You can register one account in your own name. It can be used 24 hours after you first add it, and right away after you change it.',
   '계좌 변경': 'Change account',
   '새 계좌번호': 'New account number',
   '진행 중인 내 광고는 새 계좌로 바뀌고, 이미 열린 주문은 원래 계좌로 입금받습니다.':
