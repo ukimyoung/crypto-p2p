@@ -27,6 +27,7 @@ docker compose up --build        # 처음엔 몇 분 걸립니다
 | --- | --- |
 | `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
 | `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
+| `tester1@demo.test`, `tester2@demo.test` | 빈 테스트 회원(테스터1·테스터2). 본인인증과 OTP는 끝났고 잔고·광고·주문은 없음 |
 | `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
 
 로그인과 코인 전달에는 OTP 코드가 필요합니다. 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
@@ -66,6 +67,8 @@ Render 무료 플랜에서는 명령을 실행할 수 없으므로, OTP 코드�
 | --- | --- |
 | `seller@demo.test` | `DEMOSELLERDEMOSELLERDEMOSELLER22` |
 | `buyer@demo.test` | `DEMOBUYERDEMOBUYERDEMOBUYERDEMO2` |
+| `tester1@demo.test` | `DEMOTESTERONEDEMOTESTERONEDEMO22` |
+| `tester2@demo.test` | `DEMOTESTERTWODEMOTESTERTWODEMO22` |
 | `reviewer1@demo.test` | `DEMOREVIEWERONEDEMOREVIEWERONE22` |
 | `reviewer2@demo.test` | `DEMOREVIEWERTWODEMOREVIEWERTWO22` |
 
