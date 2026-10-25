@@ -1,3 +1,4 @@
+import { formatPhone } from '../auth/phone';
 import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, withTransaction } from '../db/database';
@@ -85,7 +86,10 @@ export class OpsService {
          WHERE (o.buyer_id = u.id OR o.seller_id = u.id) AND o.status IN ('pending_payment', 'paid', 'under_review')
        ) oo
        WHERE ($1::text IS NULL OR u.id = $2::uuid OR u.email ILIKE '%' || $3 || '%' OR u.legal_name = $1
-              OR regexp_replace(u.phone, '\\D', '', 'g') = NULLIF(regexp_replace($1, '\\D', '', 'g'), ''))
+              OR regexp_replace(u.phone, '\\D', '', 'g') = NULLIF(regexp_replace($1, '\\D', '', 'g'), '')
+              -- A number typed the local way (010-1234-5678) finds the saved +821012345678.
+              OR (u.phone_country IS NOT NULL AND length(ltrim(regexp_replace($1, '\\D', '', 'g'), '0')) >= 7
+                  AND regexp_replace(u.phone, '\\D', '', 'g') LIKE '%' || ltrim(regexp_replace($1, '\\D', '', 'g'), '0')))
          AND ($4::text IS NULL OR u.status = $4)
          AND ($5::int IS NULL OR u.kyc_level = $5)
          AND ($6::timestamptz IS NULL OR u.created_at >= $6)
@@ -132,12 +136,16 @@ export class OpsService {
     const text = reason.trim();
     if (!text) throw new DomainError('invalid_request', 'Give a reason');
     return withTransaction(this.db, async (tx) => {
-      const { rows } = await tx.query('SELECT email, phone, legal_name FROM users WHERE id = $1', [id]);
+      const { rows } = await tx.query('SELECT email, phone, phone_country, legal_name FROM users WHERE id = $1', [id]);
       if (!rows[0]) throw new DomainError('not_found', 'User not found');
       await writeAudit(tx, { type: 'operator', id: operatorId }, 'user.reveal_pii', { type: 'user', id }, null, {
         reason: text,
       });
-      return { email: rows[0].email, phone: rows[0].phone, legalName: rows[0].legal_name };
+      return {
+        email: rows[0].email,
+        phone: formatPhone(rows[0].phone, rows[0].phone_country),
+        legalName: rows[0].legal_name,
+      };
     });
   }
 
@@ -296,10 +304,11 @@ export class OpsService {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toUser(row: any, masked = true): UserSummary {
+  const phone = formatPhone(row.phone, row.phone_country);
   return {
     id: row.id,
     email: row.email,
-    phone: masked ? maskPhone(row.phone) : row.phone,
+    phone: masked ? maskPhone(phone) : phone,
     legalName: masked ? maskName(row.legal_name) : row.legal_name,
     kycLevel: row.kyc_level,
     status: row.status,
@@ -318,13 +327,22 @@ export function maskName(name: string | null): string | null {
   return chars[0] + '*'.repeat(chars.length - 2) + chars[chars.length - 1];
 }
 
-/** 010-1234-5678 -> 010-****-5678. Keeps the first 3 and last 4 digits. */
+/**
+ * 010-1234-5678 -> 010-****-5678, keeping the first 3 and last 4 digits.
+ * +82 10-1234-5678 -> +82 10-****-5678: the country code stays, then the first 2 and last 4 digits.
+ */
 export function maskPhone(phone: string | null): string | null {
   if (!phone) return phone;
+  const international = /^(\+\d+ )(.*)$/.exec(phone);
+  const [prefix, rest] = international ? [international[1]!, international[2]!] : ['', phone];
+  const keep = international ? 2 : 3;
   let digit = 0;
-  const total = phone.replace(/\D/g, '').length;
-  return phone.replace(/\d/g, (d) => {
-    digit++;
-    return digit <= 3 || digit > total - 4 ? d : '*';
-  });
+  const total = rest.replace(/\D/g, '').length;
+  return (
+    prefix +
+    rest.replace(/\d/g, (d) => {
+      digit++;
+      return digit <= keep || digit > total - 4 ? d : '*';
+    })
+  );
 }

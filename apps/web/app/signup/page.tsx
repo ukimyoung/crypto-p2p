@@ -2,12 +2,15 @@
 
 import { FormEvent, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
+import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
 export default function SignUpPage() {
   const { t, locale } = useT();
   const [email, setEmail] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState('KR');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +25,7 @@ export default function SignUpPage() {
     setBusy(true);
     setError(null);
     try {
-      await api('auth/signup', { body: { email, password } });
+      await api('auth/signup', { body: { email, password, phoneCountry, phoneNumber } });
       await api('auth/login', { body: { email, password } });
       // Emails go out in the language the user signed up in.
       await api('me/locale', { body: { locale } });
@@ -39,6 +42,13 @@ export default function SignUpPage() {
       <form className="card" onSubmit={submit}>
         <label htmlFor="email">{t('이메일')}</label>
         <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <PhoneField
+          id="phone"
+          country={phoneCountry}
+          number={phoneNumber}
+          onCountry={setPhoneCountry}
+          onNumber={setPhoneNumber}
+        />
         <label htmlFor="password">{t('비밀번호 (10자 이상, 영문과 숫자 포함)')}</label>
         <input
           id="password"

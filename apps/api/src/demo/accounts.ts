@@ -5,8 +5,8 @@
 export const DEMO_PASSWORD = 'demo password 1';
 
 export const DEMO_USERS = [
-  { email: 'seller@demo.test', legalName: '김판매', otpSecret: 'DEMOSELLERDEMOSELLERDEMOSELLER22' },
-  { email: 'buyer@demo.test', legalName: '이구매', otpSecret: 'DEMOBUYERDEMOBUYERDEMOBUYERDEMO2' },
+  { email: 'seller@demo.test', legalName: '김판매', phone: '+821011112222', otpSecret: 'DEMOSELLERDEMOSELLERDEMOSELLER22' },
+  { email: 'buyer@demo.test', legalName: '이구매', phone: '+821033334444', otpSecret: 'DEMOBUYERDEMOBUYERDEMOBUYERDEMO2' },
 ] as const;
 
 export const DEMO_OPERATORS = [

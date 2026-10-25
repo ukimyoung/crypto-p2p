@@ -12,7 +12,7 @@ import { KycService } from '../src/kyc/kyc.service';
 import { legalNameOf, SumsubApi, SumsubApplicant, SumsubClient, verifySumsubDigest } from '../src/kyc/sumsub.client';
 import { OperatorAuthService } from '../src/ops/operator-auth.service';
 import { DB } from '../src/tokens';
-import { setupDb, TEST_DATABASE_URL } from './helpers';
+import { nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const SECRET = 'webhook-secret';
 const PASSWORD = 'test password 123';
@@ -134,7 +134,7 @@ describe('identity verification', () => {
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
   async function member(email: string): Promise<{ id: string; token: string }> {
-    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD }).expect(201);
+    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone() }).expect(201);
     const login = await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
     return { id: signUp.body.user.id, token: login.body.token };
   }

@@ -10,7 +10,7 @@ import { Db } from '../src/db/database';
 import { configureApp } from '../src/http/configure';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
-import { addBankAccount, BTC, deposit, setupDb, TEST_DATABASE_URL } from './helpers';
+import { addBankAccount, BTC, deposit, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'test password 123';
 
@@ -28,7 +28,7 @@ describe('HTTP API', () => {
   }
 
   async function signUpAndLogin(email: string): Promise<TestUser> {
-    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD }).expect(201);
+    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone() }).expect(201);
     const login = await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
     return { id: signUp.body.user.id, email, token: login.body.token };
   }
@@ -80,11 +80,75 @@ describe('HTTP API', () => {
 
   describe('auth', () => {
     it('validates sign-up input and rejects duplicate emails', async () => {
-      const weak = await http().post('/auth/signup').send({ email: 'weak@example.com', password: 'short' }).expect(400);
+      const weak = await http().post('/auth/signup').send({ email: 'weak@example.com', password: 'short', ...nextPhone() }).expect(400);
       expect(weak.body.error.code).toBe('weak_password');
-      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD }).expect(201);
-      const dup = await http().post('/auth/signup').send({ email: 'dup@example.com', password: PASSWORD }).expect(409);
+      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD, ...nextPhone() }).expect(201);
+      const dup = await http()
+        .post('/auth/signup')
+        .send({ email: 'dup@example.com', password: PASSWORD, ...nextPhone() })
+        .expect(409);
       expect(dup.body.error.code).toBe('email_taken');
+    });
+
+    it('requires a phone number with its country at sign-up', async () => {
+      const body = { email: 'phone@example.com', password: PASSWORD };
+      const missing = await http().post('/auth/signup').send(body).expect(400);
+      expect(missing.body.error.code).toBe('invalid_request');
+      for (const bad of [
+        { phoneCountry: 'XX', phoneNumber: '010-1234-5678' },
+        { phoneCountry: 'KR', phoneNumber: '010-12' },
+        { phoneCountry: 'KR', phoneNumber: '+82 10 1234 5678' },
+      ]) {
+        const res = await http()
+          .post('/auth/signup')
+          .send({ ...body, ...bad })
+          .expect(400);
+        expect(res.body.error.code).toBe('invalid_phone');
+      }
+
+      const ok = await http()
+        .post('/auth/signup')
+        .send({ ...body, phoneCountry: 'KR', phoneNumber: '010-9876-5432' })
+        .expect(201);
+      expect(ok.body.user).toMatchObject({
+        phone: '+82 10-9876-5432',
+        phoneCountry: 'KR',
+        phoneNational: '010-9876-5432',
+      });
+      const { rows } = await db.query('SELECT phone, phone_country FROM users WHERE id = $1', [ok.body.user.id]);
+      expect(rows[0]).toEqual({ phone: '+821098765432', phone_country: 'KR' });
+
+      // The same number written another way is still the same number.
+      const taken = await http()
+        .post('/auth/signup')
+        .send({ email: 'phone2@example.com', password: PASSWORD, phoneCountry: 'KR', phoneNumber: '01098765432' })
+        .expect(409);
+      expect(taken.body.error.code).toBe('phone_taken');
+    });
+
+    it('lets a member change the phone number, with OTP once it is on', async () => {
+      const user = await signUpAndLogin('newphone@example.com');
+      const us = { phoneCountry: 'US', phoneNumber: '(415) 555-0100' };
+      const changed = await http().post('/me/phone').set(auth(user)).send(us).expect(200);
+      expect(changed.body.user).toMatchObject({ phone: '+1 4155550100', phoneCountry: 'US', phoneNational: '4155550100' });
+
+      await enableOtp(user);
+      const jp = { phoneCountry: 'JP', phoneNumber: '090-1234-5678' };
+      const noOtp = await http().post('/me/phone').set(auth(user)).send(jp).expect(401);
+      expect(noOtp.body.error.code).toBe('otp_required');
+      const otp = codeAt(user.otpSecret!, counterAt(new Date()) + 1);
+      await http()
+        .post('/me/phone')
+        .set(auth(user))
+        .send({ ...jp, otp })
+        .expect(200);
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user.phone).toBe('+81 9012345678');
+
+      const { rows } = await db.query(
+        "SELECT before, after FROM audit_logs WHERE action = 'user.phone_change' AND target_id = $1 ORDER BY id",
+        [user.id],
+      );
+      expect(rows.map((r) => r.after)).toEqual([{ phoneCountry: 'US' }, { phoneCountry: 'JP' }]);
     });
 
     it('logs in, returns the profile, and logs out', async () => {
