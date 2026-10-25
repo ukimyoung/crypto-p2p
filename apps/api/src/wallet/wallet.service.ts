@@ -171,7 +171,7 @@ export class WalletService {
     }));
   }
 
-  /** `amount` is what should arrive; the fee is charged on top. OTP is checked by the caller. */
+  /** `amount` is what should arrive; the fee is charged on top. */
   async requestWithdrawal(userId: string, addressId: string, amount: bigint): Promise<Withdrawal> {
     return withTransaction(this.db, async (tx) => {
       // One request at a time per user, so two requests cannot both fit under the daily limit.

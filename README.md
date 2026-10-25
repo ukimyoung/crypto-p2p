@@ -27,16 +27,16 @@ docker compose up --build        # 처음엔 몇 분 걸립니다
 | --- | --- |
 | `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
 | `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
-| `tester1@demo.test`, `tester2@demo.test` | 빈 테스트 회원(테스터1·테스터2). 본인인증과 OTP는 끝났고 잔고·광고·주문은 없음 |
+| `tester1@demo.test`, `tester2@demo.test` | 빈 테스트 회원(테스터1·테스터2). 본인인증은 끝났고 잔고·광고·주문은 없음 |
 | `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
 
-로그인과 코인 전달에는 OTP 코드가 필요합니다. 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
+회원은 이메일과 비밀번호만으로 로그인하고, 출금·코인 전달·계좌 등록에 OTP를 쓰지 않습니다(본인인증으로 대신합니다). 운영 콘솔만 OTP 코드가 필요하며, 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
 
 ```bash
 docker compose exec api node dist/demo/otp-cli.js
 ```
 
-처음 상태로 되돌리려면 `docker compose down -v` 후 다시 `docker compose up`을 실행합니다. 데모 설정(공개된 암호화 키와 OTP 키, 대기 시간 0)은 체험용이므로 실제 서비스에 쓰지 마세요.
+처음 상태로 되돌리려면 `docker compose down -v` 후 다시 `docker compose up`을 실행합니다. 데모 설정(공개된 암호화 키와 운영자 OTP 키, 대기 시간 0)은 체험용이므로 실제 서비스에 쓰지 마세요.
 
 ### 이메일 발송 (Resend)
 
@@ -79,14 +79,10 @@ DB는 Supabase, 서버는 Render 무료 플랜에 올립니다. 저장소의 `re
 4. `DATABASE_URL`을 물으면 2번 주소를 붙여 넣고 **Apply**를 누릅니다. 첫 빌드는 5분 남짓 걸립니다.
 5. 배포가 끝나면 `https://crypto-p2p-demo-xxxx.onrender.com` 같은 주소가 생깁니다. 운영 콘솔은 그 주소 뒤에 `/ops`입니다.
 
-Render 무료 플랜에서는 명령을 실행할 수 없으므로, OTP 코드는 휴대폰 인증 앱(Google Authenticator 등)에 아래 키를 직접 입력해 받습니다. 키 출처는 `apps/api/src/demo/accounts.ts`입니다.
+Render 무료 플랜에서는 명령을 실행할 수 없으므로, 운영 콘솔용 OTP 코드는 휴대폰 인증 앱(Google Authenticator 등)에 아래 키를 직접 입력해 받습니다. 회원 계정은 OTP가 없습니다. 키 출처는 `apps/api/src/demo/accounts.ts`입니다.
 
 | 계정 | OTP 키 |
 | --- | --- |
-| `seller@demo.test` | `DEMOSELLERDEMOSELLERDEMOSELLER22` |
-| `buyer@demo.test` | `DEMOBUYERDEMOBUYERDEMOBUYERDEMO2` |
-| `tester1@demo.test` | `DEMOTESTERONEDEMOTESTERONEDEMO22` |
-| `tester2@demo.test` | `DEMOTESTERTWODEMOTESTERTWODEMO22` |
 | `reviewer1@demo.test` | `DEMOREVIEWERONEDEMOREVIEWERONE22` |
 | `reviewer2@demo.test` | `DEMOREVIEWERTWODEMOREVIEWERTWO22` |
 

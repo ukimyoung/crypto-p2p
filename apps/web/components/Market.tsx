@@ -263,12 +263,12 @@ function OrderForm({ ad, mode, me }: { ad: Ad; mode: Mode; me: Me }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (mode !== 'sell' || !me.otpEnabled) return;
+    if (mode !== 'sell' || me.kycLevel < 1) return;
     void api<{ paymentMethods: PaymentMethod[] }>('payment-methods').then((res) => {
       setMethods(res.paymentMethods);
       setMethodId(res.paymentMethods[0]?.id ?? '');
     });
-  }, [mode, me.otpEnabled]);
+  }, [mode, me.kycLevel]);
 
   const units = parseUnits(amount, decimals);
   const cost = units ? orderCost(units, BigInt(ad.priceMinor), ad.feeRateBp ?? 0, decimals) : null;
@@ -292,11 +292,11 @@ function OrderForm({ ad, mode, me }: { ad: Ad; mode: Mode; me: Me }) {
     }
   }
 
-  if (!me.otpEnabled) {
+  if (me.kycLevel < 1) {
     return (
       <div className="order-panel">
         <p className="notice">
-          {t('거래하려면 먼저 OTP를 등록해 주세요.')} <Link href="/account">{t('내 계정으로 가기')}</Link>
+          {t('거래하려면 먼저 본인인증을 해 주세요.')} <Link href="/account/verify">{t('본인 인증하기')}</Link>
         </p>
       </div>
     );

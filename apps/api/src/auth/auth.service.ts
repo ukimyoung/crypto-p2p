@@ -6,9 +6,7 @@ import { Db, withTransaction } from '../db/database';
 import { EmailSender } from '../notifications/email.worker';
 import { assertPasswordPolicy, hashPassword, verifyPassword } from './password';
 import { formatPhone, nationalPhone, normalizePhone } from './phone';
-import { SecretBox } from './secret-box';
 import { signupEmail } from './signup-email';
-import { generateSecret, matchCode, otpauthUrl } from './totp';
 
 export interface AuthConfig {
   sessionTtlHours: number;
@@ -38,7 +36,6 @@ export interface Me {
   lastName: string | null;
   kycLevel: number;
   status: string;
-  otpEnabled: boolean;
   /** Language for emails and, on a new device, for the site. */
   locale: 'ko' | 'en';
   /** +82 10-1234-5678. Null for members who joined before phone numbers were asked. */
@@ -63,13 +60,12 @@ export interface SignUpInput {
   locale?: 'ko' | 'en';
 }
 
-/** Password login, opaque bearer sessions and app OTP (PRD AUTH-1, AUTH-3). */
+/** Password login and opaque bearer sessions (PRD AUTH-1). */
 export class AuthService {
   private readonly logger = new Logger('Auth');
 
   constructor(
     private readonly db: Db,
-    private readonly secrets: SecretBox,
     private readonly mailer: EmailSender,
     private readonly config: AuthConfig,
     private readonly now: () => Date = () => new Date(),
@@ -218,14 +214,10 @@ export class AuthService {
     }
   }
 
-  /** Adds or changes the member's phone number. Once OTP is on, a code is needed. */
-  async setPhone(userId: string, rawPhone: PhoneInput, otp: string | undefined): Promise<Me> {
+  /** Adds or changes the member's phone number. */
+  async setPhone(userId: string, rawPhone: PhoneInput): Promise<Me> {
     const phone = normalizePhone(rawPhone.country, rawPhone.number);
     const before = await this.me(userId);
-    if (before.otpEnabled) {
-      if (!otp) throw new DomainError('otp_required', 'An OTP code is required');
-      await this.verifyOtp(userId, otp);
-    }
     return withTransaction(this.db, async (tx) => {
       const { rows } = await tx
         .query('UPDATE users SET phone = $2, phone_country = $3 WHERE id = $1 RETURNING *', [
@@ -294,8 +286,8 @@ export class AuthService {
     });
   }
 
-  /** Returns a bearer token. Once OTP is enabled, a valid code is required too. */
-  async login(rawEmail: string, password: string, otp: string | undefined, meta: RequestMeta): Promise<string> {
+  /** Returns a bearer token. */
+  async login(rawEmail: string, password: string, meta: RequestMeta): Promise<string> {
     const email = normalizeEmail(rawEmail);
 
     const failures = await this.db.query<{ n: string }>(
@@ -318,18 +310,6 @@ export class AuthService {
     if (user.status === 'closed') {
       await this.recordAttempt(email, user.id, false, 'closed', meta);
       throw new DomainError('account_closed', 'This account is closed');
-    }
-    if (user.otp_enabled) {
-      if (!otp) {
-        await this.recordAttempt(email, user.id, false, 'otp_missing', meta);
-        throw new DomainError('otp_required', 'An OTP code is required');
-      }
-      try {
-        await this.verifyOtp(user.id, otp);
-      } catch (err) {
-        await this.recordAttempt(email, user.id, false, 'otp_invalid', meta);
-        throw err;
-      }
     }
 
     const token = await this.startSession(user.id, meta);
@@ -377,50 +357,14 @@ export class AuthService {
     return toMe(rows[0]);
   }
 
-  /** Starts OTP setup. The secret is shown once; OTP turns on only after `enableOtp`. */
-  async setupOtp(userId: string): Promise<{ secret: string; otpauthUrl: string }> {
-    const me = await this.me(userId);
-    if (me.otpEnabled) throw new DomainError('otp_already_enabled', 'OTP is already enabled');
-    const secret = generateSecret();
-    await this.db.query('UPDATE users SET otp_secret_enc = $2 WHERE id = $1', [userId, this.secrets.seal(secret)]);
-    return { secret, otpauthUrl: otpauthUrl(secret, me.email) };
-  }
-
-  async enableOtp(userId: string, code: string): Promise<void> {
-    await withTransaction(this.db, async (tx) => {
-      const { rows } = await tx.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [userId]);
-      const user = rows[0];
-      if (user.otp_enabled) throw new DomainError('otp_already_enabled', 'OTP is already enabled');
-      if (!user.otp_secret_enc) throw new DomainError('otp_not_set_up', 'Start OTP setup first');
-      const counter = matchCode(this.secrets.open(user.otp_secret_enc), code, this.now());
-      if (counter === null) throw new DomainError('invalid_otp', 'The OTP code is incorrect');
-      await tx.query('UPDATE users SET otp_enabled = true, otp_last_counter = $2 WHERE id = $1', [userId, counter]);
-      await writeAudit(tx, { type: 'user', id: userId }, 'user.otp_enable', { type: 'user', id: userId }, null, null);
-    });
-  }
-
-  /** Checks an OTP code for a sensitive action. Each code is accepted once. */
-  async verifyOtp(userId: string, code: string): Promise<void> {
-    await withTransaction(this.db, async (tx) => {
-      const { rows } = await tx.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [userId]);
-      const user = rows[0];
-      if (!user?.otp_enabled) throw new DomainError('otp_not_enabled', 'Enable OTP first');
-      const counter = matchCode(this.secrets.open(user.otp_secret_enc), code, this.now());
-      if (counter === null || (user.otp_last_counter !== null && counter <= Number(user.otp_last_counter))) {
-        throw new DomainError('invalid_otp', 'The OTP code is incorrect or already used');
-      }
-      await tx.query('UPDATE users SET otp_last_counter = $2 WHERE id = $1', [userId, counter]);
-    });
-  }
-
   async setLocale(userId: string, locale: 'ko' | 'en'): Promise<void> {
     await this.db.query('UPDATE users SET locale = $2 WHERE id = $1', [userId, locale]);
   }
 
-  /** AUTH-3: trading needs OTP turned on. */
-  async assertOtpEnabled(userId: string): Promise<void> {
-    if (!(await this.me(userId)).otpEnabled) {
-      throw new DomainError('otp_not_enabled', 'Enable OTP before trading');
+  /** Trading needs identity verification (KYC level 1). */
+  async assertKycVerified(userId: string): Promise<void> {
+    if ((await this.me(userId)).kycLevel < 1) {
+      throw new DomainError('kyc_required', 'Complete identity verification before trading');
     }
   }
 
@@ -490,7 +434,6 @@ function toMe(row: any): Me {
     lastName: row.last_name,
     kycLevel: row.kyc_level,
     status: row.status,
-    otpEnabled: row.otp_enabled,
     locale: row.locale,
     phone: formatPhone(row.phone, row.phone_country),
     phoneCountry: row.phone_country,

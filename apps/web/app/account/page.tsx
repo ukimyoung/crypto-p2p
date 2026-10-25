@@ -2,7 +2,6 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import QRCode from 'qrcode';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { NicknameInput } from '@/components/NicknameInput';
 import { PhoneField } from '@/components/PhoneField';
@@ -58,8 +57,6 @@ export default function AccountPage() {
           </dd>
           <dt>{t('본인인증(KYC)')}</dt>
           <dd>{me.kycLevel > 0 ? t('완료') : t('미완료')}</dd>
-          <dt>OTP</dt>
-          <dd>{t(me.otpEnabled ? '사용 중' : '미등록')}</dd>
         </dl>
         {me.kycLevel === 0 && (
           <p className="notice" style={{ marginTop: 16, marginBottom: 0 }}>
@@ -69,9 +66,8 @@ export default function AccountPage() {
         )}
       </section>
       {(!me.phone || editingPhone) && <PhoneEdit me={me} onSaved={reload} onClose={() => setEditingPhone(false)} />}
-      {!me.otpEnabled && <OtpSetup onEnabled={reload} />}
-      {me.otpEnabled && <PaymentMethods />}
-      {me.otpEnabled && <ReceivingAddresses />}
+      {me.kycLevel > 0 && <PaymentMethods />}
+      {me.kycLevel > 0 && <ReceivingAddresses />}
     </>
   );
 }
@@ -221,7 +217,6 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
   const { t } = useT();
   const [country, setCountry] = useState(me.phoneCountry ?? 'KR');
   const [number, setNumber] = useState(me.phoneNational ?? '');
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -230,10 +225,7 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
     setBusy(true);
     setError(null);
     try {
-      await api('me/phone', {
-        body: { phoneCountry: country, phoneNumber: number, ...(me.otpEnabled ? { otp } : {}) },
-      });
-      setOtp('');
+      await api('me/phone', { body: { phoneCountry: country, phoneNumber: number } });
       onClose();
       await onSaved();
     } catch (err) {
@@ -249,19 +241,6 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
       {!me.phone && <p className="muted small-text">{t('연락받을 휴대폰 번호를 국가 번호와 함께 등록해 주세요.')}</p>}
       <form onSubmit={save}>
         <PhoneField id="account-phone" country={country} number={number} onCountry={setCountry} onNumber={setNumber} />
-        {me.otpEnabled && (
-          <>
-            <label htmlFor="phone-otp">{t('OTP 코드')}</label>
-            <input
-              id="phone-otp"
-              inputMode="numeric"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-            />
-          </>
-        )}
         <div className="row" style={{ marginTop: 16 }}>
           <button disabled={busy}>{t('저장')}</button>
           {me.phone && (
@@ -276,59 +255,6 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
   );
 }
 
-function OtpSetup({ onEnabled }: { onEnabled: () => Promise<void> }) {
-  const { t } = useT();
-  const [setup, setSetup] = useState<{ secret: string; otpauthUrl: string; qr: string } | null>(null);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  async function start() {
-    setError(null);
-    try {
-      const res = await api<{ secret: string; otpauthUrl: string }>('auth/otp/setup', { method: 'POST' });
-      setSetup({ ...res, qr: await QRCode.toDataURL(res.otpauthUrl, { margin: 1, width: 200 }) });
-    } catch (err) {
-      setError(messageOf(err));
-    }
-  }
-
-  async function enable(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    try {
-      await api('auth/otp/enable', { body: { code } });
-      await onEnabled();
-    } catch (err) {
-      setError(messageOf(err));
-    }
-  }
-
-  return (
-    <section className="card">
-      <h2>{t('OTP 등록')}</h2>
-      <p className="muted small-text">
-        {t(
-          '광고 등록, 주문, 코인 전달(릴리즈), 계좌 등록에는 OTP가 필요합니다. Google Authenticator 같은 인증 앱을 준비해 주세요.',
-        )}
-      </p>
-      {!setup && <button onClick={start}>{t('OTP 등록 시작')}</button>}
-      {setup && (
-        <form onSubmit={enable}>
-          <img src={setup.qr} alt={t('OTP 등록용 QR 코드')} width={200} height={200} />
-          <p className="muted small-text">
-            {t('QR을 찍을 수 없으면 아래 키를 인증 앱에 직접 입력하세요. 이 키는 다시 보여 주지 않습니다.')}
-          </p>
-          <code className="secret">{setup.secret}</code>
-          <label htmlFor="otp-code">{t('인증 앱에 표시된 6자리 코드')}</label>
-          <input id="otp-code" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} />
-          <button className="full">{t('OTP 사용 시작')}</button>
-        </form>
-      )}
-      <ErrorText error={error} />
-    </section>
-  );
-}
-
 function PaymentMethods() {
   const { t, date } = useT();
   const [current, setCurrent] = useState<PaymentMethod | null | undefined>(undefined);
@@ -336,7 +262,6 @@ function PaymentMethods() {
   const [bankCode, setBankCode] = useState('004');
   const [holder, setHolder] = useState('');
   const [account, setAccount] = useState('');
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -363,14 +288,13 @@ function PaymentMethods() {
     setBusy(true);
     setError(null);
     try {
-      const fields = { bankCode, accountHolder: holder, accountNumber: account, otp };
+      const fields = { bankCode, accountHolder: holder, accountNumber: account };
       if (current) {
         await api(`payment-methods/${current.id}`, { method: 'PUT', body: fields });
       } else {
         await api('payment-methods', { body: { fiat: 'KRW', ...fields } });
       }
       setAccount('');
-      setOtp('');
       setEditing(false);
       await load();
     } catch (err) {
@@ -445,10 +369,6 @@ function PaymentMethods() {
             <div>
               <label htmlFor="account">{t(current ? '새 계좌번호' : '계좌번호')}</label>
               <input id="account" inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} required />
-            </div>
-            <div>
-              <label htmlFor="pm-otp">{t('OTP 코드')}</label>
-              <input id="pm-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
             </div>
           </div>
           {current ? (
@@ -545,7 +465,6 @@ function ReceivingAddressForm({
   const networks = RECEIVING_NETWORKS[asset] ?? [];
   const [network, setNetwork] = useState(current?.network ?? networks[0]?.value ?? '');
   const [address, setAddress] = useState('');
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -564,37 +483,25 @@ function ReceivingAddressForm({
 
   function save(e: FormEvent) {
     e.preventDefault();
-    void run(() => api(`receiving-addresses/${asset}`, { method: 'PUT', body: { network, address, otp } }));
+    void run(() => api(`receiving-addresses/${asset}`, { method: 'PUT', body: { network, address } }));
   }
 
   function remove() {
-    if (!otp) {
-      setError(t('OTP 코드를 입력해 주세요.'));
-      return;
-    }
     if (!window.confirm(t('{asset} 입금 주소를 삭제할까요?', { asset }))) return;
-    void run(() => api(`receiving-addresses/${asset}`, { method: 'DELETE', body: { otp } }));
+    void run(() => api(`receiving-addresses/${asset}`, { method: 'DELETE' }));
   }
 
   return (
     <form onSubmit={save} className="settings-form">
       <h3>{t(current ? '{asset} 입금 주소 변경' : '{asset} 입금 주소 등록', { asset })}</h3>
-      <div className="grid2">
-        <div>
-          <label htmlFor="ra-network">{t('네트워크')}</label>
-          <select id="ra-network" value={network} onChange={(e) => setNetwork(e.target.value)}>
-            {networks.map((n) => (
-              <option key={n.value} value={n.value}>
-                {n.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="ra-otp">{t('OTP 코드')}</label>
-          <input id="ra-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
-        </div>
-      </div>
+      <label htmlFor="ra-network">{t('네트워크')}</label>
+      <select id="ra-network" value={network} onChange={(e) => setNetwork(e.target.value)}>
+        {networks.map((n) => (
+          <option key={n.value} value={n.value}>
+            {n.label}
+          </option>
+        ))}
+      </select>
       <label htmlFor="ra-address">{t(current ? '새 주소' : '주소')}</label>
       <input
         id="ra-address"

@@ -5,7 +5,6 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
-import { codeAt, counterAt } from '../src/auth/totp';
 import { Db } from '../src/db/database';
 import { configureApp } from '../src/http/configure';
 import { LedgerService } from '../src/ledger/ledger.service';
@@ -26,7 +25,6 @@ describe('HTTP API', () => {
     id: string;
     email: string;
     token: string;
-    otpSecret?: string;
   }
 
   /** Opens the link in the signup email sent to `email`. */
@@ -39,22 +37,10 @@ describe('HTTP API', () => {
     return { id: verified.body.user.id, email, token: login.body.token };
   }
 
-  async function enableOtp(user: TestUser): Promise<void> {
-    const setup = await http().post('/auth/otp/setup').set(auth(user)).expect(200);
-    user.otpSecret = setup.body.secret;
-    expect(setup.body.otpauthUrl).toMatch(/^otpauth:\/\/totp\//);
-    await http()
-      .post('/auth/otp/enable')
-      .set(auth(user))
-      .send({ code: codeAt(user.otpSecret!, counterAt(new Date())) })
-      .expect(204);
-  }
-
-  /** A trader who passed KYC level 1 (set directly until the KYC flow exists) with OTP on. */
+  /** A trader who passed KYC level 1 (set directly instead of going through the KYC flow). */
   async function trader(email: string): Promise<TestUser> {
     const user = await signUpAndLogin(email);
     await db.query('UPDATE users SET kyc_level = 1 WHERE id = $1', [user.id]);
-    await enableOtp(user);
     return user;
   }
 
@@ -274,22 +260,14 @@ describe('HTTP API', () => {
       expect(clash.body.error.code).toBe('nickname_taken');
     });
 
-    it('lets a member change the phone number, with OTP once it is on', async () => {
+    it('lets a member change the phone number', async () => {
       const user = await signUpAndLogin('newphone@example.com');
       const us = { phoneCountry: 'US', phoneNumber: '(415) 555-0100' };
       const changed = await http().post('/me/phone').set(auth(user)).send(us).expect(200);
       expect(changed.body.user).toMatchObject({ phone: '+1 4155550100', phoneCountry: 'US', phoneNational: '4155550100' });
 
-      await enableOtp(user);
       const jp = { phoneCountry: 'JP', phoneNumber: '090-1234-5678' };
-      const noOtp = await http().post('/me/phone').set(auth(user)).send(jp).expect(401);
-      expect(noOtp.body.error.code).toBe('otp_required');
-      const otp = codeAt(user.otpSecret!, counterAt(new Date()) + 1);
-      await http()
-        .post('/me/phone')
-        .set(auth(user))
-        .send({ ...jp, otp })
-        .expect(200);
+      await http().post('/me/phone').set(auth(user)).send(jp).expect(200);
       expect((await http().get('/me').set(auth(user)).expect(200)).body.user.phone).toBe('+81 9012345678');
 
       const { rows } = await db.query(
@@ -302,7 +280,8 @@ describe('HTTP API', () => {
     it('logs in, returns the profile, and logs out', async () => {
       const user = await signUpAndLogin('alice@example.com');
       const me = await http().get('/me').set(auth(user)).expect(200);
-      expect(me.body.user).toMatchObject({ email: 'alice@example.com', kycLevel: 0, otpEnabled: false });
+      expect(me.body.user).toMatchObject({ email: 'alice@example.com', kycLevel: 0 });
+      expect(me.body.user).not.toHaveProperty('otpEnabled');
       expect(me.body.user).not.toHaveProperty('password_hash');
       expect(me.body.user.locale).toBe('ko');
 
@@ -331,18 +310,6 @@ describe('HTTP API', () => {
         { success: true, reason: null },
       ]);
       expect(rows.at(-1)).toEqual({ success: false, reason: 'locked' });
-    });
-
-    it('requires an OTP code at login once OTP is on', async () => {
-      const user = await signUpAndLogin('carol@example.com');
-      await enableOtp(user);
-
-      const missing = await http().post('/auth/login').send({ email: user.email, password: PASSWORD }).expect(401);
-      expect(missing.body.error.code).toBe('otp_required');
-      // The code used to enable OTP cannot be replayed; the next step's code works.
-      const next = codeAt(user.otpSecret!, counterAt(new Date()) + 1);
-      await http().post('/auth/login').send({ email: user.email, password: PASSWORD, otp: next }).expect(200);
-      await http().post('/auth/login').send({ email: user.email, password: PASSWORD, otp: next }).expect(400);
     });
 
     it('rejects requests without a valid token', async () => {
@@ -400,20 +367,11 @@ describe('HTTP API', () => {
       const chat = await http().get(`/orders/${order.id}/messages`).set(auth(seller)).expect(200);
       expect(chat.body.messages).toMatchObject([{ senderId: buyer.id, body: '입금했어요' }]);
 
-      await http().post(`/orders/${order.id}/release`).set(auth(buyer)).send({ otp: '000000' }).expect(400);
+      await http().post(`/orders/${order.id}/release`).set(auth(buyer)).expect(403);
 
       await http().post(`/orders/${order.id}/paid`).set(auth(buyer)).expect(200);
 
-      const noOtp = await http().post(`/orders/${order.id}/release`).set(auth(seller)).send({}).expect(400);
-      expect(noOtp.body.error.code).toBe('invalid_request');
-      const reused = codeAt(seller.otpSecret!, counterAt(new Date()) - 1);
-      await http().post(`/orders/${order.id}/release`).set(auth(seller)).send({ otp: reused }).expect(400);
-
-      const released = await http()
-        .post(`/orders/${order.id}/release`)
-        .set(auth(seller))
-        .send({ otp: codeAt(seller.otpSecret!, counterAt(new Date()) + 1) })
-        .expect(200);
+      const released = await http().post(`/orders/${order.id}/release`).set(auth(seller)).expect(200);
       expect(released.body.order.status).toBe('completed');
 
       const mine = await http().get('/orders').set(auth(buyer)).expect(200);
@@ -435,20 +393,12 @@ describe('HTTP API', () => {
       await http().get('/notifications/unread-count').set(auth(seller)).expect(200, { unread: 0 });
     });
 
-    it('adds a bank account only with an OTP code', async () => {
+    it('adds a bank account in the KYC name', async () => {
       const user = await trader('bank@example.com');
       await db.query("UPDATE users SET legal_name = '김영희' WHERE id = $1", [user.id]);
       const body = { fiat: 'KRW', bankCode: '088', accountHolder: '김영희', accountNumber: '110-123-456789' };
 
-      const noOtp = await http().post('/payment-methods').set(auth(user)).send(body).expect(400);
-      expect(noOtp.body.error.code).toBe('invalid_request');
-
-      const otp = codeAt(user.otpSecret!, counterAt(new Date()) + 1);
-      const added = await http()
-        .post('/payment-methods')
-        .set(auth(user))
-        .send({ ...body, otp })
-        .expect(201);
+      const added = await http().post('/payment-methods').set(auth(user)).send(body).expect(201);
       expect(added.body.paymentMethod).toMatchObject({ accountMasked: '****6789', accountHolder: '김영희' });
       expect(JSON.stringify(added.body)).not.toContain('110123456789');
 
@@ -456,14 +406,14 @@ describe('HTTP API', () => {
       expect(list.body.paymentMethods).toHaveLength(1);
     });
 
-    it('requires OTP to post ads or open orders', async () => {
-      const user = await signUpAndLogin('nootp@example.com');
+    it('requires KYC to post ads or open orders', async () => {
+      const user = await signUpAndLogin('nokyc@example.com');
       const res = await http()
         .post('/orders')
         .set(auth(user))
         .send({ adId: '00000000-0000-4000-8000-000000000000', amount: '1' })
         .expect(403);
-      expect(res.body.error.code).toBe('otp_not_enabled');
+      expect(res.body.error.code).toBe('kyc_required');
     });
 
     it('rejects malformed amounts', async () => {
@@ -478,40 +428,28 @@ describe('HTTP API', () => {
   });
 
   describe('wallet', () => {
-    /** Each code works once, so tests that need several in one 30s step forget the last one used. */
-    async function freshOtp(user: TestUser): Promise<string> {
-      await db.query('UPDATE users SET otp_last_counter = NULL WHERE id = $1', [user.id]);
-      return codeAt(user.otpSecret!, counterAt(new Date()) + 1);
-    }
-
-    it('registers a receiving address per coin only with an OTP code', async () => {
+    it('registers a receiving address per coin', async () => {
       const user = await trader('receive@example.com');
       const address = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
-      const noOtp = await http().put('/receiving-addresses/USDT').set(auth(user)).send({ network: 'tron', address });
-      expect(noOtp.status).toBe(400);
       const wrongNetwork = await http()
         .put('/receiving-addresses/USDT')
         .set(auth(user))
-        .send({ network: 'bitcoin', address, otp: await freshOtp(user) })
+        .send({ network: 'bitcoin', address })
         .expect(400);
       expect(wrongNetwork.body.error.code).toBe('invalid_network');
 
       const added = await http()
         .put('/receiving-addresses/USDT')
         .set(auth(user))
-        .send({ network: 'tron', address, otp: await freshOtp(user) })
+        .send({ network: 'tron', address })
         .expect(200);
       expect(added.body.receivingAddress).toMatchObject({ asset: 'USDT', network: 'tron', address });
 
       const list = await http().get('/receiving-addresses').set(auth(user)).expect(200);
       expect(list.body.receivingAddresses).toHaveLength(1);
 
-      await http()
-        .delete('/receiving-addresses/USDT')
-        .set(auth(user))
-        .send({ otp: await freshOtp(user) })
-        .expect(204);
+      await http().delete('/receiving-addresses/USDT').set(auth(user)).expect(204);
       const after = await http().get('/receiving-addresses').set(auth(user)).expect(200);
       expect(after.body.receivingAddresses).toEqual([]);
     });
@@ -532,25 +470,20 @@ describe('HTTP API', () => {
       const bad = await http()
         .post('/wallet/addresses')
         .set(auth(user))
-        .send({ asset: 'BTC', address: '0x52908400098527886e0f7030069857d2e4169ee7', otp: await freshOtp(user) })
+        .send({ asset: 'BTC', address: '0x52908400098527886e0f7030069857d2e4169ee7' })
         .expect(400);
       expect(bad.body.error.code).toBe('invalid_address');
       const added = await http()
         .post('/wallet/addresses')
         .set(auth(user))
-        .send({ asset: 'BTC', address, label: '내 지갑', otp: await freshOtp(user) })
+        .send({ asset: 'BTC', address, label: '내 지갑' })
         .expect(201);
       const addressId = added.body.address.id;
 
-      await http()
-        .post('/wallet/withdrawals')
-        .set(auth(user))
-        .send({ addressId, amount: '1000000' })
-        .expect(400);
       const res = await http()
         .post('/wallet/withdrawals')
         .set(auth(user))
-        .send({ addressId, amount: '1000000', otp: await freshOtp(user) })
+        .send({ addressId, amount: '1000000' })
         .expect(201);
       expect(res.body.withdrawal).toMatchObject({ address, amount: '1000000', fee: '20000', status: 'approved' });
 

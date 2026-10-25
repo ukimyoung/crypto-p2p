@@ -51,7 +51,7 @@ export default function WalletPage() {
     <>
       <h1>{t('내 지갑')}</h1>
       <Balances balances={data.balances} />
-      {me.otpEnabled ? (
+      {me.kycLevel > 0 ? (
         <>
           <WithdrawForm data={data} onDone={load} />
           <History withdrawals={data.withdrawals} onChange={load} />
@@ -59,7 +59,7 @@ export default function WalletPage() {
         </>
       ) : (
         <p className="notice">
-          {t('출금 주소 등록과 출금에는 OTP가 필요합니다.')} <Link href="/account">{t('내 계정에서 OTP 등록하기')}</Link>
+          {t('출금하려면 먼저 본인인증을 해 주세요.')} <Link href="/account/verify">{t('본인 인증하기')}</Link>
         </p>
       )}
     </>
@@ -107,7 +107,6 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [addressId, setAddressId] = useState('');
   const [amountText, setAmountText] = useState('');
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
@@ -129,10 +128,9 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
     if (!amount) return setError('출금 수량을 올바르게 입력해 주세요.');
     try {
       const res = await api<{ withdrawal: Withdrawal }>('wallet/withdrawals', {
-        body: { addressId: selectedId, amount: amount.toString(), otp },
+        body: { addressId: selectedId, amount: amount.toString() },
       });
       setAmountText('');
-      setOtp('');
       setDone(
         res.withdrawal.status === 'requested'
           ? t('출금을 신청했습니다. 금액이 커서 운영팀 검토 후 송금됩니다.')
@@ -182,10 +180,6 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
               onChange={(e) => setAmountText(e.target.value)}
               required
             />
-          </div>
-          <div>
-            <label htmlFor="w-otp">{t('OTP 코드')}</label>
-            <input id="w-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
           </div>
         </div>
         {limit && balance && (
@@ -287,17 +281,15 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [address, setAddress] = useState('');
   const [label, setLabel] = useState('');
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   async function add(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await api('wallet/addresses', { body: { asset, address, label, otp } });
+      await api('wallet/addresses', { body: { asset, address, label } });
       setAddress('');
       setLabel('');
-      setOtp('');
       await onChange();
     } catch (err) {
       setError(messageOf(err));
@@ -306,10 +298,9 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
 
   async function remove(id: string) {
     setError(null);
-    const code = window.prompt(t('주소를 삭제하려면 OTP 코드를 입력하세요.'));
-    if (!code) return;
+    if (!window.confirm(t('이 출금 주소를 삭제할까요?'))) return;
     try {
-      await api(`wallet/addresses/${id}`, { method: 'DELETE', body: { otp: code } });
+      await api(`wallet/addresses/${id}`, { method: 'DELETE' });
       await onChange();
     } catch (err) {
       setError(messageOf(err));
@@ -371,8 +362,6 @@ function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; 
         </div>
         <label htmlFor="a-address">{t('주소')}</label>
         <input id="a-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-        <label htmlFor="a-otp">{t('OTP 코드')}</label>
-        <input id="a-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
         <button className="full">{t('주소 등록')}</button>
       </form>
       <ErrorText error={error} />

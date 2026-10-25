@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
-/** AES-256-GCM encryption for secrets stored in the database (OTP seeds). */
+/** AES-256-GCM encryption for secrets stored in the database (bank account numbers, operator OTP seeds). */
 export class SecretBox {
   private readonly key: Buffer;
 

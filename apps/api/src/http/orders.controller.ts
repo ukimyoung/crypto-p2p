@@ -8,7 +8,6 @@ import { AuthGuard, CurrentUser } from './auth.guard';
 import { amountString, parse } from './validation';
 
 const createBody = z.object({ adId: z.uuid(), amount: amountString, paymentMethodId: z.uuid().optional() });
-const releaseBody = z.object({ otp: z.string() });
 const messageBody = z.object({ body: z.string() });
 const messagesQuery = z.object({ after: z.string().regex(/^\d+$/).optional() });
 const uuid = new ParseUUIDPipe({ version: '4' });
@@ -30,7 +29,7 @@ export class OrdersController {
   @Post()
   async create(@CurrentUser() userId: string, @Body() body: unknown) {
     const { adId, amount, paymentMethodId } = parse(createBody, body);
-    await this.auth.assertOtpEnabled(userId);
+    await this.auth.assertKycVerified(userId);
     return { order: await this.orders.create(userId, adId, amount, paymentMethodId) };
   }
 
@@ -51,12 +50,9 @@ export class OrdersController {
     return { order: await this.orders.markPaid(id, userId) };
   }
 
-  /** Releasing coins is irreversible, so it needs a fresh OTP code (AUTH-3). */
   @Post(':id/release')
   @HttpCode(200)
-  async release(@CurrentUser() userId: string, @Param('id', uuid) id: string, @Body() body: unknown) {
-    const { otp } = parse(releaseBody, body);
-    await this.auth.verifyOtp(userId, otp);
+  async release(@CurrentUser() userId: string, @Param('id', uuid) id: string) {
     return { order: await this.orders.release(id, userId) };
   }
 

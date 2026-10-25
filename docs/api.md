@@ -5,24 +5,22 @@
 
 인증이 필요한 요청은 `Authorization: Bearer <token>` 헤더를 붙입니다.
 
-## 인증 (AUTH-1, AUTH-3)
+## 인증 (AUTH-1)
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | POST | `/auth/signup` | - | `{ email, password, phoneCountry, phoneNumber, nickname, firstName, lastName, locale? }` → 202 `{ email }`. `firstName`·`lastName`은 각각 1~50자 글자(어느 문자든, 사이에 공백·하이픈·아포스트로피·점 허용), 아니면 400 `invalid_name`. 본인인증 실명(`legal_name`)과는 별개. 계정은 아직 만들지 않고 이메일로 인증 링크(`<APP_URL>/signup/verify?token=…`, 24시간 유효)를 보냄. 같은 이메일로 다시 보내면 입력값을 고치고 새 링크를 보내 이전 링크는 무효가 됨. 단 1분 안에 다시 보내면(두 번 클릭 등) 새 메일 없이 이미 보낸 링크를 그대로 두고 똑같이 202. 메일 발송 실패는 503 `email_unavailable`. 닉네임은 2~16자 한글·영문·숫자·밑줄이고 대소문자 구분 없이 중복 불가(409 `nickname_taken`, 형식 오류 400 `invalid_nickname`). 비밀번호는 10~128자, 영문과 숫자 포함. 특수문자(`! @ #` 등)·공백 등 다른 문자도 사용 가능. `phoneCountry`는 ISO 국가 코드(`KR`), `phoneNumber`는 그 나라 방식 번호(`010-1234-5678`)이고 +8210… 형식으로 저장. 번호 중복은 409 `phone_taken`, 형식 오류는 400 `invalid_phone` |
 | POST | `/auth/signup/resend` | - | `{ email }`. 인증 전인 가입 신청에 새 링크를 보냄. 신청이 없거나 1분이 안 지났어도 똑같이 204 |
 | POST | `/auth/signup/verify` | - | `{ token }` → `{ user, token }`. 메일의 링크로 가입을 마치고 바로 로그인한 세션 토큰을 돌려줌. 링크는 한 번만 쓸 수 있음. 잘못되었거나 이미 쓴 링크는 400 `invalid_signup_link`, 기한이 지나면 410 `signup_link_expired`, 기다리는 사이 다른 회원이 닉네임·번호를 가져갔으면 409 `nickname_taken`/`phone_taken`(신청은 지워지므로 다시 가입) |
-| POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |
+| POST | `/auth/login` | - | `{ email, password }` → `{ token }`. 15분에 5회 실패하면 잠김 |
 | POST | `/auth/logout` | O | 현재 세션 만료 |
-| GET | `/me` | O | 내 정보 (`nickname`, `firstName`, `lastName`, `kycLevel`, `otpEnabled`, `locale` 등). 이름 도입 전 가입자는 `firstName`·`lastName`이 null |
+| GET | `/me` | O | 내 정보 (`nickname`, `firstName`, `lastName`, `kycLevel`, `locale` 등). 이름 도입 전 가입자는 `firstName`·`lastName`이 null |
 | POST | `/me/name` | O | `{ firstName, lastName }`. 이름 입력·변경(형식은 가입과 같음, 400 `invalid_name`). 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/nickname` | O | `{ nickname }`. 닉네임 변경. 바뀐 회원 정보를 돌려줌 |
-| POST | `/me/phone` | O | `{ phoneCountry, phoneNumber, otp? }`. 휴대폰 번호 등록·변경. OTP를 켠 회원은 `otp` 필요. 바뀐 회원 정보를 돌려줌 |
+| POST | `/me/phone` | O | `{ phoneCountry, phoneNumber }`. 휴대폰 번호 등록·변경. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |
-| POST | `/auth/otp/setup` | O | `{ secret, otpauthUrl }`. 인증 앱에 등록 |
-| POST | `/auth/otp/enable` | O | `{ code }`. 앱에 뜬 6자리 코드로 OTP 활성화 |
 
-OTP 코드는 한 번만 쓸 수 있습니다. 같은 30초 구간의 코드를 다시 보내면 거절됩니다.
+회원 기능에는 OTP가 없습니다. 거래(광고 등록·주문)와 출금은 본인인증(KYC 1단계)을 마친 회원만 할 수 있습니다.
 
 ## 본인 인증 (KYC-1, KYC-2)
 
@@ -40,19 +38,19 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | --- | --- | --- | --- |
 | GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 좋은 가격 순. 각 광고에 `feeRateBp`와 수수료를 더한 `finalPriceMinor`. 연체 광고주의 광고는 빠짐 |
 | GET | `/ads/fee-rate?asset=BTC&fiat=KRW` | - | 마켓의 지금 광고 수수료율 `{ feeRateBp }` (0.01% 단위). 광고 등록 화면의 가격 미리보기용 |
-| POST | `/ads` | O + OTP 활성 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel?, paymentMethodId? }`. 판매 광고는 입금받을 `paymentMethodId` 필수 |
+| POST | `/ads` | O + KYC 1 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel?, paymentMethodId? }`. 판매 광고는 입금받을 `paymentMethodId` 필수 |
 
 ## 결제수단 (PAY-1)
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/payment-methods` | O | 내 계좌 목록 (최대 1개, 계좌번호는 끝 4자리만) |
-| POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber, otp }`. 예금주가 KYC 실명과 같아야 함. OTP 필수. 회원당 1개만 등록 가능 (이미 있으면 409 `payment_method_exists`) |
-| PUT | `/payment-methods/:id` | O | `{ bankCode, accountHolder, accountNumber, otp }`. 등록된 계좌의 은행·계좌번호 변경. 새 `id`로 바뀌고, 진행 중인 내 광고는 새 계좌로 옮겨짐. 이미 열린 주문은 원래 계좌 유지. 쿨다운을 새로 시작하지 않음 |
-| DELETE | `/payment-methods/:id` | O | `{ otp }` |
+| POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber }`. 예금주가 KYC 실명과 같아야 함. 회원당 1개만 등록 가능 (이미 있으면 409 `payment_method_exists`) |
+| PUT | `/payment-methods/:id` | O | `{ bankCode, accountHolder, accountNumber }`. 등록된 계좌의 은행·계좌번호 변경. 새 `id`로 바뀌고, 진행 중인 내 광고는 새 계좌로 옮겨짐. 이미 열린 주문은 원래 계좌 유지. 쿨다운을 새로 시작하지 않음 |
+| DELETE | `/payment-methods/:id` | O | |
 | GET | `/receiving-addresses` | O | 내 암호화폐 입금 주소 목록 (코인당 최대 1개) |
-| PUT | `/receiving-addresses/:asset` | O | `{ network, address, otp }`. 코인(BTC·ETH·USDT)의 입금 주소 등록 또는 변경. 네트워크는 BTC `bitcoin`, ETH `ethereum`·`arbitrum`·`base`, USDT `ethereum`·`tron`·`bsc`. 주소 형식은 네트워크별로 검사 (`invalid_address`), 지원하지 않는 네트워크는 `invalid_network`. OTP 필수 |
-| DELETE | `/receiving-addresses/:asset` | O | `{ otp }` |
+| PUT | `/receiving-addresses/:asset` | O | `{ network, address }`. 코인(BTC·ETH·USDT)의 입금 주소 등록 또는 변경. 네트워크는 BTC `bitcoin`, ETH `ethereum`·`arbitrum`·`base`, USDT `ethereum`·`tron`·`bsc`. 주소 형식은 네트워크별로 검사 (`invalid_address`), 지원하지 않는 네트워크는 `invalid_network` |
+| DELETE | `/receiving-addresses/:asset` | O | |
 
 새 계좌는 처음 등록한 뒤 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다. 등록된 계좌를 변경하면 기존 계좌의 쿨다운을 이어받으므로 바로 쓸 수 있습니다.
 
@@ -61,10 +59,10 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/orders` | O | 내 주문 목록 (최신순) |
-| POST | `/orders` | O + OTP 활성 | `{ adId, amount, paymentMethodId? }`. 판매자 코인이 에스크로에 잠김. 구매 광고에 파는 경우 입금받을 `paymentMethodId` 필수 |
+| POST | `/orders` | O + KYC 1 | `{ adId, amount, paymentMethodId? }`. 판매자 코인이 에스크로에 잠김. 구매 광고에 파는 경우 입금받을 `paymentMethodId` 필수 |
 | GET | `/orders/:id` | O | 거래 당사자만 조회 가능 (그 외 404). 주문이 진행 중이면 `paymentDetails`에 판매자 계좌 전체 정보 |
 | POST | `/orders/:id/paid` | 구매자 | 이체 완료 표시 |
-| POST | `/orders/:id/release` | 판매자 | `{ otp }`. 수령 확인 후 코인 전달. OTP 코드 필수 |
+| POST | `/orders/:id/release` | 판매자 | 수령 확인 후 코인 전달 |
 | POST | `/orders/:id/cancel` | 구매자 | 결제 표시 전에만 취소 가능 |
 | POST | `/orders/:id/escalate` | 당사자 | 결제 표시 후 운영 검토 요청 |
 | GET | `/orders/:id/messages?after=` | 당사자 | 주문 채팅. `after`보다 뒤의 메시지만 (폴링용) |
@@ -78,10 +76,10 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | --- | --- | --- | --- |
 | GET | `/wallet/balances` | O | 코인별 `available`, `escrow`, `withdrawalPending` |
 | GET | `/wallet/addresses` | O | 출금 주소 화이트리스트 |
-| POST | `/wallet/addresses` | O | `{ asset, address, label?, otp }`. 네트워크에 맞는 주소 형식만 받음. OTP 필수 |
-| DELETE | `/wallet/addresses/:id` | O | `{ otp }` |
+| POST | `/wallet/addresses` | O | `{ asset, address, label? }`. 네트워크에 맞는 주소 형식만 받음 |
+| DELETE | `/wallet/addresses/:id` | O | |
 | GET | `/wallet/withdrawals` | O | 내 출금 내역(최신순)과 코인별 수수료·최소 수량·24시간 한도·사용량 |
-| POST | `/wallet/withdrawals` | O | `{ addressId, amount, otp }`. `amount`는 받을 수량이고 수수료는 별도로 빠짐 |
+| POST | `/wallet/withdrawals` | O | `{ addressId, amount }`. `amount`는 받을 수량이고 수수료는 별도로 빠짐 |
 | POST | `/wallet/withdrawals/:id/cancel` | 본인 | 운영 검토 대기(`requested`) 중에만 취소 가능 |
 
 새 주소는 등록 후 `ADDRESS_COOLDOWN_HOURS`(기본 24시간)가 지나야 출금에 쓸 수 있습니다.

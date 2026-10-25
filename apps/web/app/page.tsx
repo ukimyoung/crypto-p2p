@@ -63,7 +63,7 @@ function Hero({ loggedIn }: { loggedIn: boolean }) {
           </li>
           <li>
             <KeyIcon />
-            {t('OTP 2단계 인증')}
+            {t('본인인증 회원끼리 거래')}
           </li>
           <li>
             <ScaleIcon />
@@ -185,7 +185,7 @@ function HowItWorks({ loggedIn }: { loggedIn: boolean }) {
         <div className="cta-band">
           <div>
             <h2>{t('지금 가입하고 첫 거래를 시작하세요')}</h2>
-            <p>{t('가입 후 본인인증과 OTP 등록을 마치면 바로 거래할 수 있습니다.')}</p>
+            <p>{t('가입 후 본인인증을 마치면 바로 거래할 수 있습니다.')}</p>
           </div>
           <div className="row">
             <Link href="/signup" className="button large">

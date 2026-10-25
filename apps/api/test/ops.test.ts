@@ -146,7 +146,7 @@ describe('operations console', () => {
       // An operator token is not a customer session, and the other way round.
       await http().get('/me').set(bearer(ok.body.token)).expect(401);
       const user = await signUpConfirmed(app.get(AuthService), mail, 'customer@example.com', 'customer password 1');
-      const userToken = await app.get(AuthService).login(user.email, 'customer password 1', undefined, {});
+      const userToken = await app.get(AuthService).login(user.email, 'customer password 1', {});
       await http().get('/ops/me').set(bearer(userToken)).expect(401);
 
       await http().post('/ops/auth/logout').set(bearer(ok.body.token)).expect(204);
@@ -349,7 +349,7 @@ describe('operations console', () => {
       // A trade at 0.25%, completed last month.
       const auth = app.get(AuthService);
       const user = await signUpConfirmed(auth, mail, 'maker@example.com', 'customer password 1');
-      const makerToken = await auth.login(user.email, 'customer password 1', undefined, {});
+      const makerToken = await auth.login(user.email, 'customer password 1', {});
       await deposit(db, ledger, user.id, 'BTC', BTC);
       const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), user.id);
       const ad = await app.get(AdsService).create({
@@ -423,7 +423,7 @@ describe('operations console', () => {
     it('finds customers and restricts them with a reason', async () => {
       const auth = app.get(AuthService);
       const user = await signUpConfirmed(auth, mail, 'held@example.com', 'customer password 1');
-      const token = await auth.login(user.email, 'customer password 1', undefined, {});
+      const token = await auth.login(user.email, 'customer password 1', {});
       await db.query('UPDATE users SET kyc_level = 1 WHERE id = $1', [user.id]);
 
       const found = await http().get('/ops/users').query({ q: 'held@' }).set(bearer(reviewerB)).expect(200);

@@ -140,7 +140,6 @@ function Countdown({ deadline }: { deadline: string }) {
 
 function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean; onChange: () => Promise<void> }) {
   const { t, locale } = useT();
-  const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -175,31 +174,21 @@ function Actions({ order, isBuyer, onChange }: { order: Order; isBuyer: boolean;
         </div>
       )}
       {!isBuyer && (s === 'pending_payment' || s === 'paid') && (
-        <form
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            void act(
-              'release',
-              t('계좌에 {amount}이 들어온 것을 직접 확인하셨나요? 코인을 넘기면 되돌릴 수 없습니다.', {
-                amount: formatKrw(order.fiatAmountMinor, locale),
-              }),
-              { otp },
-            );
-          }}
-        >
-          <label htmlFor="release-otp">{t('OTP 코드')}</label>
-          <div className="row">
-            <input
-              id="release-otp"
-              inputMode="numeric"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              style={{ maxWidth: 160 }}
-            />
-            <button disabled={busy || otp.length !== 6}>{t('입금 확인, 코인 넘기기')}</button>
-          </div>
-        </form>
+        <div>
+          <button
+            disabled={busy}
+            onClick={() =>
+              act(
+                'release',
+                t('계좌에 {amount}이 들어온 것을 직접 확인하셨나요? 코인을 넘기면 되돌릴 수 없습니다.', {
+                  amount: formatKrw(order.fiatAmountMinor, locale),
+                }),
+              )
+            }
+          >
+            {t('입금 확인, 코인 넘기기')}
+          </button>
+        </div>
       )}
       {s === 'paid' && (
         <button

@@ -1,7 +1,7 @@
 export interface AppConfig {
   databaseUrl: string;
   port: number;
-  /** 32-byte key, base64. Encrypts OTP secrets at rest. */
+  /** 32-byte key, base64. Encrypts secrets at rest (bank account numbers, operator OTP seeds). */
   otpEncryptionKey: string;
   sessionTtlHours: number;
   /** Hours before a newly added bank account can receive payments. */

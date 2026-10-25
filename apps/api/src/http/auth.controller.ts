@@ -18,9 +18,7 @@ const emailBody = z.object({ email: z.string() });
 const tokenBody = z.object({ token: z.string().max(200) });
 const nicknameBody = z.object({ nickname: z.string().max(40) });
 const nameBody = z.object({ firstName: z.string().max(100), lastName: z.string().max(100) });
-const phoneBody = z.object({ ...phoneFields, otp: z.string().optional() });
-const loginBody = credentials.extend({ otp: z.string().optional() });
-const otpBody = z.object({ code: z.string() });
+const phoneBody = z.object(phoneFields);
 const localeBody = z.object({ locale: z.enum(['ko', 'en']) });
 
 @Controller()
@@ -60,8 +58,8 @@ export class AuthController {
   @Post('auth/login')
   @HttpCode(200)
   async login(@Body() body: unknown, @Req() req: Request) {
-    const { email, password, otp } = parse(loginBody, body);
-    const token = await this.auth.login(email, password, otp, { ip: req.ip, userAgent: req.get('user-agent') });
+    const { email, password } = parse(credentials, body);
+    const token = await this.auth.login(email, password, { ip: req.ip, userAgent: req.get('user-agent') });
     return { token };
   }
 
@@ -89,8 +87,8 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(AuthGuard)
   async setPhone(@CurrentUser() userId: string, @Body() body: unknown) {
-    const { phoneCountry, phoneNumber, otp } = parse(phoneBody, body);
-    return { user: await this.auth.setPhone(userId, { country: phoneCountry, number: phoneNumber }, otp) };
+    const { phoneCountry, phoneNumber } = parse(phoneBody, body);
+    return { user: await this.auth.setPhone(userId, { country: phoneCountry, number: phoneNumber }) };
   }
 
   @Post('me/nickname')
@@ -106,19 +104,5 @@ export class AuthController {
   async setName(@CurrentUser() userId: string, @Body() body: unknown) {
     const { firstName, lastName } = parse(nameBody, body);
     return { user: await this.auth.setName(userId, firstName, lastName) };
-  }
-
-  @Post('auth/otp/setup')
-  @HttpCode(200)
-  @UseGuards(AuthGuard)
-  setupOtp(@CurrentUser() userId: string) {
-    return this.auth.setupOtp(userId);
-  }
-
-  @Post('auth/otp/enable')
-  @HttpCode(204)
-  @UseGuards(AuthGuard)
-  async enableOtp(@CurrentUser() userId: string, @Body() body: unknown) {
-    await this.auth.enableOtp(userId, parse(otpBody, body).code);
   }
 }

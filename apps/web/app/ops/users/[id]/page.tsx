@@ -158,8 +158,6 @@ export default function OpsUserPage() {
             <dd>{pii ? (pii.legalName ?? '미인증') : (user.legalName ?? '미인증')}</dd>
             <dt>KYC</dt>
             <dd>{KYC_LEVEL[user.kycLevel] ?? user.kycLevel}</dd>
-            <dt>OTP</dt>
-            <dd>{user.otpEnabled ? '사용 중' : '미등록'}</dd>
             <dt>가입일</dt>
             <dd>{when(user.createdAt)}</dd>
             {user.statusReason && (

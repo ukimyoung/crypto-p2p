@@ -1,5 +1,5 @@
 # Local demo: `docker compose up --build`, then open http://localhost:3001.
-# Demo accounts and their OTP codes: see "데모 실행" in README.md.
+# Demo accounts and the operators' OTP codes: see "데모 실행" in README.md.
 # The encryption key and cooldowns below are for the demo only.
 name: crypto-p2p-demo
 

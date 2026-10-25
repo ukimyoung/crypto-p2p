@@ -8,7 +8,6 @@ export interface Me {
   lastName: string | null;
   kycLevel: number;
   status: string;
-  otpEnabled: boolean;
   locale: 'ko' | 'en';
   /** +82 10-1234-5678, or null for members who joined before phone numbers were asked. */
   phone: string | null;
@@ -164,7 +163,6 @@ export interface UserSummary {
   kycLevel: number;
   status: 'active' | 'trade_suspended' | 'withdraw_held' | 'closed';
   statusReason: string | null;
-  otpEnabled: boolean;
   createdAt: string;
 }
 

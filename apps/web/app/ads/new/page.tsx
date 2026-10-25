@@ -39,12 +39,12 @@ export default function NewAdPage() {
       : null;
 
   useEffect(() => {
-    if (!me?.otpEnabled) return;
+    if (!me || me.kycLevel < 1) return;
     void api<{ paymentMethods: PaymentMethod[] }>('payment-methods').then((res) => {
       setMethods(res.paymentMethods);
       setMethodId(res.paymentMethods[0]?.id ?? '');
     });
-  }, [me?.otpEnabled]);
+  }, [me?.kycLevel]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -75,10 +75,10 @@ export default function NewAdPage() {
   }
 
   if (me === undefined) return <p className="muted">{t('불러오는 중…')}</p>;
-  if (!me?.otpEnabled) {
+  if (!me || me.kycLevel < 1) {
     return (
       <p className="notice">
-        {t('광고를 올리려면 먼저 OTP를 등록해 주세요.')} <Link href="/account">{t('내 계정으로 가기')}</Link>
+        {t('광고를 올리려면 먼저 본인인증을 해 주세요.')} <Link href="/account/verify">{t('본인 인증하기')}</Link>
       </p>
     );
   }

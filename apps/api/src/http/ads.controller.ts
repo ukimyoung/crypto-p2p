@@ -51,7 +51,7 @@ export class AdsController {
   @UseGuards(AuthGuard)
   async create(@CurrentUser() userId: string, @Body() body: unknown) {
     const input = parse(createBody, body);
-    await this.auth.assertOtpEnabled(userId);
+    await this.auth.assertKycVerified(userId);
     return { ad: await this.ads.create({ ...input, makerId: userId }) };
   }
 }

@@ -20,7 +20,7 @@ export const EN: Record<string, string> = {
   '{asset} 팔기': 'Sell {asset}',
   '로그인 후 거래': 'Log in to trade',
   '수량을 확인해 주세요. 소수점은 {n}자리까지 됩니다.': 'Check the amount. Up to {n} decimal places are allowed.',
-  '거래하려면 먼저 OTP를 등록해 주세요.': 'Set up OTP before you trade.',
+  '거래하려면 먼저 본인인증을 해 주세요.': 'Verify your identity before you trade.',
   '내 계정으로 가기': 'Go to my account',
   '살 수량 ({asset})': 'Amount to buy ({asset})',
   '팔 수량 ({asset})': 'Amount to sell ({asset})',
@@ -74,7 +74,6 @@ export const EN: Record<string, string> = {
   '주문 취소': 'Cancel order',
   '계좌에 {amount}이 들어온 것을 직접 확인하셨나요? 코인을 넘기면 되돌릴 수 없습니다.':
     'Have you seen {amount} arrive in your bank account yourself? Releasing the coins cannot be undone.',
-  'OTP 코드': 'OTP code',
   '입금 확인, 코인 넘기기': 'Payment received, release coins',
   '운영팀에 검토를 요청할까요? 채팅에 증빙을 남겨 주세요.':
     'Ask our team to review this order? Please leave your evidence in the chat.',
@@ -112,17 +111,7 @@ export const EN: Record<string, string> = {
   '본인 인증이 승인되지 않았습니다. 안내에 따라 다시 제출해 주세요.':
     'Your identity verification was not approved. Please follow the instructions and submit again.',
   미완료: 'Not done',
-  '사용 중': 'On',
   미등록: 'Not set up',
-  'OTP 등록': 'Set up OTP',
-  '광고 등록, 주문, 코인 전달(릴리즈), 계좌 등록에는 OTP가 필요합니다. Google Authenticator 같은 인증 앱을 준비해 주세요.':
-    'You need OTP to post ads, place orders, release coins and register bank accounts. Have an authenticator app such as Google Authenticator ready.',
-  'OTP 등록 시작': 'Start OTP setup',
-  'OTP 등록용 QR 코드': 'QR code for OTP setup',
-  'QR을 찍을 수 없으면 아래 키를 인증 앱에 직접 입력하세요. 이 키는 다시 보여 주지 않습니다.':
-    'If you cannot scan the QR code, enter the key below in your authenticator app. This key will not be shown again.',
-  '인증 앱에 표시된 6자리 코드': '6-digit code from your authenticator app',
-  'OTP 사용 시작': 'Turn on OTP',
   '입금받을 계좌': 'Account for receiving payment',
   '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 처음 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다. 등록된 계좌를 변경하면 바로 사용할 수 있습니다.':
     'When you sell coins, buyers pay into this account. You can register one account in your own name. It can be used 24 hours after you first add it, and right away after you change it.',
@@ -150,8 +139,7 @@ export const EN: Record<string, string> = {
   계좌번호: 'Account number',
   '계좌 등록': 'Add account',
   '내 지갑': 'My wallet',
-  '출금 주소 등록과 출금에는 OTP가 필요합니다.': 'You need OTP to add withdrawal addresses and withdraw.',
-  '내 계정에서 OTP 등록하기': 'Set up OTP in my account',
+  '출금하려면 먼저 본인인증을 해 주세요.': 'Verify your identity before you withdraw.',
   잔고: 'Balances',
   '거래 중 잠김': 'Locked in trades',
   '출금 처리 중': 'Withdrawing',
@@ -179,7 +167,7 @@ export const EN: Record<string, string> = {
   주소: 'Address',
   '수수료 {fee}': 'Fee {fee}',
   취소: 'Cancel',
-  '주소를 삭제하려면 OTP 코드를 입력하세요.': 'Enter your OTP code to delete this address.',
+  '이 출금 주소를 삭제할까요?': 'Delete this withdrawal address?',
   '출금 주소 관리': 'Withdrawal addresses',
   '등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.':
     'You can withdraw only to addresses you have added. To protect against account takeover, a new address can be used 24 hours after you add it.',
@@ -195,10 +183,9 @@ export const EN: Record<string, string> = {
   '비밀번호 확인': 'Confirm password',
   로그인: 'Log in',
   비밀번호: 'Password',
-  'OTP 코드 (인증 앱의 6자리)': 'OTP code (6 digits from your authenticator app)',
   '계정이 없으신가요?': "Don't have an account?",
   '가격(원 단위 정수)과 수량을 확인해 주세요.': 'Check the price (whole KRW) and amount.',
-  '광고를 올리려면 먼저 OTP를 등록해 주세요.': 'Set up OTP before you post an ad.',
+  '광고를 올리려면 먼저 본인인증을 해 주세요.': 'Verify your identity before you post an ad.',
   '광고 등록': 'Post an ad',
   '팔기 광고': 'Sell ad',
   '사기 광고': 'Buy ad',
@@ -219,10 +206,6 @@ export const EN: Record<string, string> = {
   '이메일 또는 비밀번호가 맞지 않습니다.': 'Email or password is incorrect.',
   '로그인 실패가 많아 잠시 잠겼습니다. 15분 뒤에 다시 시도해 주세요.':
     'Too many failed logins. Try again in 15 minutes.',
-  'OTP 코드를 입력해 주세요.': 'Enter your OTP code.',
-  'OTP 코드가 맞지 않거나 이미 사용한 코드입니다. 다음 코드를 입력해 주세요.':
-    'The OTP code is wrong or was already used. Enter the next code.',
-  '거래하려면 먼저 내 계정에서 OTP를 등록해 주세요.': 'Set up OTP in My account before you trade.',
   '비밀번호는 10자 이상이고 영문과 숫자를 모두 포함해야 합니다. 특수문자(! @ # 등)도 쓸 수 있습니다.':
     'A password needs at least 10 characters with both letters and numbers. Special characters (! @ # etc.) are allowed.',
   '이메일 주소 형식이 올바르지 않습니다.': 'That email address is not valid.',
@@ -316,6 +299,9 @@ export const EN: Record<string, string> = {
   '24시간 출금 한도를 넘습니다.': 'This exceeds your 24-hour withdrawal limit.',
   '이 계정은 현재 출금이 제한되어 있습니다. 고객센터에 문의해 주세요.':
     'Withdrawals are restricted on this account. Please contact support.',
+  // The ops console's step-up messages.
+  'OTP 코드가 맞지 않거나 이미 사용한 코드입니다. 다음 코드를 입력해 주세요.':
+    'The OTP code is wrong or was already used. Enter the next code.',
   '보안을 위해 OTP 코드를 다시 입력해 주세요.': 'For security, enter your OTP code again.',
   '결제 대기': 'Awaiting payment',
   '결제 완료 표시됨': 'Marked as paid',
@@ -418,7 +404,7 @@ export const EN: Record<string, string> = {
   '마켓 둘러보기': 'Browse the market',
   '에스크로 보호': 'Escrow protection',
   '원화 계좌이체': 'KRW bank transfer',
-  'OTP 2단계 인증': 'OTP two-step sign-in',
+  '본인인증 회원끼리 거래': 'Trade only with verified members',
   '분쟁 시 운영팀 조정': 'Disputes settled by our team',
   '에스크로 잠금': 'Locked in escrow',
   '판매자 입금 확인 대기': 'Waiting for the seller to confirm',
@@ -433,8 +419,7 @@ export const EN: Record<string, string> = {
   '판매자가 입금을 확인하면 에스크로의 코인이 내 지갑으로 들어옵니다.':
     'Once the seller confirms the payment, the coins move from escrow to your wallet.',
   '지금 가입하고 첫 거래를 시작하세요': 'Sign up and make your first trade',
-  '가입 후 본인인증과 OTP 등록을 마치면 바로 거래할 수 있습니다.':
-    'Verify your identity and set up OTP after signing up, and you are ready to trade.',
+  '가입 후 본인인증을 마치면 바로 거래할 수 있습니다.': 'Verify your identity after signing up, and you are ready to trade.',
   '나에게 맞는 거래 찾기': 'Find the right trade',
   구매하기: 'Buy',
   판매하기: 'Sell',
