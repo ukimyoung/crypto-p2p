@@ -96,16 +96,19 @@ export class AuthService {
     const passwordHash = await hashPassword(input.password);
     const token = randomBytes(32).toString('base64url');
     const now = this.now();
-    // Submitting again replaces the earlier request and its link, but not more than once a minute.
-    const { rows } = await this.db.query(
+    // Submitting again updates the details. A new link replaces the old one, but at most once a minute:
+    // a quick second submit (a double click, say) keeps the link already on its way.
+    const fresh = `signup_requests.sent_at <= $10`;
+    const { rows } = await this.db.query<{ sent: boolean }>(
       `INSERT INTO signup_requests (email, password_hash, phone, phone_country, nickname, locale, token_hash, sent_at, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (email) DO UPDATE SET
          password_hash = EXCLUDED.password_hash, phone = EXCLUDED.phone, phone_country = EXCLUDED.phone_country,
-         nickname = EXCLUDED.nickname, locale = EXCLUDED.locale, token_hash = EXCLUDED.token_hash,
-         sent_at = EXCLUDED.sent_at, expires_at = EXCLUDED.expires_at
-       WHERE signup_requests.sent_at <= $10
-       RETURNING id`,
+         nickname = EXCLUDED.nickname, locale = EXCLUDED.locale,
+         token_hash = CASE WHEN ${fresh} THEN EXCLUDED.token_hash ELSE signup_requests.token_hash END,
+         sent_at = CASE WHEN ${fresh} THEN EXCLUDED.sent_at ELSE signup_requests.sent_at END,
+         expires_at = CASE WHEN ${fresh} THEN EXCLUDED.expires_at ELSE signup_requests.expires_at END
+       RETURNING token_hash = $7 AS sent`,
       [
         email,
         passwordHash,
@@ -119,10 +122,7 @@ export class AuthService {
         new Date(now.getTime() - SIGNUP_RESEND_SECONDS * 1000),
       ],
     );
-    if (!rows[0]) {
-      throw new DomainError('signup_email_recent', 'A confirmation email was just sent. Try again in a minute');
-    }
-    await this.sendSignupEmail(email, locale, token);
+    if (rows[0]!.sent) await this.sendSignupEmail(email, locale, token);
     return { email };
   }
 

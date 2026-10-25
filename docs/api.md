@@ -9,7 +9,7 @@
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | - | `{ email, password, phoneCountry, phoneNumber, nickname, locale? }` → 202 `{ email }`. 계정은 아직 만들지 않고 이메일로 인증 링크(`<APP_URL>/signup/verify?token=…`, 24시간 유효)를 보냄. 같은 이메일로 다시 보내면 이전 링크는 무효(1분 안에 다시 보내면 429 `signup_email_recent`). 메일 발송 실패는 503 `email_unavailable`. 닉네임은 2~16자 한글·영문·숫자·밑줄이고 대소문자 구분 없이 중복 불가(409 `nickname_taken`, 형식 오류 400 `invalid_nickname`). 비밀번호는 10~128자, 영문과 숫자 포함. `phoneCountry`는 ISO 국가 코드(`KR`), `phoneNumber`는 그 나라 방식 번호(`010-1234-5678`)이고 +8210… 형식으로 저장. 번호 중복은 409 `phone_taken`, 형식 오류는 400 `invalid_phone` |
+| POST | `/auth/signup` | - | `{ email, password, phoneCountry, phoneNumber, nickname, locale? }` → 202 `{ email }`. 계정은 아직 만들지 않고 이메일로 인증 링크(`<APP_URL>/signup/verify?token=…`, 24시간 유효)를 보냄. 같은 이메일로 다시 보내면 입력값을 고치고 새 링크를 보내 이전 링크는 무효가 됨. 단 1분 안에 다시 보내면(두 번 클릭 등) 새 메일 없이 이미 보낸 링크를 그대로 두고 똑같이 202. 메일 발송 실패는 503 `email_unavailable`. 닉네임은 2~16자 한글·영문·숫자·밑줄이고 대소문자 구분 없이 중복 불가(409 `nickname_taken`, 형식 오류 400 `invalid_nickname`). 비밀번호는 10~128자, 영문과 숫자 포함. 특수문자(`! @ #` 등)·공백 등 다른 문자도 사용 가능. `phoneCountry`는 ISO 국가 코드(`KR`), `phoneNumber`는 그 나라 방식 번호(`010-1234-5678`)이고 +8210… 형식으로 저장. 번호 중복은 409 `phone_taken`, 형식 오류는 400 `invalid_phone` |
 | POST | `/auth/signup/resend` | - | `{ email }`. 인증 전인 가입 신청에 새 링크를 보냄. 신청이 없거나 1분이 안 지났어도 똑같이 204 |
 | POST | `/auth/signup/verify` | - | `{ token }` → `{ user, token }`. 메일의 링크로 가입을 마치고 바로 로그인한 세션 토큰을 돌려줌. 링크는 한 번만 쓸 수 있음. 잘못되었거나 이미 쓴 링크는 400 `invalid_signup_link`, 기한이 지나면 410 `signup_link_expired`, 기다리는 사이 다른 회원이 닉네임·번호를 가져갔으면 409 `nickname_taken`/`phone_taken`(신청은 지워지므로 다시 가입) |
 | POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |

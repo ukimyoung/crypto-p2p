@@ -114,10 +114,14 @@ describe('HTTP API', () => {
       expect((await db.query('SELECT 1 FROM users WHERE email = $1', [email])).rowCount).toBe(0);
       await http().post('/auth/login').send({ email, password: PASSWORD }).expect(401);
 
-      // Asking again within a minute is refused; the resend endpoint stays quiet about it.
-      const again = await http().post('/auth/signup').send(body).expect(429);
-      expect(again.body.error.code).toBe('signup_email_recent');
+      // Submitting again within a minute (a double click, say) updates the details but keeps the link
+      // already sent; so does the resend endpoint, which also stays quiet about unknown addresses.
+      const special = 'P@ss!#word$%^&*()-_=+ 123';
+      const sentCount = mail.sent.length;
+      const again = await http().post('/auth/signup').send({ ...body, password: special }).expect(202);
+      expect(again.body).toEqual({ email });
       await http().post('/auth/signup/resend').send({ email }).expect(204);
+      expect(mail.sent.length).toBe(sentCount);
       await http().post('/auth/signup/resend').send({ email: 'nobody@example.com' }).expect(204);
       const count = mail.sent.length;
 
@@ -136,7 +140,9 @@ describe('HTTP API', () => {
       expect(me.body.user.id).toBe(verified.body.user.id);
       const { rows } = await db.query('SELECT email_verified_at FROM users WHERE email = $1', [email]);
       expect(rows[0].email_verified_at).toBeInstanceOf(Date);
-      await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
+      // The password from the second submit, special characters and all, is the one that counts.
+      await http().post('/auth/login').send({ email, password: PASSWORD }).expect(401);
+      await http().post('/auth/login').send({ email, password: special }).expect(200);
 
       // The link works once.
       const reused = await confirm(email).expect(400);
