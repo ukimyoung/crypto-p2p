@@ -50,6 +50,9 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber, otp }`. 예금주가 KYC 실명과 같아야 함. OTP 필수. 회원당 1개만 등록 가능 (이미 있으면 409 `payment_method_exists`) |
 | PUT | `/payment-methods/:id` | O | `{ bankCode, accountHolder, accountNumber, otp }`. 등록된 계좌의 은행·계좌번호 변경. 새 `id`로 바뀌고, 진행 중인 내 광고는 새 계좌로 옮겨짐. 이미 열린 주문은 원래 계좌 유지. 쿨다운을 새로 시작하지 않음 |
 | DELETE | `/payment-methods/:id` | O | `{ otp }` |
+| GET | `/receiving-addresses` | O | 내 암호화폐 입금 주소 목록 (코인당 최대 1개) |
+| PUT | `/receiving-addresses/:asset` | O | `{ network, address, otp }`. 코인(BTC·ETH·USDT)의 입금 주소 등록 또는 변경. 네트워크는 BTC `bitcoin`, ETH `ethereum`·`arbitrum`·`base`, USDT `ethereum`·`tron`·`bsc`. 주소 형식은 네트워크별로 검사 (`invalid_address`), 지원하지 않는 네트워크는 `invalid_network`. OTP 필수 |
+| DELETE | `/receiving-addresses/:asset` | O | `{ otp }` |
 
 새 계좌는 처음 등록한 뒤 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다. 등록된 계좌를 변경하면 기존 계좌의 쿨다운을 이어받으므로 바로 쓸 수 있습니다.
 

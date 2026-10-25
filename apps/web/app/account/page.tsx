@@ -10,7 +10,8 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { fullName } from '@/lib/names';
 import { BANKS } from '@/lib/messages';
-import type { Me, PaymentMethod } from '@/lib/types';
+import { addressExample, networkLabel, RECEIVING_NETWORKS } from '@/lib/networks';
+import type { Me, PaymentMethod, ReceivingAddress } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
 
 export default function AccountPage() {
@@ -70,6 +71,7 @@ export default function AccountPage() {
       {(!me.phone || editingPhone) && <PhoneEdit me={me} onSaved={reload} onClose={() => setEditingPhone(false)} />}
       {!me.otpEnabled && <OtpSetup onEnabled={reload} />}
       {me.otpEnabled && <PaymentMethods />}
+      {me.otpEnabled && <ReceivingAddresses />}
     </>
   );
 }
@@ -465,5 +467,157 @@ function PaymentMethods() {
       )}
       <ErrorText error={error} />
     </section>
+  );
+}
+
+/** One crypto address per coin. The network is chosen first, and the address is checked against it. */
+function ReceivingAddresses() {
+  const { t } = useT();
+  const [addresses, setAddresses] = useState<ReceivingAddress[] | undefined>(undefined);
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { receivingAddresses } = await api<{ receivingAddresses: ReceivingAddress[] }>('receiving-addresses');
+    setAddresses(receivingAddresses);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (addresses === undefined) return null;
+
+  return (
+    <section className="card">
+      <h2>{t('입금받을 암호화폐 주소')}</h2>
+      <p className="muted small-text">
+        {t(
+          '코인별로 받을 주소를 1개씩 등록할 수 있습니다. 먼저 네트워크를 고르고 그 네트워크의 주소를 입력하세요. 네트워크가 다르면 코인을 잃을 수 있으니 받는 지갑의 네트워크를 꼭 확인해 주세요.',
+        )}
+      </p>
+      <ul className="receiving-list">
+        {Object.keys(RECEIVING_NETWORKS).map((asset) => {
+          const current = addresses.find((a) => a.asset === asset);
+          return (
+            <li key={asset}>
+              <div className="row">
+                <strong>{asset}</strong>
+                <span className="muted small-text">{current ? networkLabel(asset, current.network) : t('미등록')}</span>
+                {editing !== asset && (
+                  <button type="button" className="link-button small-text" onClick={() => setEditing(asset)}>
+                    {t(current ? '변경' : '등록')}
+                  </button>
+                )}
+              </div>
+              {current && <div className="address">{current.address}</div>}
+            </li>
+          );
+        })}
+      </ul>
+      {editing && (
+        <ReceivingAddressForm
+          key={editing}
+          asset={editing}
+          current={addresses.find((a) => a.asset === editing)}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await load();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function ReceivingAddressForm({
+  asset,
+  current,
+  onClose,
+  onSaved,
+}: {
+  asset: string;
+  current: ReceivingAddress | undefined;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const { t } = useT();
+  const networks = RECEIVING_NETWORKS[asset] ?? [];
+  const [network, setNetwork] = useState(current?.network ?? networks[0]?.value ?? '');
+  const [address, setAddress] = useState('');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await onSaved();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function save(e: FormEvent) {
+    e.preventDefault();
+    void run(() => api(`receiving-addresses/${asset}`, { method: 'PUT', body: { network, address, otp } }));
+  }
+
+  function remove() {
+    if (!otp) {
+      setError(t('OTP 코드를 입력해 주세요.'));
+      return;
+    }
+    if (!window.confirm(t('{asset} 입금 주소를 삭제할까요?', { asset }))) return;
+    void run(() => api(`receiving-addresses/${asset}`, { method: 'DELETE', body: { otp } }));
+  }
+
+  return (
+    <form onSubmit={save} className="settings-form">
+      <h3>{t(current ? '{asset} 입금 주소 변경' : '{asset} 입금 주소 등록', { asset })}</h3>
+      <div className="grid2">
+        <div>
+          <label htmlFor="ra-network">{t('네트워크')}</label>
+          <select id="ra-network" value={network} onChange={(e) => setNetwork(e.target.value)}>
+            {networks.map((n) => (
+              <option key={n.value} value={n.value}>
+                {n.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="ra-otp">{t('OTP 코드')}</label>
+          <input id="ra-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
+        </div>
+      </div>
+      <label htmlFor="ra-address">{t(current ? '새 주소' : '주소')}</label>
+      <input
+        id="ra-address"
+        className="address"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={addressExample(network)}
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+        required
+      />
+      <ErrorText error={error} />
+      <div className="row">
+        <button disabled={busy}>{t(current ? '주소 변경' : '주소 등록')}</button>
+        <button type="button" className="secondary" onClick={onClose}>
+          {t('취소')}
+        </button>
+        {current && (
+          <button type="button" className="secondary" disabled={busy} onClick={remove}>
+            {t('삭제')}
+          </button>
+        )}
+      </div>
+    </form>
   );
 }

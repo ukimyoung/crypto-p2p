@@ -127,6 +127,17 @@ export const EN: Record<string, string> = {
   '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 처음 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다. 등록된 계좌를 변경하면 바로 사용할 수 있습니다.':
     'When you sell coins, buyers pay into this account. You can register one account in your own name. It can be used 24 hours after you first add it, and right away after you change it.',
   '계좌 변경': 'Change account',
+  '입금받을 암호화폐 주소': 'Crypto addresses for receiving coins',
+  '코인별로 받을 주소를 1개씩 등록할 수 있습니다. 먼저 네트워크를 고르고 그 네트워크의 주소를 입력하세요. 네트워크가 다르면 코인을 잃을 수 있으니 받는 지갑의 네트워크를 꼭 확인해 주세요.':
+    'You can register one address per coin. Choose the network first, then enter an address on that network. Coins sent on a different network can be lost, so check which network your receiving wallet uses.',
+  네트워크: 'Network',
+  등록: 'Add',
+  '{asset} 입금 주소를 삭제할까요?': 'Delete your {asset} receiving address?',
+  '{asset} 입금 주소 변경': 'Change {asset} receiving address',
+  '{asset} 입금 주소 등록': 'Add {asset} receiving address',
+  '새 주소': 'New address',
+  '주소 변경': 'Change address',
+  '이 코인은 선택한 네트워크로 받을 수 없습니다.': 'This coin cannot be received on the chosen network.',
   '새 계좌번호': 'New account number',
   '진행 중인 내 광고는 새 계좌로 바뀌고, 이미 열린 주문은 원래 계좌로 입금받습니다.':
     'Your open ads switch to the new account. Orders already opened are still paid into the old account.',

@@ -8,8 +8,9 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { BANKS, ORDER_STATUS, USER_STATUS, WITHDRAWAL_STATUS } from '@/lib/messages';
 import { fullName } from '@/lib/names';
+import { networkLabel } from '@/lib/networks';
 import { AD_STATUS, KYC_LEVEL } from '@/lib/ops-labels';
-import type { AuditEntry, Balance, Order, PaymentMethod, UserSummary, Withdrawal } from '@/lib/types';
+import type { AuditEntry, Balance, Order, PaymentMethod, ReceivingAddress, UserSummary, Withdrawal } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 import { KycTab } from './KycTab';
@@ -20,6 +21,7 @@ interface Detail {
   orders: Order[];
   withdrawals: Withdrawal[];
   paymentMethods: PaymentMethod[];
+  receivingAddresses: ReceivingAddress[];
   logins: { success: boolean; reason: string | null; ip: string | null; userAgent: string | null; createdAt: string }[];
   addresses: { id: string; asset: string; address: string; label: string; status: string; createdAt: string }[];
   ads: {
@@ -40,6 +42,7 @@ const TABS = [
   ['orders', '주문'],
   ['withdrawals', '출금'],
   ['payment', '결제수단'],
+  ['receiving', '입금 주소'],
   ['addresses', '출금 주소'],
   ['ads', '광고'],
   ['logins', '로그인 기록'],
@@ -273,6 +276,19 @@ export default function OpsUserPage() {
                 <td>{m.accountMasked}</td>
                 <td>{m.accountHolder}</td>
                 <td>{when(m.usableFrom)}</td>
+              </tr>
+            ))}
+          </Table>
+        )}
+        {tab === 'receiving' && (
+          <Table head={['등록', '코인', '네트워크', '주소', '상태']} empty="등록한 입금 주소가 없습니다.">
+            {data.receivingAddresses.map((a) => (
+              <tr key={a.id}>
+                <td>{when(a.createdAt)}</td>
+                <td>{a.asset}</td>
+                <td>{networkLabel(a.asset, a.network)}</td>
+                <td className="address">{a.address}</td>
+                <td>{a.status === 'active' ? '사용 중' : `변경·삭제됨${a.removedAt ? ` (${when(a.removedAt)})` : ''}`}</td>
               </tr>
             ))}
           </Table>

@@ -37,6 +37,7 @@ const ERRORS: Record<string, string> = {
   invalid_message: '메시지는 1~1000자로 입력해 주세요.',
   invalid_address: '주소 형식이 올바르지 않습니다. 코인과 네트워크가 맞는지 확인해 주세요.',
   address_exists: '이미 등록한 주소입니다.',
+  invalid_network: '이 코인은 선택한 네트워크로 받을 수 없습니다.',
   address_invalid: '등록된 출금 주소 중에서 선택해 주세요.',
   address_cooldown: '새로 등록한 주소는 24시간 뒤부터 출금할 수 있습니다.',
   asset_unsupported: '출금을 지원하지 않는 코인입니다.',
