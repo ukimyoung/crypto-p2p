@@ -22,6 +22,7 @@ const STATUS: Record<string, number> = {
   email_taken: 409,
   phone_taken: 409,
   address_exists: 409,
+  payment_method_exists: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
   kyc_provider_error: 502,

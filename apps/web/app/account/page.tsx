@@ -176,45 +176,67 @@ function OtpSetup({ onEnabled }: { onEnabled: () => Promise<void> }) {
 
 function PaymentMethods() {
   const { t, date } = useT();
-  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [current, setCurrent] = useState<PaymentMethod | null | undefined>(undefined);
+  const [editing, setEditing] = useState(false);
   const [bankCode, setBankCode] = useState('004');
   const [holder, setHolder] = useState('');
   const [account, setAccount] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setMethods((await api<{ paymentMethods: PaymentMethod[] }>('payment-methods')).paymentMethods);
+    const { paymentMethods } = await api<{ paymentMethods: PaymentMethod[] }>('payment-methods');
+    setCurrent(paymentMethods[0] ?? null);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function add(e: FormEvent) {
+  function startEdit() {
+    if (current) {
+      setBankCode(current.bankCode);
+      setHolder(current.accountHolder);
+    }
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save(e: FormEvent) {
     e.preventDefault();
+    setBusy(true);
     setError(null);
     try {
-      await api('payment-methods', {
-        body: { fiat: 'KRW', bankCode, accountHolder: holder, accountNumber: account, otp },
-      });
+      const fields = { bankCode, accountHolder: holder, accountNumber: account, otp };
+      if (current) {
+        await api(`payment-methods/${current.id}`, { method: 'PUT', body: fields });
+      } else {
+        await api('payment-methods', { body: { fiat: 'KRW', ...fields } });
+      }
       setAccount('');
       setOtp('');
+      setEditing(false);
       await load();
     } catch (err) {
       setError(messageOf(err));
+    } finally {
+      setBusy(false);
     }
   }
+
+  if (current === undefined) return null;
+  const showForm = !current || editing;
 
   return (
     <section className="card">
       <h2>{t('입금받을 계좌')}</h2>
       <p className="muted small-text">
         {t(
-          '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌만 등록할 수 있고, 새 계좌는 등록 24시간 뒤부터 사용할 수 있습니다.',
+          '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 새로 등록하거나 변경한 계좌는 24시간 뒤부터 사용할 수 있습니다.',
         )}
       </p>
-      {methods.length > 0 && (
+      {current && (
         <div className="table-wrap">
           <table>
             <thead>
@@ -226,45 +248,68 @@ function PaymentMethods() {
               </tr>
             </thead>
             <tbody>
-              {methods.map((m) => (
-                <tr key={m.id}>
-                  <td>{t(BANKS[m.bankCode] ?? m.bankCode)}</td>
-                  <td>{m.accountMasked}</td>
-                  <td>{m.accountHolder}</td>
-                  <td>{new Date(m.usableFrom) <= new Date() ? t('가능') : date(m.usableFrom)}</td>
-                </tr>
-              ))}
+              <tr>
+                <td>{t(BANKS[current.bankCode] ?? current.bankCode)}</td>
+                <td>{current.accountMasked}</td>
+                <td>{current.accountHolder}</td>
+                <td>{new Date(current.usableFrom) <= new Date() ? t('가능') : date(current.usableFrom)}</td>
+              </tr>
             </tbody>
           </table>
         </div>
       )}
-      <form onSubmit={add}>
-        <div className="grid2">
-          <div>
-            <label htmlFor="bank">{t('은행')}</label>
-            <select id="bank" value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
-              {Object.entries(BANKS).map(([code, name]) => (
-                <option key={code} value={code}>
-                  {t(name)}
-                </option>
-              ))}
-            </select>
+      {current && !editing && (
+        <p className="small-text">
+          <button className="link-button" onClick={startEdit}>
+            {t('계좌 변경')}
+          </button>
+        </p>
+      )}
+      {showForm && (
+        <form onSubmit={save}>
+          {current && (
+            <p className="muted small-text">
+              {t('진행 중인 내 광고는 새 계좌로 바뀌고, 이미 열린 주문은 원래 계좌로 입금받습니다.')}
+            </p>
+          )}
+          <div className="grid2">
+            <div>
+              <label htmlFor="bank">{t('은행')}</label>
+              <select id="bank" value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
+                {Object.entries(BANKS).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {t(name)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="holder">{t('예금주 (본인 실명)')}</label>
+              <input id="holder" value={holder} onChange={(e) => setHolder(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="account">{t(current ? '새 계좌번호' : '계좌번호')}</label>
+              <input id="account" inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="pm-otp">{t('OTP 코드')}</label>
+              <input id="pm-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
+            </div>
           </div>
-          <div>
-            <label htmlFor="holder">{t('예금주 (본인 실명)')}</label>
-            <input id="holder" value={holder} onChange={(e) => setHolder(e.target.value)} required />
-          </div>
-          <div>
-            <label htmlFor="account">{t('계좌번호')}</label>
-            <input id="account" inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} required />
-          </div>
-          <div>
-            <label htmlFor="pm-otp">{t('OTP 코드')}</label>
-            <input id="pm-otp" inputMode="numeric" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} required />
-          </div>
-        </div>
-        <button className="full">{t('계좌 등록')}</button>
-      </form>
+          {current ? (
+            <div className="row" style={{ marginTop: 16 }}>
+              <button disabled={busy}>{t('계좌 변경')}</button>
+              <button type="button" className="secondary" onClick={() => setEditing(false)}>
+                {t('취소')}
+              </button>
+            </div>
+          ) : (
+            <button className="full" disabled={busy}>
+              {t('계좌 등록')}
+            </button>
+          )}
+        </form>
+      )}
       <ErrorText error={error} />
     </section>
   );

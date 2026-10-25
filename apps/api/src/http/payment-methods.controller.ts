@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Put, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
@@ -7,6 +7,12 @@ import { parse } from './validation';
 
 const addBody = z.object({
   fiat: z.string(),
+  bankCode: z.string(),
+  accountHolder: z.string(),
+  accountNumber: z.string(),
+  otp: z.string(),
+});
+const changeBody = z.object({
   bankCode: z.string(),
   accountHolder: z.string(),
   accountNumber: z.string(),
@@ -33,6 +39,18 @@ export class PaymentMethodsController {
     const { otp, ...input } = parse(addBody, body);
     await this.auth.verifyOtp(userId, otp);
     return { paymentMethod: await this.payments.addBankAccount(userId, input) };
+  }
+
+  /** A member has one account; changing it needs an OTP code like adding one. */
+  @Put(':id')
+  async change(
+    @CurrentUser() userId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: unknown,
+  ) {
+    const { otp, ...input } = parse(changeBody, body);
+    await this.auth.verifyOtp(userId, otp);
+    return { paymentMethod: await this.payments.changeBankAccount(userId, id, input) };
   }
 
   @Delete(':id')

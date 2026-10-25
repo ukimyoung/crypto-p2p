@@ -137,6 +137,50 @@ describe('payment methods, order chat and expiry', () => {
     });
   });
 
+  describe('single account', () => {
+    it('keeps one account per member and changes it in place', async () => {
+      const user = await createUser(db);
+      const first = await addBankAccount(db, payments, user);
+      const input = { fiat: 'KRW', bankCode: '088', accountHolder: '홍길동', accountNumber: '110-222-333444' };
+      await expect(payments.addBankAccount(user, input)).rejects.toMatchObject({ code: 'payment_method_exists' });
+
+      const changed = await payments.changeBankAccount(user, first, input);
+      expect(changed).toMatchObject({ bankCode: '088', accountMasked: '****3444', fiat: 'KRW' });
+      expect(await payments.list(user)).toEqual([changed]);
+      expect((await payments.details(changed.id)).accountNumber).toBe('110222333444');
+
+      await expect(payments.changeBankAccount(user, first, input)).rejects.toMatchObject({ code: 'not_found' });
+      await expect(
+        payments.changeBankAccount(user, changed.id, { ...input, accountHolder: '김철수' }),
+      ).rejects.toMatchObject({ code: 'holder_name_mismatch' });
+      const stranger = await createUser(db);
+      await expect(payments.changeBankAccount(stranger, changed.id, input)).rejects.toMatchObject({
+        code: 'kyc_required',
+      });
+    });
+
+    it('moves open ads to the new account and leaves open orders on the old one', async () => {
+      const { seller, buyer, ad, order } = await openOrder();
+      const old = await payments.details(ad.paymentMethodId!);
+
+      const changed = await payments.changeBankAccount(seller, ad.paymentMethodId!, {
+        bankCode: '088',
+        accountHolder: '홍길동',
+        accountNumber: '110222333555',
+      });
+      const { rows } = await db.query('SELECT payment_method_id FROM ads WHERE id = $1', [ad.id]);
+      expect(rows[0].payment_method_id).toBe(changed.id);
+      expect(await orders.paymentDetails(order, buyer)).toEqual(old);
+
+      // The new account goes through the cooldown before the ad takes orders again.
+      const other = await createUser(db);
+      await expect(orders.create(other, ad.id, BTC / 100n)).rejects.toMatchObject({ code: 'payment_method_cooldown' });
+      hours(COOLDOWN_HOURS);
+      const next = await orders.create(other, ad.id, BTC / 100n);
+      expect((await orders.paymentDetails(next, other))?.accountNumber).toBe('110222333555');
+    });
+  });
+
   describe('order payment details', () => {
     it('shows the seller’s account to the parties only while the order is open', async () => {
       const { seller, buyer, order } = await openOrder();
