@@ -21,7 +21,6 @@ export interface UserSummary {
   kycLevel: number;
   status: UserStatus;
   statusReason: string | null;
-  otpEnabled: boolean;
   createdAt: Date;
 }
 
@@ -330,7 +329,6 @@ function toUser(row: any, masked = true): UserSummary {
     kycLevel: row.kyc_level,
     status: row.status,
     statusReason: row.status_reason,
-    otpEnabled: row.otp_enabled,
     createdAt: row.created_at,
   };
 }

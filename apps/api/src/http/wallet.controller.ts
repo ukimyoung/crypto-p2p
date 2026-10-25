@@ -1,6 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
-import { AuthService } from '../auth/auth.service';
 import { WalletService } from '../wallet/wallet.service';
 import { AuthGuard, CurrentUser } from './auth.guard';
 import { amountString, parse } from './validation';
@@ -9,19 +8,14 @@ const addAddressBody = z.object({
   asset: z.string(),
   address: z.string().max(200),
   label: z.string().max(40).optional(),
-  otp: z.string(),
 });
-const otpBody = z.object({ otp: z.string() });
-const withdrawBody = z.object({ addressId: z.uuid(), amount: amountString, otp: z.string() });
+const withdrawBody = z.object({ addressId: z.uuid(), amount: amountString });
 const uuid = new ParseUUIDPipe({ version: '4' });
 
 @Controller('wallet')
 @UseGuards(AuthGuard)
 export class WalletController {
-  constructor(
-    @Inject(WalletService) private readonly wallet: WalletService,
-    @Inject(AuthService) private readonly auth: AuthService,
-  ) {}
+  constructor(@Inject(WalletService) private readonly wallet: WalletService) {}
 
   @Get('balances')
   async balances(@CurrentUser() userId: string) {
@@ -33,18 +27,14 @@ export class WalletController {
     return { addresses: await this.wallet.listAddresses(userId) };
   }
 
-  /** Changing where coins can be sent needs an OTP code (AUTH-3). */
   @Post('addresses')
   async addAddress(@CurrentUser() userId: string, @Body() body: unknown) {
-    const { otp, ...input } = parse(addAddressBody, body);
-    await this.auth.verifyOtp(userId, otp);
-    return { address: await this.wallet.addAddress(userId, input) };
+    return { address: await this.wallet.addAddress(userId, parse(addAddressBody, body)) };
   }
 
   @Delete('addresses/:id')
   @HttpCode(204)
-  async removeAddress(@CurrentUser() userId: string, @Param('id', uuid) id: string, @Body() body: unknown) {
-    await this.auth.verifyOtp(userId, parse(otpBody, body).otp);
+  async removeAddress(@CurrentUser() userId: string, @Param('id', uuid) id: string) {
     await this.wallet.removeAddress(userId, id);
   }
 
@@ -55,8 +45,7 @@ export class WalletController {
 
   @Post('withdrawals')
   async withdraw(@CurrentUser() userId: string, @Body() body: unknown) {
-    const { addressId, amount, otp } = parse(withdrawBody, body);
-    await this.auth.verifyOtp(userId, otp);
+    const { addressId, amount } = parse(withdrawBody, body);
     return { withdrawal: await this.wallet.requestWithdrawal(userId, addressId, amount) };
   }
 

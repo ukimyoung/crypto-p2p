@@ -45,9 +45,9 @@ import { WalletService } from './wallet/wallet.service';
     { provide: SecretBox, inject: [CONFIG], useFactory: (config: AppConfig) => new SecretBox(config.otpEncryptionKey) },
     {
       provide: AuthService,
-      inject: [DB, SecretBox, EMAIL_SENDER, CONFIG],
-      useFactory: (db: Db, secrets: SecretBox, mailer: EmailSender, config: AppConfig) =>
-        new AuthService(db, secrets, mailer, {
+      inject: [DB, EMAIL_SENDER, CONFIG],
+      useFactory: (db: Db, mailer: EmailSender, config: AppConfig) =>
+        new AuthService(db, mailer, {
           sessionTtlHours: config.sessionTtlHours,
           maxFailedLogins: 5,
           lockoutMinutes: 15,
