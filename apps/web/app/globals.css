@@ -533,6 +533,12 @@ main .link-button:hover:not(:disabled) {
   flex-wrap: wrap;
 }
 
+.name-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 .phone-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

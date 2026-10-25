@@ -43,6 +43,9 @@ export function nextPhoneInput(): { country: string; number: string } {
   return { country: phoneCountry, number: phoneNumber };
 }
 
+/** First and last name, as the sign-up form sends them. */
+export const NAME = { firstName: 'Gildong', lastName: 'Hong' };
+
 let depositSeq = 0;
 
 /** Simulates a confirmed on-chain deposit until the wallet module exists. */
@@ -110,6 +113,6 @@ export async function signUpConfirmed(
   email: string,
   password: string,
 ): Promise<Me> {
-  await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname() });
+  await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname(), ...NAME });
   return (await auth.completeSignUp(mail.signupToken(email), {})).user;
 }

@@ -7,6 +7,7 @@ import { AuditTable } from '@/components/AuditTable';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { BANKS, ORDER_STATUS, USER_STATUS, WITHDRAWAL_STATUS } from '@/lib/messages';
+import { fullName } from '@/lib/names';
 import { AD_STATUS, KYC_LEVEL } from '@/lib/ops-labels';
 import type { AuditEntry, Balance, Order, PaymentMethod, UserSummary, Withdrawal } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
@@ -54,7 +55,13 @@ export default function OpsUserPage() {
   const [data, setData] = useState<Detail | null>(null);
   const [audit, setAudit] = useState<{ entries: AuditEntry[]; operatorNames: Record<string, string> } | null>(null);
   const [tab, setTab] = useState<Tab>('balances');
-  const [pii, setPii] = useState<{ email: string | null; phone: string | null; legalName: string | null } | null>(null);
+  const [pii, setPii] = useState<{
+    email: string | null;
+    phone: string | null;
+    legalName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  } | null>(null);
   const [status, setStatus] = useState<UserSummary['status']>('active');
   const [reason, setReason] = useState('');
   const [kycLevel, setKycLevel] = useState(0);
@@ -138,11 +145,13 @@ export default function OpsUserPage() {
             <dd className="address">{user.id}</dd>
             <dt>닉네임</dt>
             <dd>{user.nickname}</dd>
+            <dt>이름 (가입 시 입력)</dt>
+            <dd>{(pii ? fullName(pii.firstName, pii.lastName) : fullName(user.firstName, user.lastName)) ?? '미입력'}</dd>
             <dt>이메일</dt>
             <dd>{pii?.email ?? user.email ?? '-'}</dd>
             <dt>전화</dt>
             <dd>{pii ? (pii.phone ?? '-') : (user.phone ?? '-')}</dd>
-            <dt>실명</dt>
+            <dt>실명 (본인인증)</dt>
             <dd>{pii ? (pii.legalName ?? '미인증') : (user.legalName ?? '미인증')}</dd>
             <dt>KYC</dt>
             <dd>{KYC_LEVEL[user.kycLevel] ?? user.kycLevel}</dd>

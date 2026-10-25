@@ -33,6 +33,9 @@ export interface Me {
   email: string;
   /** Public name other members see, e.g. as the advertiser on the market. */
   nickname: string;
+  /** Name the member typed at signup. Null for members who joined before it was asked. */
+  firstName: string | null;
+  lastName: string | null;
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
@@ -55,6 +58,8 @@ export interface SignUpInput {
   password: string;
   phone: PhoneInput;
   nickname: string;
+  firstName: string;
+  lastName: string;
   locale?: 'ko' | 'en';
 }
 
@@ -78,6 +83,8 @@ export class AuthService {
     const email = normalizeEmail(input.email);
     const phone = normalizePhone(input.phone.country, input.phone.number);
     const nickname = normalizeNickname(input.nickname);
+    const firstName = normalizePersonName(input.firstName);
+    const lastName = normalizePersonName(input.lastName);
     assertPasswordPolicy(input.password);
     const locale = input.locale ?? 'ko';
 
@@ -100,11 +107,13 @@ export class AuthService {
     // a quick second submit (a double click, say) keeps the link already on its way.
     const fresh = `signup_requests.sent_at <= $10`;
     const { rows } = await this.db.query<{ sent: boolean }>(
-      `INSERT INTO signup_requests (email, password_hash, phone, phone_country, nickname, locale, token_hash, sent_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO signup_requests (email, password_hash, phone, phone_country, nickname, locale, token_hash, sent_at, expires_at,
+                                    first_name, last_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $11, $12)
        ON CONFLICT (email) DO UPDATE SET
          password_hash = EXCLUDED.password_hash, phone = EXCLUDED.phone, phone_country = EXCLUDED.phone_country,
          nickname = EXCLUDED.nickname, locale = EXCLUDED.locale,
+         first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
          token_hash = CASE WHEN ${fresh} THEN EXCLUDED.token_hash ELSE signup_requests.token_hash END,
          sent_at = CASE WHEN ${fresh} THEN EXCLUDED.sent_at ELSE signup_requests.sent_at END,
          expires_at = CASE WHEN ${fresh} THEN EXCLUDED.expires_at ELSE signup_requests.expires_at END
@@ -120,6 +129,8 @@ export class AuthService {
         now,
         this.linkExpiry(),
         new Date(now.getTime() - SIGNUP_RESEND_SECONDS * 1000),
+        firstName,
+        lastName,
       ],
     );
     if (rows[0]!.sent) await this.sendSignupEmail(email, locale, token);
@@ -158,8 +169,9 @@ export class AuthService {
       }
       const created = await tx
         .query(
-          `INSERT INTO users (email, password_hash, phone, phone_country, nickname, locale, email_verified_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO users (email, password_hash, phone, phone_country, nickname, locale, email_verified_at,
+                              first_name, last_name)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (email) DO NOTHING
            RETURNING *`,
           [
@@ -170,6 +182,8 @@ export class AuthService {
             request.nickname,
             request.locale,
             this.now(),
+            request.first_name,
+            request.last_name,
           ],
         )
         .catch(uniqueTaken);
@@ -415,6 +429,15 @@ export function normalizeNickname(nickname: string): string {
   return n;
 }
 
+/** A first or last name: 1-50 letters in any script, with spaces, hyphens, apostrophes or dots between. */
+export function normalizePersonName(name: string): string {
+  const n = name.normalize('NFC').trim().replace(/\s+/g, ' ');
+  if (n.length > 50 || !/^\p{L}\p{M}*(?:[\p{L}\p{M} .'’-]*[\p{L}\p{M}.])?$/u.test(n)) {
+    throw new DomainError('invalid_name', 'Enter the first and last name in letters (up to 50 characters each)');
+  }
+  return n;
+}
+
 function uniqueTaken(err: unknown): never {
   const constraint = (err as { constraint?: string }).constraint;
   if (constraint === 'users_phone_key') {
@@ -436,6 +459,8 @@ function toMe(row: any): Me {
     id: row.id,
     email: row.email,
     nickname: row.nickname,
+    firstName: row.first_name,
+    lastName: row.last_name,
     kycLevel: row.kyc_level,
     status: row.status,
     otpEnabled: row.otp_enabled,

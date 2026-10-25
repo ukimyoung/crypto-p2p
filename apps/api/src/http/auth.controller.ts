@@ -10,6 +10,8 @@ const phoneFields = { phoneCountry: z.string(), phoneNumber: z.string().max(40) 
 const signUpBody = credentials.extend({
   ...phoneFields,
   nickname: z.string().max(40),
+  firstName: z.string().max(100),
+  lastName: z.string().max(100),
   locale: z.enum(['ko', 'en']).optional(),
 });
 const emailBody = z.object({ email: z.string() });
@@ -28,8 +30,16 @@ export class AuthController {
   @Post('auth/signup')
   @HttpCode(202)
   async signUp(@Body() body: unknown) {
-    const { email, password, phoneCountry, phoneNumber, nickname, locale } = parse(signUpBody, body);
-    return this.auth.signUp({ email, password, phone: { country: phoneCountry, number: phoneNumber }, nickname, locale });
+    const { email, password, phoneCountry, phoneNumber, nickname, firstName, lastName, locale } = parse(signUpBody, body);
+    return this.auth.signUp({
+      email,
+      password,
+      phone: { country: phoneCountry, number: phoneNumber },
+      nickname,
+      firstName,
+      lastName,
+      locale,
+    });
   }
 
   @Post('auth/signup/resend')

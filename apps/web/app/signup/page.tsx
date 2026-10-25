@@ -11,6 +11,8 @@ export default function SignUpPage() {
   const { t, locale } = useT();
   const [email, setEmail] = useState('');
   const [nickname, setNickname] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phoneCountry, setPhoneCountry] = useState('KR');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ export default function SignUpPage() {
     try {
       // Emails go out in the language the user signed up in.
       const res = await api<{ email: string }>('auth/signup', {
-        body: { email, password, phoneCountry, phoneNumber, nickname, locale },
+        body: { email, password, phoneCountry, phoneNumber, nickname, firstName, lastName, locale },
       });
       setSentTo(res.email);
     } catch (err) {
@@ -81,6 +83,30 @@ export default function SignUpPage() {
       <form className="card" onSubmit={submit}>
         <label htmlFor="email">{t('이메일')}</label>
         <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <div className="name-fields">
+          <div>
+            <label htmlFor="firstName">{t('이름 (First name)')}</label>
+            <input
+              id="firstName"
+              autoComplete="given-name"
+              maxLength={50}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="lastName">{t('성 (Last name)')}</label>
+            <input
+              id="lastName"
+              autoComplete="family-name"
+              maxLength={50}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+            />
+          </div>
+        </div>
         <NicknameInput value={nickname} onChange={setNickname} />
         <PhoneField
           id="phone"

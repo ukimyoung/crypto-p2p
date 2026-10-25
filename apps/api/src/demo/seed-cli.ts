@@ -47,10 +47,11 @@ async function addTesters(db: Db, secrets: SecretBox) {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   for (const u of DEMO_TESTERS) {
     const { rowCount } = await db.query(
-      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled, nickname, email_verified_at)
-       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true, $6, now())
+      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled, nickname,
+                          email_verified_at, first_name, last_name)
+       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true, $6, now(), $7, $8)
        ON CONFLICT DO NOTHING`,
-      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret), u.nickname],
+      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret), u.nickname, u.firstName, u.lastName],
     );
     if (rowCount) console.log(`Demo tester ${u.email} created`);
   }
@@ -68,9 +69,10 @@ async function seed(db: Db, secrets: SecretBox) {
   const ids: string[] = [];
   for (const u of DEMO_USERS) {
     const { rows } = await db.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled, nickname)
-       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true, $6) RETURNING id`,
-      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret), u.nickname],
+      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled, nickname,
+                          first_name, last_name)
+       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true, $6, $7, $8) RETURNING id`,
+      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret), u.nickname, u.firstName, u.lastName],
     );
     ids.push(rows[0]!.id);
   }

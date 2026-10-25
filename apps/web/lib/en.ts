@@ -217,6 +217,12 @@ export const EN: Record<string, string> = {
   '이메일 주소 형식이 올바르지 않습니다.': 'That email address is not valid.',
   '이미 가입된 이메일입니다.': 'This email is already registered.',
   '이미 가입된 휴대폰 번호입니다.': 'This phone number is already registered.',
+  '이름과 성을 글자로 입력해 주세요. 각각 50자까지 쓸 수 있습니다.':
+    'Enter your first and last name in letters, up to 50 characters each.',
+  '이름 (First name)': 'First name',
+  '성 (Last name)': 'Last name',
+  미입력: 'Not entered',
+  성명: 'Name',
   '인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.': 'We could not send the confirmation email. Please try again later.',
   '인증 링크가 올바르지 않습니다. 이미 사용했거나 새 링크로 바뀌었을 수 있습니다.':
     'This link is not valid. It may have been used already or replaced by a newer one.',
