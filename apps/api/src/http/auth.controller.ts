@@ -7,7 +7,13 @@ import { parse } from './validation';
 
 const credentials = z.object({ email: z.string(), password: z.string() });
 const phoneFields = { phoneCountry: z.string(), phoneNumber: z.string().max(40) };
-const signUpBody = credentials.extend({ ...phoneFields, nickname: z.string().max(40) });
+const signUpBody = credentials.extend({
+  ...phoneFields,
+  nickname: z.string().max(40),
+  locale: z.enum(['ko', 'en']).optional(),
+});
+const emailBody = z.object({ email: z.string() });
+const tokenBody = z.object({ token: z.string().max(200) });
 const nicknameBody = z.object({ nickname: z.string().max(40) });
 const phoneBody = z.object({ ...phoneFields, otp: z.string().optional() });
 const loginBody = credentials.extend({ otp: z.string().optional() });
@@ -18,10 +24,26 @@ const localeBody = z.object({ locale: z.enum(['ko', 'en']) });
 export class AuthController {
   constructor(@Inject(AuthService) private readonly auth: AuthService) {}
 
+  /** Emails a confirmation link. The account exists only once the link is opened. */
   @Post('auth/signup')
+  @HttpCode(202)
   async signUp(@Body() body: unknown) {
-    const { email, password, phoneCountry, phoneNumber, nickname } = parse(signUpBody, body);
-    return { user: await this.auth.signUp(email, password, { country: phoneCountry, number: phoneNumber }, nickname) };
+    const { email, password, phoneCountry, phoneNumber, nickname, locale } = parse(signUpBody, body);
+    return this.auth.signUp({ email, password, phone: { country: phoneCountry, number: phoneNumber }, nickname, locale });
+  }
+
+  @Post('auth/signup/resend')
+  @HttpCode(204)
+  async resendSignUp(@Body() body: unknown) {
+    await this.auth.resendSignUp(parse(emailBody, body).email);
+  }
+
+  /** Completes the signup from the emailed link and returns a session token, like login. */
+  @Post('auth/signup/verify')
+  @HttpCode(200)
+  async verifySignUp(@Body() body: unknown, @Req() req: Request) {
+    const { token } = parse(tokenBody, body);
+    return this.auth.completeSignUp(token, { ip: req.ip, userAgent: req.get('user-agent') });
   }
 
   @Post('auth/login')

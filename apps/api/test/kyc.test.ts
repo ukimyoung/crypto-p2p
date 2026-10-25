@@ -11,8 +11,8 @@ import { configureApp } from '../src/http/configure';
 import { KycService } from '../src/kyc/kyc.service';
 import { legalNameOf, SumsubApi, SumsubApplicant, SumsubClient, verifySumsubDigest } from '../src/kyc/sumsub.client';
 import { OperatorAuthService } from '../src/ops/operator-auth.service';
-import { DB } from '../src/tokens';
-import { nextNickname, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
+import { DB, EMAIL_SENDER } from '../src/tokens';
+import { MemoryEmailSender, nextNickname, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const SECRET = 'webhook-secret';
 const PASSWORD = 'test password 123';
@@ -128,15 +128,16 @@ describe('identity verification', () => {
   let app: INestApplication;
   let db: Db;
   let sumsub: FakeSumsub;
+  const mail = new MemoryEmailSender();
   let reviewer: string;
   let reviewerId: string;
   const http = () => request(app.getHttpServer());
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
   async function member(email: string): Promise<{ id: string; token: string }> {
-    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname() }).expect(201);
-    const login = await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
-    return { id: signUp.body.user.id, token: login.body.token };
+    await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname() }).expect(202);
+    const verified = await http().post('/auth/signup/verify').send({ token: mail.signupToken(email) }).expect(200);
+    return { id: verified.body.user.id, token: verified.body.token };
   }
 
   /** Posts a webhook signed like Sumsub signs it. */
@@ -172,6 +173,8 @@ describe('identity verification', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(KycService)
       .useFactory({ inject: [DB], factory: (pool: Db) => new KycService(pool, sumsub) })
+      .overrideProvider(EMAIL_SENDER)
+      .useValue(mail)
       .compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
     configureApp(app);

@@ -14,8 +14,9 @@ import { LedgerService } from '../src/ledger/ledger.service';
 import { OperatorAuthService, OperatorRole } from '../src/ops/operator-auth.service';
 import { OrdersService } from '../src/orders/orders.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
+import { EMAIL_SENDER } from '../src/tokens';
 import { WalletService } from '../src/wallet/wallet.service';
-import { addBankAccount, BTC, createUser, deposit, nextNickname, nextPhoneInput, setupDb, TEST_DATABASE_URL } from './helpers';
+import { addBankAccount, BTC, createUser, deposit, MemoryEmailSender, setupDb, signUpConfirmed, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'operator password 1';
 const ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
@@ -30,6 +31,7 @@ describe('operations console', () => {
   let reviewerAId: string;
   let reviewerB: string;
   let admin: string;
+  const mail = new MemoryEmailSender();
 
   async function operator(email: string, role: OperatorRole): Promise<{ id: string; token: string; otpSecret: string }> {
     const name = email.split('@')[0]!;
@@ -91,7 +93,10 @@ describe('operations console', () => {
     process.env.ADDRESS_COOLDOWN_HOURS = '0';
     process.env.EMAIL_INTERVAL_SECONDS = '0';
     process.env.BILLING_INTERVAL_SECONDS = '0';
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(EMAIL_SENDER)
+      .useValue(mail)
+      .compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
     await app.init();
@@ -140,7 +145,7 @@ describe('operations console', () => {
 
       // An operator token is not a customer session, and the other way round.
       await http().get('/me').set(bearer(ok.body.token)).expect(401);
-      const user = await app.get(AuthService).signUp('customer@example.com', 'customer password 1', nextPhoneInput(), nextNickname());
+      const user = await signUpConfirmed(app.get(AuthService), mail, 'customer@example.com', 'customer password 1');
       const userToken = await app.get(AuthService).login(user.email, 'customer password 1', undefined, {});
       await http().get('/ops/me').set(bearer(userToken)).expect(401);
 
@@ -343,7 +348,7 @@ describe('operations console', () => {
 
       // A trade at 0.25%, completed last month.
       const auth = app.get(AuthService);
-      const user = await auth.signUp('maker@example.com', 'customer password 1', nextPhoneInput(), nextNickname());
+      const user = await signUpConfirmed(auth, mail, 'maker@example.com', 'customer password 1');
       const makerToken = await auth.login(user.email, 'customer password 1', undefined, {});
       await deposit(db, ledger, user.id, 'BTC', BTC);
       const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), user.id);
@@ -417,7 +422,7 @@ describe('operations console', () => {
   describe('customer accounts', () => {
     it('finds customers and restricts them with a reason', async () => {
       const auth = app.get(AuthService);
-      const user = await auth.signUp('held@example.com', 'customer password 1', nextPhoneInput(), nextNickname());
+      const user = await signUpConfirmed(auth, mail, 'held@example.com', 'customer password 1');
       const token = await auth.login(user.email, 'customer password 1', undefined, {});
       await db.query('UPDATE users SET kyc_level = 1 WHERE id = $1', [user.id]);
 

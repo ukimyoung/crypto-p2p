@@ -1,10 +1,13 @@
+import { Logger } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, withTransaction } from '../db/database';
+import { EmailSender } from '../notifications/email.worker';
 import { assertPasswordPolicy, hashPassword, verifyPassword } from './password';
 import { formatPhone, nationalPhone, normalizePhone } from './phone';
 import { SecretBox } from './secret-box';
+import { signupEmail } from './signup-email';
 import { generateSecret, matchCode, otpauthUrl } from './totp';
 
 export interface AuthConfig {
@@ -12,7 +15,13 @@ export interface AuthConfig {
   /** Failed logins allowed per email within `lockoutMinutes` before login is refused. */
   maxFailedLogins: number;
   lockoutMinutes: number;
+  /** Web app address; signup links point at `<appUrl>/signup/verify`. */
+  appUrl: string;
+  signupLinkTtlHours: number;
 }
+
+/** Seconds before another signup email can go to the same address. */
+const SIGNUP_RESEND_SECONDS = 60;
 
 export interface RequestMeta {
   ip?: string;
@@ -41,31 +50,158 @@ export interface PhoneInput {
   number: string;
 }
 
+export interface SignUpInput {
+  email: string;
+  password: string;
+  phone: PhoneInput;
+  nickname: string;
+  locale?: 'ko' | 'en';
+}
+
 /** Password login, opaque bearer sessions and app OTP (PRD AUTH-1, AUTH-3). */
 export class AuthService {
+  private readonly logger = new Logger('Auth');
+
   constructor(
     private readonly db: Db,
     private readonly secrets: SecretBox,
+    private readonly mailer: EmailSender,
     private readonly config: AuthConfig,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async signUp(rawEmail: string, password: string, rawPhone: PhoneInput, rawNickname: string): Promise<Me> {
+  /**
+   * Starts a signup: checks the details, keeps them aside and emails a confirmation link.
+   * The account is created only when the link is opened (`completeSignUp`).
+   */
+  async signUp(input: SignUpInput): Promise<{ email: string }> {
+    const email = normalizeEmail(input.email);
+    const phone = normalizePhone(input.phone.country, input.phone.number);
+    const nickname = normalizeNickname(input.nickname);
+    assertPasswordPolicy(input.password);
+    const locale = input.locale ?? 'ko';
+
+    const taken = await this.db.query<{ email: string; phone: string | null; nickname: string }>(
+      'SELECT email, phone, nickname FROM users WHERE email = $1 OR phone = $2 OR lower(nickname) = lower($3)',
+      [email, phone.e164, nickname],
+    );
+    if (taken.rows.some((u) => u.email === email)) {
+      throw new DomainError('email_taken', 'This email is already registered');
+    }
+    if (taken.rows.some((u) => u.phone === phone.e164)) {
+      throw new DomainError('phone_taken', 'This phone number is already registered');
+    }
+    if (taken.rows.length) throw new DomainError('nickname_taken', 'This nickname is already in use');
+
+    const passwordHash = await hashPassword(input.password);
+    const token = randomBytes(32).toString('base64url');
+    const now = this.now();
+    // Submitting again replaces the earlier request and its link, but not more than once a minute.
+    const { rows } = await this.db.query(
+      `INSERT INTO signup_requests (email, password_hash, phone, phone_country, nickname, locale, token_hash, sent_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash, phone = EXCLUDED.phone, phone_country = EXCLUDED.phone_country,
+         nickname = EXCLUDED.nickname, locale = EXCLUDED.locale, token_hash = EXCLUDED.token_hash,
+         sent_at = EXCLUDED.sent_at, expires_at = EXCLUDED.expires_at
+       WHERE signup_requests.sent_at <= $10
+       RETURNING id`,
+      [
+        email,
+        passwordHash,
+        phone.e164,
+        phone.country,
+        nickname,
+        locale,
+        hashToken(token),
+        now,
+        this.linkExpiry(),
+        new Date(now.getTime() - SIGNUP_RESEND_SECONDS * 1000),
+      ],
+    );
+    if (!rows[0]) {
+      throw new DomainError('signup_email_recent', 'A confirmation email was just sent. Try again in a minute');
+    }
+    await this.sendSignupEmail(email, locale, token);
+    return { email };
+  }
+
+  /** Sends a fresh link for a signup that has not been confirmed yet. Says nothing about whether one exists. */
+  async resendSignUp(rawEmail: string): Promise<void> {
     const email = normalizeEmail(rawEmail);
-    const phone = normalizePhone(rawPhone.country, rawPhone.number);
-    const nickname = normalizeNickname(rawNickname);
-    assertPasswordPolicy(password);
-    const passwordHash = await hashPassword(password);
-    const { rows } = await this.db
-      .query(
-        `INSERT INTO users (email, password_hash, phone, phone_country, nickname) VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (email) DO NOTHING
-         RETURNING *`,
-        [email, passwordHash, phone.e164, phone.country, nickname],
-      )
-      .catch(uniqueTaken);
-    if (!rows[0]) throw new DomainError('email_taken', 'This email is already registered');
-    return toMe(rows[0]);
+    const token = randomBytes(32).toString('base64url');
+    const now = this.now();
+    const { rows } = await this.db.query<{ locale: 'ko' | 'en' }>(
+      `UPDATE signup_requests SET token_hash = $2, sent_at = $3, expires_at = $4
+       WHERE email = $1 AND sent_at <= $5
+       RETURNING locale`,
+      [email, hashToken(token), now, this.linkExpiry(), new Date(now.getTime() - SIGNUP_RESEND_SECONDS * 1000)],
+    );
+    if (rows[0]) await this.sendSignupEmail(email, rows[0].locale, token);
+  }
+
+  /** Opens the link from the signup email: creates the account and logs the member in. */
+  async completeSignUp(token: string, meta: RequestMeta): Promise<{ user: Me; token: string }> {
+    const { rows } = await this.db.query('SELECT * FROM signup_requests WHERE token_hash = $1', [hashToken(token)]);
+    const request = rows[0];
+    if (!request) {
+      throw new DomainError('invalid_signup_link', 'This link is not valid. It may have been used or replaced');
+    }
+    if (request.expires_at <= this.now()) {
+      throw new DomainError('signup_link_expired', 'This link has expired. Sign up again to get a new one');
+    }
+    const user = await withTransaction(this.db, async (tx) => {
+      // Locks the request so the link works once even if it is opened twice at the same moment.
+      const locked = await tx.query('DELETE FROM signup_requests WHERE id = $1 RETURNING id', [request.id]);
+      if (!locked.rows[0]) {
+        throw new DomainError('invalid_signup_link', 'This link is not valid. It may have been used or replaced');
+      }
+      const created = await tx
+        .query(
+          `INSERT INTO users (email, password_hash, phone, phone_country, nickname, locale, email_verified_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (email) DO NOTHING
+           RETURNING *`,
+          [
+            request.email,
+            request.password_hash,
+            request.phone,
+            request.phone_country,
+            request.nickname,
+            request.locale,
+            this.now(),
+          ],
+        )
+        .catch(uniqueTaken);
+      if (!created.rows[0]) throw new DomainError('email_taken', 'This email is already registered');
+      await writeAudit(tx, { type: 'user', id: created.rows[0].id }, 'user.signup', { type: 'user', id: created.rows[0].id }, null, null);
+      return toMe(created.rows[0]);
+    }).catch(async (err) => {
+      // Someone took the phone number or nickname in the meantime: the request cannot complete.
+      if (err instanceof DomainError && err.code !== 'invalid_signup_link') {
+        await this.db.query('DELETE FROM signup_requests WHERE id = $1', [request.id]);
+      }
+      throw err;
+    });
+    const session = await this.startSession(user.id, meta);
+    await this.recordAttempt(user.email, user.id, true, 'signup', meta);
+    return { user, token: session };
+  }
+
+  private linkExpiry(): Date {
+    return new Date(this.now().getTime() + this.config.signupLinkTtlHours * 3_600_000);
+  }
+
+  private async sendSignupEmail(email: string, locale: 'ko' | 'en', token: string): Promise<void> {
+    const link = `${this.config.appUrl}/signup/verify?token=${token}`;
+    try {
+      await this.mailer.send(signupEmail(email, locale, link, this.config.signupLinkTtlHours));
+    } catch (err) {
+      // Without the email the request is useless; drop it so the member can try again right away.
+      await this.db.query('DELETE FROM signup_requests WHERE token_hash = $1', [hashToken(token)]);
+      this.logger.error(`Signup email to ${email} failed: ${String(err)}`);
+      throw new DomainError('email_unavailable', 'The confirmation email could not be sent. Try again later');
+    }
   }
 
   /** Adds or changes the member's phone number. Once OTP is on, a code is needed. */
@@ -155,12 +291,18 @@ export class AuthService {
       }
     }
 
+    const token = await this.startSession(user.id, meta);
+    await this.recordAttempt(email, user.id, true, null, meta);
+    return token;
+  }
+
+  private async startSession(userId: string, meta: RequestMeta): Promise<string> {
     const token = randomBytes(32).toString('base64url');
     await this.db.query(
       `INSERT INTO sessions (user_id, token_hash, ip, user_agent, created_at, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
-        user.id,
+        userId,
         hashToken(token),
         meta.ip ?? null,
         meta.userAgent ?? null,
@@ -168,7 +310,6 @@ export class AuthService {
         new Date(this.now().getTime() + this.config.sessionTtlHours * 3_600_000),
       ],
     );
-    await this.recordAttempt(email, user.id, true, null, meta);
     return token;
   }
 

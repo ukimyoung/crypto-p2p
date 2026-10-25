@@ -3,16 +3,27 @@ import { AppConfig } from '../config';
 import { Db, withTransaction } from '../db/database';
 import { CONFIG, DB, EMAIL_SENDER } from '../tokens';
 
-export interface EmailSender {
-  send(message: { to: string; subject: string; body: string }): Promise<void>;
+export interface EmailMessage {
+  to: string;
+  subject: string;
+  /** Plain text. */
+  body: string;
+  html?: string;
 }
 
-/** Stand-in until an email provider is chosen: writes the message to the log instead of sending it. */
+export interface EmailSender {
+  send(message: EmailMessage): Promise<void>;
+}
+
+/**
+ * Used when no Resend API key is set (local development, the hosted demo): writes the
+ * message to the log instead of sending it, so a signup link can be copied from there.
+ */
 export class LogEmailSender implements EmailSender {
   private readonly logger = new Logger('Email');
 
-  async send(message: { to: string; subject: string }): Promise<void> {
-    this.logger.log(`(not sent) to=${message.to} subject=${message.subject}`);
+  async send(message: EmailMessage): Promise<void> {
+    this.logger.log(`(not sent) to=${message.to} subject=${message.subject}\n${message.body}`);
   }
 }
 

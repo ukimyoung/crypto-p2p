@@ -17,6 +17,9 @@ export default function SignUpPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set once the confirmation email is on its way.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -27,15 +30,49 @@ export default function SignUpPage() {
     setBusy(true);
     setError(null);
     try {
-      await api('auth/signup', { body: { email, password, phoneCountry, phoneNumber, nickname } });
-      await api('auth/login', { body: { email, password } });
       // Emails go out in the language the user signed up in.
-      await api('me/locale', { body: { locale } });
-      window.location.href = '/account';
+      const res = await api<{ email: string }>('auth/signup', {
+        body: { email, password, phoneCountry, phoneNumber, nickname, locale },
+      });
+      setSentTo(res.email);
     } catch (err) {
       setError(messageOf(err));
-      setBusy(false);
     }
+    setBusy(false);
+  }
+
+  async function resend() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api('auth/signup/resend', { body: { email: sentTo } });
+      setResent(true);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+    setBusy(false);
+  }
+
+  if (sentTo) {
+    return (
+      <div className="narrow">
+        <h1>{t('이메일을 확인해 주세요')}</h1>
+        <div className="card">
+          <p>{t('{email}(으)로 인증 메일을 보냈습니다.', { email: sentTo })}</p>
+          <p className="muted">
+            {t('메일의 링크를 누르면 이메일 인증과 가입이 완료됩니다. 링크는 24시간 동안 유효합니다.')}
+          </p>
+          <p className="muted small-text">
+            {t('메일이 보이지 않으면 스팸함을 확인하거나 1분 뒤에 다시 보내 주세요.')}
+          </p>
+          {resent && <p className="small-text">{t('인증 메일을 다시 보냈습니다.')}</p>}
+          <ErrorText error={error} />
+          <button type="button" className="full secondary" onClick={resend} disabled={busy}>
+            {t('인증 메일 다시 보내기')}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
