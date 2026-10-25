@@ -52,9 +52,9 @@ async function seed(db: Db, secrets: SecretBox) {
   const ids: string[] = [];
   for (const u of DEMO_USERS) {
     const { rows } = await db.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled)
-       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true) RETURNING id`,
-      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret)],
+      `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, otp_secret_enc, otp_enabled, nickname)
+       VALUES ($1, $2, $3, 'KR', 1, $4, $5, true, $6) RETURNING id`,
+      [u.email, passwordHash, u.phone, u.legalName, secrets.seal(u.otpSecret), u.nickname],
     );
     ids.push(rows[0]!.id);
   }

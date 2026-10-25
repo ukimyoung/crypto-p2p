@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { ErrorText, messageOf } from '@/components/ErrorText';
+import { NicknameInput } from '@/components/NicknameInput';
 import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -27,6 +28,10 @@ export default function AccountPage() {
       <section className="card">
         <h2>{t('기본 정보')}</h2>
         <dl className="kv">
+          <dt>{t('닉네임')}</dt>
+          <dd>
+            <NicknameEdit me={me} onSaved={reload} />
+          </dd>
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
           <dt>{t('휴대폰 번호')}</dt>
@@ -47,6 +52,63 @@ export default function AccountPage() {
       {!me.otpEnabled && <OtpSetup onEnabled={reload} />}
       {me.otpEnabled && <PaymentMethods />}
     </>
+  );
+}
+
+/** The nickname with a way to change it in place. */
+function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [nickname, setNickname] = useState(me.nickname);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('me/nickname', { body: { nickname } });
+      setOpen(false);
+      await onSaved();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <span className="row">
+        <strong>{me.nickname}</strong>
+        <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
+          {t('변경')}
+        </button>
+      </span>
+    );
+  }
+  return (
+    <form onSubmit={save} style={{ maxWidth: 360 }}>
+      <NicknameInput id="nickname-edit" value={nickname} onChange={setNickname} />
+      <ErrorText error={error} />
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="small" disabled={busy}>
+          {t('저장')}
+        </button>
+        <button
+          type="button"
+          className="secondary small"
+          onClick={() => {
+            setOpen(false);
+            setNickname(me.nickname);
+            setError(null);
+          }}
+        >
+          {t('취소')}
+        </button>
+      </div>
+    </form>
   );
 }
 

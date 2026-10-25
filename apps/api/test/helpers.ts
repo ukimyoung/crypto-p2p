@@ -28,6 +28,13 @@ export function nextPhone(): { phoneCountry: string; phoneNumber: string } {
   return { phoneCountry: 'KR', phoneNumber: `010-5555-${String(++phoneSeq).padStart(4, '0')}` };
 }
 
+let nicknameSeq = 0;
+
+/** A nickname no other test member has. */
+export function nextNickname(): string {
+  return `member_${++nicknameSeq}`;
+}
+
 /** The same, in the shape `AuthService.signUp` takes. */
 export function nextPhoneInput(): { country: string; number: string } {
   const { phoneCountry, phoneNumber } = nextPhone();

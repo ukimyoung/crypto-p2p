@@ -7,7 +7,8 @@ import { parse } from './validation';
 
 const credentials = z.object({ email: z.string(), password: z.string() });
 const phoneFields = { phoneCountry: z.string(), phoneNumber: z.string().max(40) };
-const signUpBody = credentials.extend(phoneFields);
+const signUpBody = credentials.extend({ ...phoneFields, nickname: z.string().max(40) });
+const nicknameBody = z.object({ nickname: z.string().max(40) });
 const phoneBody = z.object({ ...phoneFields, otp: z.string().optional() });
 const loginBody = credentials.extend({ otp: z.string().optional() });
 const otpBody = z.object({ code: z.string() });
@@ -19,8 +20,8 @@ export class AuthController {
 
   @Post('auth/signup')
   async signUp(@Body() body: unknown) {
-    const { email, password, phoneCountry, phoneNumber } = parse(signUpBody, body);
-    return { user: await this.auth.signUp(email, password, { country: phoneCountry, number: phoneNumber }) };
+    const { email, password, phoneCountry, phoneNumber, nickname } = parse(signUpBody, body);
+    return { user: await this.auth.signUp(email, password, { country: phoneCountry, number: phoneNumber }, nickname) };
   }
 
   @Post('auth/login')
@@ -57,6 +58,13 @@ export class AuthController {
   async setPhone(@CurrentUser() userId: string, @Body() body: unknown) {
     const { phoneCountry, phoneNumber, otp } = parse(phoneBody, body);
     return { user: await this.auth.setPhone(userId, { country: phoneCountry, number: phoneNumber }, otp) };
+  }
+
+  @Post('me/nickname')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async setNickname(@CurrentUser() userId: string, @Body() body: unknown) {
+    return { user: await this.auth.setNickname(userId, parse(nicknameBody, body).nickname) };
   }
 
   @Post('auth/otp/setup')

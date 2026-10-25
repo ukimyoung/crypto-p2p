@@ -9,10 +9,11 @@
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
-| POST | `/auth/signup` | - | `{ email, password, phoneCountry, phoneNumber }`. 비밀번호는 10~128자, 영문과 숫자 포함. `phoneCountry`는 ISO 국가 코드(`KR`), `phoneNumber`는 그 나라 방식 번호(`010-1234-5678`)이고 +8210… 형식으로 저장. 번호 중복은 409 `phone_taken`, 형식 오류는 400 `invalid_phone` |
+| POST | `/auth/signup` | - | `{ email, password, phoneCountry, phoneNumber, nickname }`. 닉네임은 2~16자 한글·영문·숫자·밑줄이고 대소문자 구분 없이 중복 불가(409 `nickname_taken`, 형식 오류 400 `invalid_nickname`). 비밀번호는 10~128자, 영문과 숫자 포함. `phoneCountry`는 ISO 국가 코드(`KR`), `phoneNumber`는 그 나라 방식 번호(`010-1234-5678`)이고 +8210… 형식으로 저장. 번호 중복은 409 `phone_taken`, 형식 오류는 400 `invalid_phone` |
 | POST | `/auth/login` | - | `{ email, password, otp? }` → `{ token }`. OTP를 켠 계정은 `otp` 필수. 15분에 5회 실패하면 잠김 |
 | POST | `/auth/logout` | O | 현재 세션 만료 |
-| GET | `/me` | O | 내 정보 (`kycLevel`, `otpEnabled`, `locale` 등) |
+| GET | `/me` | O | 내 정보 (`nickname`, `kycLevel`, `otpEnabled`, `locale` 등) |
+| POST | `/me/nickname` | O | `{ nickname }`. 닉네임 변경. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/phone` | O | `{ phoneCountry, phoneNumber, otp? }`. 휴대폰 번호 등록·변경. OTP를 켠 회원은 `otp` 필요. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |
 | POST | `/auth/otp/setup` | O | `{ secret, otpauthUrl }`. 인증 앱에 등록 |

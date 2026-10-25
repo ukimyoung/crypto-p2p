@@ -9,6 +9,8 @@ export type UserStatus = 'active' | 'trade_suspended' | 'withdraw_held' | 'close
 export interface UserSummary {
   id: string;
   email: string | null;
+  /** Public nickname, shown on the market. */
+  nickname: string;
   /** Masked unless the caller asked for the full value. */
   phone: string | null;
   /** Masked unless the caller asked for the full value. */
@@ -85,7 +87,7 @@ export class OpsService {
          SELECT count(*)::int AS n FROM orders o
          WHERE (o.buyer_id = u.id OR o.seller_id = u.id) AND o.status IN ('pending_payment', 'paid', 'under_review')
        ) oo
-       WHERE ($1::text IS NULL OR u.id = $2::uuid OR u.email ILIKE '%' || $3 || '%' OR u.legal_name = $1
+       WHERE ($1::text IS NULL OR u.id = $2::uuid OR u.email ILIKE '%' || $3 || '%' OR lower(u.nickname) = lower($1) OR u.legal_name = $1
               OR regexp_replace(u.phone, '\\D', '', 'g') = NULLIF(regexp_replace($1, '\\D', '', 'g'), '')
               -- A number typed the local way (010-1234-5678) finds the saved +821012345678.
               OR (u.phone_country IS NOT NULL AND length(ltrim(regexp_replace($1, '\\D', '', 'g'), '0')) >= 7
@@ -308,6 +310,7 @@ function toUser(row: any, masked = true): UserSummary {
   return {
     id: row.id,
     email: row.email,
+    nickname: row.nickname,
     phone: masked ? maskPhone(phone) : phone,
     legalName: masked ? maskName(row.legal_name) : row.legal_name,
     kycLevel: row.kyc_level,

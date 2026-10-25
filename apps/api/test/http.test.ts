@@ -10,7 +10,7 @@ import { Db } from '../src/db/database';
 import { configureApp } from '../src/http/configure';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
-import { addBankAccount, BTC, deposit, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
+import { addBankAccount, BTC, deposit, nextNickname, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'test password 123';
 
@@ -28,7 +28,7 @@ describe('HTTP API', () => {
   }
 
   async function signUpAndLogin(email: string): Promise<TestUser> {
-    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone() }).expect(201);
+    const signUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname() }).expect(201);
     const login = await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
     return { id: signUp.body.user.id, email, token: login.body.token };
   }
@@ -80,18 +80,18 @@ describe('HTTP API', () => {
 
   describe('auth', () => {
     it('validates sign-up input and rejects duplicate emails', async () => {
-      const weak = await http().post('/auth/signup').send({ email: 'weak@example.com', password: 'short', ...nextPhone() }).expect(400);
+      const weak = await http().post('/auth/signup').send({ email: 'weak@example.com', password: 'short', ...nextPhone(), nickname: nextNickname() }).expect(400);
       expect(weak.body.error.code).toBe('weak_password');
-      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD, ...nextPhone() }).expect(201);
+      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname() }).expect(201);
       const dup = await http()
         .post('/auth/signup')
-        .send({ email: 'dup@example.com', password: PASSWORD, ...nextPhone() })
+        .send({ email: 'dup@example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname() })
         .expect(409);
       expect(dup.body.error.code).toBe('email_taken');
     });
 
     it('requires a phone number with its country at sign-up', async () => {
-      const body = { email: 'phone@example.com', password: PASSWORD };
+      const body = { email: 'phone@example.com', password: PASSWORD, nickname: nextNickname() };
       const missing = await http().post('/auth/signup').send(body).expect(400);
       expect(missing.body.error.code).toBe('invalid_request');
       for (const bad of [
@@ -121,9 +121,39 @@ describe('HTTP API', () => {
       // The same number written another way is still the same number.
       const taken = await http()
         .post('/auth/signup')
-        .send({ email: 'phone2@example.com', password: PASSWORD, phoneCountry: 'KR', phoneNumber: '01098765432' })
+        .send({ email: 'phone2@example.com', password: PASSWORD, nickname: nextNickname(), phoneCountry: 'KR', phoneNumber: '01098765432' })
         .expect(409);
       expect(taken.body.error.code).toBe('phone_taken');
+    });
+
+    it('requires a valid, unused nickname and lets the member change it', async () => {
+      const base = { password: PASSWORD };
+      for (const nickname of ['a', 'has space', 'x'.repeat(17), 'bad!']) {
+        const res = await http()
+          .post('/auth/signup')
+          .send({ ...base, email: 'nick@example.com', nickname, ...nextPhone() })
+          .expect(400);
+        expect(res.body.error.code).toBe('invalid_nickname');
+      }
+      const ok = await http()
+        .post('/auth/signup')
+        .send({ ...base, email: 'nick@example.com', nickname: ' 코인_Lover1 ', ...nextPhone() })
+        .expect(201);
+      expect(ok.body.user.nickname).toBe('코인_Lover1');
+      // Letter case does not make a different nickname.
+      const taken = await http()
+        .post('/auth/signup')
+        .send({ ...base, email: 'nick2@example.com', nickname: '코인_lover1', ...nextPhone() })
+        .expect(409);
+      expect(taken.body.error.code).toBe('nickname_taken');
+
+      const login = await http().post('/auth/login').send({ email: 'nick@example.com', password: PASSWORD }).expect(200);
+      const headers = { Authorization: `Bearer ${login.body.token}` };
+      const changed = await http().post('/me/nickname').set(headers).send({ nickname: '새이름' }).expect(200);
+      expect(changed.body.user.nickname).toBe('새이름');
+      const other = await signUpAndLogin('nick3@example.com');
+      const clash = await http().post('/me/nickname').set(auth(other)).send({ nickname: '새이름' }).expect(409);
+      expect(clash.body.error.code).toBe('nickname_taken');
     });
 
     it('lets a member change the phone number, with OTP once it is on', async () => {
@@ -226,6 +256,9 @@ describe('HTTP API', () => {
 
       const market = await http().get('/ads').query({ asset: 'BTC', fiat: 'KRW', side: 'sell' }).expect(200);
       expect(market.body.ads.map((a: { id: string }) => a.id)).toContain(adId);
+      const me = await http().get('/me').set(auth(seller)).expect(200);
+      // The market names the advertiser by nickname, never by email or legal name.
+      expect(market.body.ads.find((a: { id: string }) => a.id === adId).makerNickname).toBe(me.body.user.nickname);
 
       const orderRes = await http()
         .post('/orders')

@@ -136,6 +136,8 @@ export default function OpsUserPage() {
           <dl className="kv">
             <dt>회원 ID</dt>
             <dd className="address">{user.id}</dd>
+            <dt>닉네임</dt>
+            <dd>{user.nickname}</dd>
             <dt>이메일</dt>
             <dd>{pii?.email ?? user.email ?? '-'}</dd>
             <dt>전화</dt>
