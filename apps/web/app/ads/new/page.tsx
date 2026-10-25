@@ -84,7 +84,7 @@ export default function NewAdPage() {
   }
 
   return (
-    <div className="narrow" style={{ maxWidth: 560 }}>
+    <>
       <h1>{t('광고 등록')}</h1>
       <form className="card" onSubmit={submit}>
         <div className="tabs">
@@ -174,6 +174,6 @@ export default function NewAdPage() {
         <ErrorText error={error} />
         <button className="full">{t('광고 올리기')}</button>
       </form>
-    </div>
+    </>
   );
 }
