@@ -592,8 +592,7 @@ main .link-button:hover:not(:disabled) {
   border-radius: 12px;
 }
 
-.tabs button,
-.tabs button:hover:not(:disabled) {
+.tabs button {
   background: transparent;
   color: var(--muted);
   border: 0;
@@ -602,7 +601,9 @@ main .link-button:hover:not(:disabled) {
   padding: 8px 18px;
 }
 
+/* Hover only recolours. Size stays as set above (or by .market-top), so the tab never resizes under the cursor. */
 .tabs button:hover:not(:disabled) {
+  background: transparent;
   color: var(--fg);
 }
 
