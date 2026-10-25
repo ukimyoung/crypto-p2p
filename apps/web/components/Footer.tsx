@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useT } from '@/lib/i18n';
-import { LogoMark } from './Logo';
+import { BrandLink } from './BrandLink';
 
 export function Footer() {
   const { t } = useT();
@@ -10,10 +10,7 @@ export function Footer() {
     <footer className="footer">
       <div className="footer-inner">
         <div>
-          <Link href="/" className="brand">
-            <LogoMark />
-            {t('P2P 거래')}
-          </Link>
+          <BrandLink />
           <p>{t('이용자끼리 직접 거래하고, 코인은 에스크로로 보호합니다.')}</p>
         </div>
         <div>

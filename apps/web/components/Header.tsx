@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { LOCALE_COOKIE } from '@/lib/locale';
 import { useMe } from '@/lib/use-me';
-import { LogoMark } from './Logo';
+import { BrandLink } from './BrandLink';
 
 export function Header() {
   const { me } = useMe();
@@ -35,10 +35,7 @@ export function Header() {
     <header className="header">
       <nav className="nav">
         <div className="nav-main">
-          <Link href="/" className="brand">
-            <LogoMark />
-            {t('P2P 거래')}
-          </Link>
+          <BrandLink />
           <div className="nav-links">
             <Link href="/market" className={active('/market')}>
               {t('P2P 마켓')}
