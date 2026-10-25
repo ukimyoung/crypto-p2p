@@ -654,6 +654,7 @@ main .link-button:hover:not(:disabled) {
 .kv {
   display: grid;
   grid-template-columns: 150px 1fr;
+  align-items: baseline;
   gap: 12px 16px;
   font-size: 14px;
   margin: 0;
@@ -666,6 +667,14 @@ main .link-button:hover:not(:disabled) {
 .kv dd {
   margin: 0;
   word-break: break-all;
+}
+
+/* A compact square button beside a value, e.g. the phone number. */
+.kv dd button.inline-action {
+  padding: 3px 10px;
+  font-size: 12.5px;
+  border-radius: 6px;
+  word-break: keep-all;
 }
 
 @media (max-width: 480px) {
