@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await currentLocale();
   return (
-    <html lang={locale}>
+    <html lang={locale} data-scroll-behavior="smooth">
       <body>
         <LocaleProvider locale={locale}>
           <SiteFrame>{children}</SiteFrame>
