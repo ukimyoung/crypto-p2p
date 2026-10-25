@@ -154,10 +154,9 @@ async function seed(db: Db, secrets: SecretBox) {
   await orders.escalate(disputed.id, buyer);
 
   // A withdrawal above the auto-approve amount, waiting for review.
-  const address = await wallet.addAddress(seller, {
+  const address = await wallet.setAddress(seller, {
     asset: 'BTC',
     address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
-    label: '개인 지갑',
   });
   await wallet.requestWithdrawal(seller, address.id, BTC / 2n);
 }

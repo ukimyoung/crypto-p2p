@@ -76,9 +76,9 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/wallet/balances` | O | 코인별 `available`, `escrow`, `withdrawalPending` |
-| GET | `/wallet/addresses` | O | 출금 주소 화이트리스트 |
-| POST | `/wallet/addresses` | O | `{ asset, address, label? }`. 네트워크에 맞는 주소 형식만 받음 |
-| DELETE | `/wallet/addresses/:id` | O | |
+| GET | `/wallet/addresses` | O | 출금 주소 화이트리스트 (코인당 최대 1개, 내 계정 화면에서 관리) |
+| PUT | `/wallet/addresses/:asset` | O | `{ network, address }`. 코인의 출금 주소 등록 또는 변경. 네트워크는 커스터디가 보내는 것만 됨(BTC `bitcoin`, ETH·USDT `ethereum`, 다르면 `invalid_network`). 주소 형식 검사(`invalid_address`). 새로 등록하거나 바꾼 주소는 쿨다운(기본 24시간)을 새로 시작. 같은 주소를 다시 저장하면 그대로 둠 |
+| DELETE | `/wallet/addresses/:asset` | O | |
 | GET | `/wallet/withdrawals` | O | 내 출금 내역(최신순)과 코인별 수수료·최소 수량·24시간 한도·사용량 |
 | POST | `/wallet/withdrawals` | O | `{ addressId, amount }`. `amount`는 받을 수량이고 수수료는 별도로 빠짐 |
 | POST | `/wallet/withdrawals/:id/cancel` | 본인 | 운영 검토 대기(`requested`) 중에만 취소 가능 |

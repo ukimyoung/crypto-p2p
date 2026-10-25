@@ -6,6 +6,7 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { WITHDRAWAL_STATUS } from '@/lib/messages';
+import { networkLabel } from '@/lib/networks';
 import type { Balance, Withdrawal, WithdrawalAddress, WithdrawalLimit } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
@@ -55,7 +56,6 @@ export default function WalletPage() {
         <>
           <WithdrawForm data={data} onDone={load} />
           <History withdrawals={data.withdrawals} onChange={load} />
-          <AddressBook addresses={data.addresses} onChange={load} />
         </>
       ) : (
         <p className="notice">
@@ -105,20 +105,17 @@ function Balances({ balances }: { balances: Balance[] }) {
 function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promise<void> }) {
   const { t, date } = useT();
   const [asset, setAsset] = useState<AssetCode>('BTC');
-  const [addressId, setAddressId] = useState('');
   const [amountText, setAmountText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   const decimals = decimalsOf(asset);
-  const addresses = data.addresses.filter((a) => a.asset === asset);
+  // One withdrawal address per coin, registered on the account page.
+  const address = data.addresses.find((a) => a.asset === asset);
   const limit = data.limits.find((l) => l.asset === asset);
   const balance = data.balances.find((b) => b.asset === asset);
   const amount = parseUnits(amountText, decimals);
-  // Falls back to the first usable address when the coin changes or nothing is picked yet.
-  const selectedId = addresses.some((a) => a.id === addressId && usable(a))
-    ? addressId
-    : (addresses.find(usable)?.id ?? '');
+  const selectedId = address && usable(address) ? address.id : '';
   const remaining = limit?.dailyLimit ? BigInt(limit.dailyLimit) - BigInt(limit.usedToday) : null;
 
   async function submit(e: FormEvent) {
@@ -158,17 +155,25 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
             </select>
           </div>
           <div>
-            <label htmlFor="w-address">{t('받을 주소')}</label>
-            <select id="w-address" value={selectedId} onChange={(e) => setAddressId(e.target.value)} required>
-              {addresses.length === 0 && <option value="">{t('아래에서 주소를 먼저 등록해 주세요')}</option>}
-              {addresses.map((a) => (
-                <option key={a.id} value={a.id} disabled={!usable(a)}>
-                  {a.label ? `${a.label} · ` : ''}
-                  {shortAddress(a.address)}
-                  {!usable(a) && ' ' + t('({time}부터)', { time: date(a.usableFrom) })}
-                </option>
-              ))}
-            </select>
+            <span className="field-label">{t('받을 주소')}</span>
+            {address ? (
+              <>
+                <p className="address" style={{ margin: '8px 0 2px' }}>
+                  {address.address}
+                </p>
+                <p className="muted small-text" style={{ margin: '0 0 8px' }}>
+                  {networkLabel(asset, address.network)}
+                  {!usable(address) && ' · ' + t('{time}부터 출금 가능', { time: date(address.usableFrom) })}
+                </p>
+              </>
+            ) : (
+              <p className="muted small-text" style={{ margin: '8px 0' }}>
+                {t('등록한 출금 주소가 없습니다.')}
+              </p>
+            )}
+            <Link href="/account" className="small-text">
+              {t(address ? '내 계정에서 출금 주소 변경' : '내 계정에서 출금 주소 등록')}
+            </Link>
           </div>
           <div>
             <label htmlFor="w-amount">{t('받을 수량 ({asset})', { asset })}</label>
@@ -271,99 +276,6 @@ function History({ withdrawals, onChange }: { withdrawals: Withdrawal[]; onChang
           </tbody>
         </table>
       </div>
-      <ErrorText error={error} />
-    </section>
-  );
-}
-
-function AddressBook({ addresses, onChange }: { addresses: WithdrawalAddress[]; onChange: () => Promise<void> }) {
-  const { t, date } = useT();
-  const [asset, setAsset] = useState<AssetCode>('BTC');
-  const [address, setAddress] = useState('');
-  const [label, setLabel] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  async function add(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    try {
-      await api('wallet/addresses', { body: { asset, address, label } });
-      setAddress('');
-      setLabel('');
-      await onChange();
-    } catch (err) {
-      setError(messageOf(err));
-    }
-  }
-
-  async function remove(id: string) {
-    setError(null);
-    if (!window.confirm(t('이 출금 주소를 삭제할까요?'))) return;
-    try {
-      await api(`wallet/addresses/${id}`, { method: 'DELETE' });
-      await onChange();
-    } catch (err) {
-      setError(messageOf(err));
-    }
-  }
-
-  return (
-    <section className="card">
-      <h2>{t('출금 주소 관리')}</h2>
-      <p className="muted small-text">
-        {t('등록한 주소로만 출금할 수 있습니다. 새 주소는 도용 피해를 막기 위해 등록 24시간 뒤부터 사용할 수 있습니다.')}
-      </p>
-      {addresses.length > 0 && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>{t('코인')}</th>
-                <th>{t('이름')}</th>
-                <th>{t('주소')}</th>
-                <th>{t('사용 가능')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {addresses.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.asset}</td>
-                  <td>{a.label || '-'}</td>
-                  <td className="address">{a.address}</td>
-                  <td>{usable(a) ? t('가능') : date(a.usableFrom)}</td>
-                  <td>
-                    <button type="button" className="secondary small" onClick={() => remove(a.id)}>
-                      {t('삭제')}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <form onSubmit={add}>
-        <div className="grid2">
-          <div>
-            <label htmlFor="a-asset">{t('코인')}</label>
-            <select id="a-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
-              {Object.entries(ASSETS).map(([code, a]) => (
-                <option key={code} value={code}>
-                  {code} · {a.network}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="a-label">{t('이름 (선택)')}</label>
-            <input id="a-label" maxLength={40} value={label} onChange={(e) => setLabel(e.target.value)} />
-          </div>
-        </div>
-        <label htmlFor="a-address">{t('주소')}</label>
-        <input id="a-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-        <button className="full">{t('주소 등록')}</button>
-      </form>
       <ErrorText error={error} />
     </section>
   );

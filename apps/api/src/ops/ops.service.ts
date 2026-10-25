@@ -194,7 +194,7 @@ export class OpsService {
         [userId],
       ),
       this.db.query(
-        `SELECT id, asset, address, label, status, created_at, removed_at FROM withdrawal_addresses
+        `SELECT id, asset, network, address, label, status, created_at, removed_at FROM withdrawal_addresses
          WHERE user_id = $1 ORDER BY created_at DESC`,
         [userId],
       ),
@@ -222,6 +222,7 @@ export class OpsService {
       addresses: addresses.rows.map((r) => ({
         id: r.id,
         asset: r.asset,
+        network: r.network,
         address: r.address,
         label: r.label,
         status: r.status,

@@ -56,7 +56,7 @@ describe('operations console', () => {
   async function customer(): Promise<{ id: string; addressId: string }> {
     const id = await createUser(db);
     await deposit(db, ledger, id, 'BTC', BTC);
-    const address = await app.get(WalletService).addAddress(id, { asset: 'BTC', address: ADDRESS });
+    const address = await app.get(WalletService).setAddress(id, { asset: 'BTC', address: ADDRESS });
     return { id, addressId: address.id };
   }
 
@@ -452,7 +452,7 @@ describe('operations console', () => {
       expect(held.body.user).toMatchObject({ status: 'withdraw_held', statusReason: '보이스피싱 신고' });
 
       await deposit(db, ledger, user.id, 'BTC', BTC);
-      const address = await app.get(WalletService).addAddress(user.id, { asset: 'BTC', address: ADDRESS });
+      const address = await app.get(WalletService).setAddress(user.id, { asset: 'BTC', address: ADDRESS });
       await expect(app.get(WalletService).requestWithdrawal(user.id, address.id, BTC / 100n)).rejects.toMatchObject({
         code: 'user_restricted',
       });

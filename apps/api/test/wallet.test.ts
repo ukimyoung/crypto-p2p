@@ -76,7 +76,7 @@ describe('wallet', () => {
   async function funded(funds = BTC) {
     const userId = await createUser(db);
     await deposit(db, ledger, userId, 'BTC', funds);
-    const address = await wallet.addAddress(userId, { asset: 'BTC', address: BECH32 });
+    const address = await wallet.setAddress(userId, { asset: 'BTC', address: BECH32 });
     hours(24);
     return { userId, addressId: address.id };
   }
@@ -103,23 +103,45 @@ describe('wallet', () => {
   });
 
   describe('address whitelist', () => {
-    it('refuses duplicates and allows re-adding after removal', async () => {
+    it('keeps one address per coin on the network custody sends it on', async () => {
       const userId = await createUser(db);
-      const first = await wallet.addAddress(userId, { asset: 'BTC', address: BECH32, label: ' cold ' });
-      expect(first).toMatchObject({ address: BECH32, label: 'cold' });
+      const first = await wallet.setAddress(userId, { asset: 'BTC', network: 'bitcoin', address: BECH32 });
+      expect(first).toMatchObject({ address: BECH32, network: 'bitcoin' });
       expect(first.usableFrom).toEqual(new Date('2026-10-23T00:00:00Z'));
-      await expect(wallet.addAddress(userId, { asset: 'BTC', address: BECH32.toUpperCase() })).rejects.toMatchObject({
-        code: 'address_exists',
-      });
-      // A bitcoin address is no good for an ethereum asset.
-      await expect(wallet.addAddress(userId, { asset: 'ETH', address: BECH32 })).rejects.toMatchObject({
-        code: 'invalid_address',
+      // Saving the same address again keeps it and its cooldown.
+      hours(2);
+      expect(await wallet.setAddress(userId, { asset: 'BTC', address: BECH32.toUpperCase() })).toMatchObject({
+        id: first.id,
       });
 
-      await wallet.removeAddress(userId, first.id);
+      // A changed address waits for its own cooldown, and the old one stops working.
+      const changed = await wallet.setAddress(userId, { asset: 'BTC', network: 'bitcoin', address: LEGACY });
+      expect(changed.usableFrom).toEqual(new Date('2026-10-23T02:00:00Z'));
+      expect((await wallet.listAddresses(userId)).map((a) => a.address)).toEqual([LEGACY]);
+      await expect(wallet.requestWithdrawal(userId, first.id, BTC / 100n)).rejects.toMatchObject({
+        code: 'address_invalid',
+      });
+
+      // A bitcoin address is no good for an ethereum asset, and USDT goes out on Ethereum only.
+      await expect(wallet.setAddress(userId, { asset: 'ETH', address: BECH32 })).rejects.toMatchObject({
+        code: 'invalid_address',
+      });
+      await expect(
+        wallet.setAddress(userId, { asset: 'USDT', network: 'tron', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }),
+      ).rejects.toMatchObject({ code: 'invalid_network' });
+
+      await wallet.removeAddress(userId, 'BTC');
       expect(await wallet.listAddresses(userId)).toEqual([]);
-      await wallet.addAddress(userId, { asset: 'BTC', address: BECH32 });
-      await expect(wallet.removeAddress(await createUser(db), first.id)).rejects.toMatchObject({ code: 'not_found' });
+      await expect(wallet.removeAddress(userId, 'BTC')).rejects.toMatchObject({ code: 'not_found' });
+      const audit = await db.query(
+        `SELECT action FROM audit_logs WHERE actor_id = $1 AND target_type = 'withdrawal_address' ORDER BY id`,
+        [userId],
+      );
+      expect(audit.rows.map((r) => r.action)).toEqual([
+        'withdrawal_address.add',
+        'withdrawal_address.change',
+        'withdrawal_address.remove',
+      ]);
     });
   });
 
@@ -179,8 +201,10 @@ describe('wallet', () => {
         code: 'address_invalid',
       });
 
-      const fresh = await wallet.addAddress(userId, { asset: 'BTC', address: LEGACY });
-      await expect(wallet.requestWithdrawal(userId, fresh.id, BTC / 1000n)).rejects.toMatchObject({
+      const newcomer = await createUser(db);
+      await deposit(db, ledger, newcomer, 'BTC', BTC);
+      const fresh = await wallet.setAddress(newcomer, { asset: 'BTC', address: LEGACY });
+      await expect(wallet.requestWithdrawal(newcomer, fresh.id, BTC / 100n)).rejects.toMatchObject({
         code: 'address_cooldown',
       });
 

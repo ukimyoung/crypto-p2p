@@ -26,6 +26,7 @@ export interface Balance {
 export interface WithdrawalAddress {
   id: string;
   asset: string;
+  network: string;
   address: string;
   label: string;
   usableFrom: Date;
@@ -69,7 +70,7 @@ const WITHDRAWAL_NOTICES: Partial<Record<WithdrawalStatus, NotificationType>> = 
 const COUNTED = "status NOT IN ('rejected', 'cancelled', 'failed')";
 
 /**
- * Balances, the withdrawal address whitelist (WAL-2) and withdrawals (WAL-3).
+ * Balances, the withdrawal address whitelist (WAL-2, one address per coin) and withdrawals (WAL-3).
  *
  * A request moves amount + fee from `available` to `withdrawal_pending`.
  * When the transaction confirms, the pending funds leave the platform: the
@@ -105,48 +106,75 @@ export class WalletService {
 
   // Address whitelist ---------------------------------------------------------
 
-  async addAddress(
+  /**
+   * Registers the coin's withdrawal address, or replaces the one already registered. The network
+   * must be the one custody sends the coin on. A new or changed address starts the cooldown again,
+   * so a stolen session cannot point withdrawals somewhere else and empty the account at once.
+   * Saving the address already registered changes nothing.
+   */
+  async setAddress(
     userId: string,
-    input: { asset: string; address: string; label?: string },
+    input: { asset: string; network?: string; address: string },
   ): Promise<WithdrawalAddress> {
     const network = await this.networkOf(input.asset);
+    if (input.network !== undefined && input.network !== network) {
+      throw new DomainError('invalid_network', `${input.asset} withdrawals go out on ${network} only`);
+    }
     const address = normalizeAddress(network, input.address);
-    const label = (input.label ?? '').trim();
-    if (label.length > 40) throw new DomainError('invalid_request', 'Label must be at most 40 characters');
 
     return withTransaction(this.db, async (tx) => {
-      const { rows } = await tx.query(
-        `INSERT INTO withdrawal_addresses (user_id, asset, address, label, created_at)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (user_id, asset, address) WHERE status = 'active' DO NOTHING
-         RETURNING *`,
-        [userId, input.asset, address, label, this.now()],
+      // One change at a time per member, so two requests cannot both leave an active row.
+      const owner = await tx.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      if (!owner.rowCount) throw new DomainError('not_found', 'User not found');
+      const { rows: old } = await tx.query(
+        `SELECT * FROM withdrawal_addresses WHERE user_id = $1 AND asset = $2 AND status = 'active'`,
+        [userId, input.asset],
       );
-      if (!rows[0]) throw new DomainError('address_exists', 'This address is already registered');
+      if (old[0] && old[0].address === address && old[0].network === network) return this.toAddress(old[0]);
+      if (old[0]) {
+        await tx.query(`UPDATE withdrawal_addresses SET status = 'removed', removed_at = $2 WHERE id = $1`, [
+          old[0].id,
+          this.now(),
+        ]);
+      }
+      const { rows } = await tx.query(
+        `INSERT INTO withdrawal_addresses (user_id, asset, network, address, created_at)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [userId, input.asset, network, address, this.now()],
+      );
       const added = this.toAddress(rows[0]);
-      const target = { type: 'withdrawal_address', id: added.id };
-      await writeAudit(tx, { type: 'user', id: userId }, 'withdrawal_address.add', target, null, added);
+      const before = old[0] ? this.toAddress(old[0]) : null;
+      await writeAudit(
+        tx,
+        { type: 'user', id: userId },
+        before ? 'withdrawal_address.change' : 'withdrawal_address.add',
+        { type: 'withdrawal_address', id: added.id },
+        before,
+        added,
+      );
       return added;
     });
   }
 
   async listAddresses(userId: string): Promise<WithdrawalAddress[]> {
     const { rows } = await this.db.query(
-      `SELECT * FROM withdrawal_addresses WHERE user_id = $1 AND status = 'active' ORDER BY created_at`,
+      `SELECT * FROM withdrawal_addresses WHERE user_id = $1 AND status = 'active' ORDER BY asset`,
       [userId],
     );
     return rows.map((r) => this.toAddress(r));
   }
 
-  async removeAddress(userId: string, id: string): Promise<void> {
+  async removeAddress(userId: string, asset: string): Promise<void> {
     await withTransaction(this.db, async (tx) => {
-      const { rowCount } = await tx.query(
+      const { rows } = await tx.query(
         `UPDATE withdrawal_addresses SET status = 'removed', removed_at = $3
-         WHERE id = $1 AND user_id = $2 AND status = 'active'`,
-        [id, userId, this.now()],
+         WHERE user_id = $1 AND asset = $2 AND status = 'active'
+         RETURNING id`,
+        [userId, asset, this.now()],
       );
-      if (!rowCount) throw new DomainError('not_found', 'Address not found');
-      const target = { type: 'withdrawal_address', id };
+      if (!rows[0]) throw new DomainError('not_found', 'No withdrawal address registered for this coin');
+      const target = { type: 'withdrawal_address', id: rows[0].id };
       await writeAudit(tx, { type: 'user', id: userId }, 'withdrawal_address.remove', target, null, null);
     });
   }
@@ -365,6 +393,7 @@ export class WalletService {
     return {
       id: row.id,
       asset: row.asset,
+      network: row.network,
       address: row.address,
       label: row.label,
       usableFrom: new Date(row.created_at.getTime() + this.config.addressCooldownHours * 3_600_000),

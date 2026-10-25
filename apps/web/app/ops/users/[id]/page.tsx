@@ -23,7 +23,16 @@ interface Detail {
   paymentMethods: PaymentMethod[];
   receivingAddresses: ReceivingAddress[];
   logins: { success: boolean; reason: string | null; ip: string | null; userAgent: string | null; createdAt: string }[];
-  addresses: { id: string; asset: string; address: string; label: string; status: string; createdAt: string }[];
+  addresses: {
+    id: string;
+    asset: string;
+    network: string;
+    address: string;
+    label: string;
+    status: string;
+    createdAt: string;
+    removedAt: string | null;
+  }[];
   ads: {
     id: string;
     side: 'buy' | 'sell';
@@ -292,14 +301,17 @@ export default function OpsUserPage() {
           </Table>
         )}
         {tab === 'addresses' && (
-          <Table head={['등록', '코인', '주소', '이름', '상태']} empty="출금 주소가 없습니다.">
+          <Table head={['등록', '코인', '네트워크', '주소', '상태']} empty="출금 주소가 없습니다.">
             {data.addresses.map((a) => (
               <tr key={a.id}>
                 <td>{when(a.createdAt)}</td>
                 <td>{a.asset}</td>
-                <td className="address">{a.address}</td>
-                <td>{a.label || '-'}</td>
-                <td>{a.status === 'active' ? '사용 중' : '삭제됨'}</td>
+                <td>{networkLabel(a.asset, a.network)}</td>
+                <td className="address">
+                  {a.address}
+                  {a.label && <div className="muted small-text">{a.label}</div>}
+                </td>
+                <td>{a.status === 'active' ? '사용 중' : `변경·삭제됨${a.removedAt ? ` (${when(a.removedAt)})` : ''}`}</td>
               </tr>
             ))}
           </Table>
