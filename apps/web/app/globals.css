@@ -508,6 +508,19 @@ button.small {
   color: var(--fg);
 }
 
+/* Inside page content a text button is an action, so it reads like a link. */
+main .link-button,
+main .link-button:hover:not(:disabled) {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+main .link-button:hover:not(:disabled) {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .full {
   width: 100%;
   margin-top: 20px;
