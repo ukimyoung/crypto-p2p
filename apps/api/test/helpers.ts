@@ -21,6 +21,19 @@ export async function createUser(db: Db, kycLevel = 1): Promise<string> {
   return rows[0]!.id;
 }
 
+let phoneSeq = 0;
+
+/** A Korean mobile number no other test member has, as the sign-up form sends it. */
+export function nextPhone(): { phoneCountry: string; phoneNumber: string } {
+  return { phoneCountry: 'KR', phoneNumber: `010-5555-${String(++phoneSeq).padStart(4, '0')}` };
+}
+
+/** The same, in the shape `AuthService.signUp` takes. */
+export function nextPhoneInput(): { country: string; number: string } {
+  const { phoneCountry, phoneNumber } = nextPhone();
+  return { country: phoneCountry, number: phoneNumber };
+}
+
 let depositSeq = 0;
 
 /** Simulates a confirmed on-chain deposit until the wallet module exists. */

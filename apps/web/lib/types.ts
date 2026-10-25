@@ -5,6 +5,11 @@ export interface Me {
   status: string;
   otpEnabled: boolean;
   locale: 'ko' | 'en';
+  /** +82 10-1234-5678, or null for members who joined before phone numbers were asked. */
+  phone: string | null;
+  phoneCountry: string | null;
+  /** The number in local form (010-1234-5678), for editing. */
+  phoneNational: string | null;
 }
 
 export interface Ad {

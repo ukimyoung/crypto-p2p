@@ -15,7 +15,7 @@ import { OperatorAuthService, OperatorRole } from '../src/ops/operator-auth.serv
 import { OrdersService } from '../src/orders/orders.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
 import { WalletService } from '../src/wallet/wallet.service';
-import { addBankAccount, BTC, createUser, deposit, setupDb, TEST_DATABASE_URL } from './helpers';
+import { addBankAccount, BTC, createUser, deposit, nextPhoneInput, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'operator password 1';
 const ADDRESS = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
@@ -140,7 +140,7 @@ describe('operations console', () => {
 
       // An operator token is not a customer session, and the other way round.
       await http().get('/me').set(bearer(ok.body.token)).expect(401);
-      const user = await app.get(AuthService).signUp('customer@example.com', 'customer password 1');
+      const user = await app.get(AuthService).signUp('customer@example.com', 'customer password 1', nextPhoneInput());
       const userToken = await app.get(AuthService).login(user.email, 'customer password 1', undefined, {});
       await http().get('/ops/me').set(bearer(userToken)).expect(401);
 
@@ -343,7 +343,7 @@ describe('operations console', () => {
 
       // A trade at 0.25%, completed last month.
       const auth = app.get(AuthService);
-      const user = await auth.signUp('maker@example.com', 'customer password 1');
+      const user = await auth.signUp('maker@example.com', 'customer password 1', nextPhoneInput());
       const makerToken = await auth.login(user.email, 'customer password 1', undefined, {});
       await deposit(db, ledger, user.id, 'BTC', BTC);
       const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), user.id);
@@ -417,7 +417,7 @@ describe('operations console', () => {
   describe('customer accounts', () => {
     it('finds customers and restricts them with a reason', async () => {
       const auth = app.get(AuthService);
-      const user = await auth.signUp('held@example.com', 'customer password 1');
+      const user = await auth.signUp('held@example.com', 'customer password 1', nextPhoneInput());
       const token = await auth.login(user.email, 'customer password 1', undefined, {});
       await db.query('UPDATE users SET kyc_level = 1 WHERE id = $1', [user.id]);
 
@@ -513,6 +513,16 @@ describe('operations console', () => {
         .send({ reason: '본인 확인 전화' })
         .expect(200);
       expect(revealed.body.pii).toEqual({ email: 'grid0@example.com', phone: '010-1234-5670', legalName: '홍길동' });
+
+      // Numbers saved with a country show the calling code, and the local form finds them.
+      const { rows: intl } = await db.query(
+        `INSERT INTO users (email, phone, phone_country, kyc_level) VALUES ('intl@example.com', '+821077778888', 'KR', 0)
+         RETURNING id`,
+      );
+      const byLocal = await http().get('/ops/users').query({ q: '010-7777-8888' }).set(bearer(reviewerB)).expect(200);
+      expect(byLocal.body.users).toMatchObject([{ id: intl[0].id, phone: '+82 10-****-8888' }]);
+      const intlUser = await http().get(`/ops/users/${intl[0].id}`).set(bearer(reviewerB)).expect(200);
+      expect(intlUser.body.user.phone).toBe('+82 10-****-8888');
 
       const kyc = await http()
         .post(`/ops/users/${ids[0]}/kyc-level`)

@@ -4,10 +4,11 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { ErrorText, messageOf } from '@/components/ErrorText';
+import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
-import type { PaymentMethod } from '@/lib/types';
+import type { Me, PaymentMethod } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
 
 export default function AccountPage() {
@@ -28,6 +29,8 @@ export default function AccountPage() {
         <dl className="kv">
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
+          <dt>{t('휴대폰 번호')}</dt>
+          <dd>{me.phone ?? t('미등록')}</dd>
           <dt>{t('본인인증(KYC)')}</dt>
           <dd>{me.kycLevel > 0 ? t('완료') : t('미완료')}</dd>
           <dt>OTP</dt>
@@ -40,9 +43,81 @@ export default function AccountPage() {
           </p>
         )}
       </section>
+      <PhoneEdit me={me} onSaved={reload} />
       {!me.otpEnabled && <OtpSetup onEnabled={reload} />}
       {me.otpEnabled && <PaymentMethods />}
     </>
+  );
+}
+
+/** Members who joined before phone numbers were asked add one here; others can change theirs. */
+function PhoneEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const [country, setCountry] = useState(me.phoneCountry ?? 'KR');
+  const [number, setNumber] = useState(me.phoneNational ?? '');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('me/phone', {
+        body: { phoneCountry: country, phoneNumber: number, ...(me.otpEnabled ? { otp } : {}) },
+      });
+      setOtp('');
+      setOpen(false);
+      await onSaved();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (me.phone && !open) {
+    return (
+      <p className="small-text">
+        <button className="link-button" onClick={() => setOpen(true)}>
+          {t('휴대폰 번호 변경')}
+        </button>
+      </p>
+    );
+  }
+
+  return (
+    <section className="card">
+      <h2>{t(me.phone ? '휴대폰 번호 변경' : '휴대폰 번호 등록')}</h2>
+      {!me.phone && <p className="muted small-text">{t('연락받을 휴대폰 번호를 국가 번호와 함께 등록해 주세요.')}</p>}
+      <form onSubmit={save}>
+        <PhoneField id="account-phone" country={country} number={number} onCountry={setCountry} onNumber={setNumber} />
+        {me.otpEnabled && (
+          <>
+            <label htmlFor="phone-otp">{t('OTP 코드')}</label>
+            <input
+              id="phone-otp"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              required
+            />
+          </>
+        )}
+        <div className="row" style={{ marginTop: 16 }}>
+          <button disabled={busy}>{t('저장')}</button>
+          {me.phone && (
+            <button type="button" className="secondary" onClick={() => setOpen(false)}>
+              {t('취소')}
+            </button>
+          )}
+        </div>
+      </form>
+      <ErrorText error={error} />
+    </section>
   );
 }
 

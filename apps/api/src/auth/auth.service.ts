@@ -3,6 +3,7 @@ import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, withTransaction } from '../db/database';
 import { assertPasswordPolicy, hashPassword, verifyPassword } from './password';
+import { formatPhone, nationalPhone, normalizePhone } from './phone';
 import { SecretBox } from './secret-box';
 import { generateSecret, matchCode, otpauthUrl } from './totp';
 
@@ -26,6 +27,16 @@ export interface Me {
   otpEnabled: boolean;
   /** Language for emails and, on a new device, for the site. */
   locale: 'ko' | 'en';
+  /** +82 10-1234-5678. Null for members who joined before phone numbers were asked. */
+  phone: string | null;
+  /** ISO country the number belongs to, and the number in local form (010-1234-5678), for editing. */
+  phoneCountry: string | null;
+  phoneNational: string | null;
+}
+
+export interface PhoneInput {
+  country: string;
+  number: string;
 }
 
 /** Password login, opaque bearer sessions and app OTP (PRD AUTH-1, AUTH-3). */
@@ -37,18 +48,49 @@ export class AuthService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async signUp(rawEmail: string, password: string): Promise<Me> {
+  async signUp(rawEmail: string, password: string, rawPhone: PhoneInput): Promise<Me> {
     const email = normalizeEmail(rawEmail);
+    const phone = normalizePhone(rawPhone.country, rawPhone.number);
     assertPasswordPolicy(password);
     const passwordHash = await hashPassword(password);
-    const { rows } = await this.db.query(
-      `INSERT INTO users (email, password_hash) VALUES ($1, $2)
-       ON CONFLICT (email) DO NOTHING
-       RETURNING *`,
-      [email, passwordHash],
-    );
+    const { rows } = await this.db
+      .query(
+        `INSERT INTO users (email, password_hash, phone, phone_country) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO NOTHING
+         RETURNING *`,
+        [email, passwordHash, phone.e164, phone.country],
+      )
+      .catch(phoneTaken);
     if (!rows[0]) throw new DomainError('email_taken', 'This email is already registered');
     return toMe(rows[0]);
+  }
+
+  /** Adds or changes the member's phone number. Once OTP is on, a code is needed. */
+  async setPhone(userId: string, rawPhone: PhoneInput, otp: string | undefined): Promise<Me> {
+    const phone = normalizePhone(rawPhone.country, rawPhone.number);
+    const before = await this.me(userId);
+    if (before.otpEnabled) {
+      if (!otp) throw new DomainError('otp_required', 'An OTP code is required');
+      await this.verifyOtp(userId, otp);
+    }
+    return withTransaction(this.db, async (tx) => {
+      const { rows } = await tx
+        .query('UPDATE users SET phone = $2, phone_country = $3 WHERE id = $1 RETURNING *', [
+          userId,
+          phone.e164,
+          phone.country,
+        ])
+        .catch(phoneTaken);
+      await writeAudit(
+        tx,
+        { type: 'user', id: userId },
+        'user.phone_change',
+        { type: 'user', id: userId },
+        { phoneCountry: before.phoneCountry },
+        { phoneCountry: phone.country },
+      );
+      return toMe(rows[0]);
+    });
   }
 
   /** Returns a bearer token. Once OTP is enabled, a valid code is required too. */
@@ -199,6 +241,13 @@ function normalizeEmail(email: string): string {
   return e;
 }
 
+function phoneTaken(err: unknown): never {
+  if ((err as { code?: string; constraint?: string }).constraint === 'users_phone_key') {
+    throw new DomainError('phone_taken', 'This phone number is already registered');
+  }
+  throw err;
+}
+
 function hashToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();
 }
@@ -212,5 +261,8 @@ function toMe(row: any): Me {
     status: row.status,
     otpEnabled: row.otp_enabled,
     locale: row.locale,
+    phone: formatPhone(row.phone, row.phone_country),
+    phoneCountry: row.phone_country,
+    phoneNational: nationalPhone(row.phone, row.phone_country),
   };
 }

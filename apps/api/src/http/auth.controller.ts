@@ -6,6 +6,9 @@ import { AuthGuard, AuthedRequest, CurrentUser } from './auth.guard';
 import { parse } from './validation';
 
 const credentials = z.object({ email: z.string(), password: z.string() });
+const phoneFields = { phoneCountry: z.string(), phoneNumber: z.string().max(40) };
+const signUpBody = credentials.extend(phoneFields);
+const phoneBody = z.object({ ...phoneFields, otp: z.string().optional() });
 const loginBody = credentials.extend({ otp: z.string().optional() });
 const otpBody = z.object({ code: z.string() });
 const localeBody = z.object({ locale: z.enum(['ko', 'en']) });
@@ -16,8 +19,8 @@ export class AuthController {
 
   @Post('auth/signup')
   async signUp(@Body() body: unknown) {
-    const { email, password } = parse(credentials, body);
-    return { user: await this.auth.signUp(email, password) };
+    const { email, password, phoneCountry, phoneNumber } = parse(signUpBody, body);
+    return { user: await this.auth.signUp(email, password, { country: phoneCountry, number: phoneNumber }) };
   }
 
   @Post('auth/login')
@@ -46,6 +49,14 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async setLocale(@CurrentUser() userId: string, @Body() body: unknown) {
     await this.auth.setLocale(userId, parse(localeBody, body).locale);
+  }
+
+  @Post('me/phone')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async setPhone(@CurrentUser() userId: string, @Body() body: unknown) {
+    const { phoneCountry, phoneNumber, otp } = parse(phoneBody, body);
+    return { user: await this.auth.setPhone(userId, { country: phoneCountry, number: phoneNumber }, otp) };
   }
 
   @Post('auth/otp/setup')
