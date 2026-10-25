@@ -315,6 +315,35 @@ describe('HTTP API', () => {
       await http().get('/me').set(auth(user)).expect(401);
     });
 
+    it('changes the password after checking the current one and signs out other sessions', async () => {
+      const user = await signUpAndLogin('pwchange@example.com');
+      const other = (await http().post('/auth/login').send({ email: user.email, password: PASSWORD }).expect(200)).body.token;
+      const change = (currentPassword: string, newPassword: string) =>
+        http().post('/me/password').set(auth(user)).send({ currentPassword, newPassword });
+
+      expect((await change('wrong password 1', 'new password 456').expect(400)).body.error.code).toBe('wrong_password');
+      expect((await change(PASSWORD, 'short1').expect(400)).body.error.code).toBe('weak_password');
+      expect((await change(PASSWORD, PASSWORD).expect(400)).body.error.code).toBe('same_password');
+      await change(PASSWORD, 'new password 456!').expect(204);
+
+      // This session stays; the other one is signed out.
+      await http().get('/me').set(auth(user)).expect(200);
+      await http().get('/me').set({ Authorization: `Bearer ${other}` }).expect(401);
+      await http().post('/auth/login').send({ email: user.email, password: PASSWORD }).expect(401);
+      await http().post('/auth/login').send({ email: user.email, password: 'new password 456!' }).expect(200);
+      const { rows } = await db.query("SELECT 1 FROM audit_logs WHERE action = 'user.password_change' AND target_id = $1", [user.id]);
+      expect(rows).toHaveLength(1);
+    });
+
+    it('locks password changes after repeated wrong current passwords', async () => {
+      const user = await signUpAndLogin('pwguess@example.com');
+      for (let i = 0; i < 5; i++) {
+        await http().post('/me/password').set(auth(user)).send({ currentPassword: `guess number ${i}`, newPassword: 'new password 456' }).expect(400);
+      }
+      const locked = await http().post('/me/password').set(auth(user)).send({ currentPassword: PASSWORD, newPassword: 'new password 456' }).expect(429);
+      expect(locked.body.error.code).toBe('too_many_attempts');
+    });
+
     it('records login attempts and locks out after repeated failures', async () => {
       await signUpAndLogin('bob@example.com');
       for (let i = 0; i < 5; i++) {

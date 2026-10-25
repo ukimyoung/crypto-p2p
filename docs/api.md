@@ -17,6 +17,7 @@
 | GET | `/me` | O | 내 정보 (`nickname`, `firstName`, `lastName`, `kycLevel`, `locale` 등). 이름 도입 전 가입자는 `firstName`·`lastName`이 null |
 | POST | `/me/name` | O | `{ firstName, lastName }`. 이름이 비어 있는 기존 회원이 한 번만 입력(형식은 가입과 같음, 400 `invalid_name`). 이미 있으면 409 `name_locked`. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/nickname` | O | `{ nickname }`. 임시 닉네임(`user_xxxxxxxx`, `temporaryNickname: true`)인 기존 회원이 한 번만 정함. 그 밖에는 409 `nickname_locked`. 바뀐 회원 정보를 돌려줌 |
+| POST | `/me/password` | O | `{ currentPassword, newPassword }`. 비밀번호 변경. 현재 비밀번호가 틀리면 400 `wrong_password`(로그인 실패와 같이 세어 5번이면 15분 잠금, 429 `too_many_attempts`), 규칙에 맞지 않으면 400 `weak_password`, 지금과 같으면 400 `same_password`. 요청한 세션을 뺀 다른 세션은 모두 로그아웃. 204 |
 | POST | `/me/phone` | O | `{ phoneCountry, phoneNumber }`. 휴대폰 번호 등록·변경. 바뀐 회원 정보를 돌려줌 |
 | POST | `/me/locale` | O | `{ locale: 'ko' \| 'en' }`. 화면과 이메일 언어. 204 |
 

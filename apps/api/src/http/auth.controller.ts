@@ -16,6 +16,7 @@ const signUpBody = credentials.extend({
 });
 const emailBody = z.object({ email: z.string() });
 const tokenBody = z.object({ token: z.string().max(200) });
+const passwordBody = z.object({ currentPassword: z.string().max(200), newPassword: z.string().max(200) });
 const nicknameBody = z.object({ nickname: z.string().max(40) });
 const nameBody = z.object({ firstName: z.string().max(100), lastName: z.string().max(100) });
 const phoneBody = z.object(phoneFields);
@@ -96,6 +97,17 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async setNickname(@CurrentUser() userId: string, @Body() body: unknown) {
     return { user: await this.auth.setNickname(userId, parse(nicknameBody, body).nickname) };
+  }
+
+  @Post('me/password')
+  @HttpCode(204)
+  @UseGuards(AuthGuard)
+  async changePassword(@CurrentUser() userId: string, @Body() body: unknown, @Req() req: AuthedRequest) {
+    const { currentPassword, newPassword } = parse(passwordBody, body);
+    await this.auth.changePassword(userId, currentPassword, newPassword, req.token, {
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
   }
 
   @Post('me/name')
