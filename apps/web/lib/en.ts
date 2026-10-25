@@ -123,9 +123,13 @@ export const EN: Record<string, string> = {
     'If you cannot scan the QR code, enter the key below in your authenticator app. This key will not be shown again.',
   '인증 앱에 표시된 6자리 코드': '6-digit code from your authenticator app',
   'OTP 사용 시작': 'Turn on OTP',
-  '입금받을 계좌': 'Accounts for receiving payment',
-  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌만 등록할 수 있고, 새 계좌는 등록 24시간 뒤부터 사용할 수 있습니다.':
-    'When you sell coins, buyers pay into this account. Only accounts in your own name can be added, and a new account can be used 24 hours after you add it.',
+  '입금받을 계좌': 'Account for receiving payment',
+  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 새로 등록하거나 변경한 계좌는 24시간 뒤부터 사용할 수 있습니다.':
+    'When you sell coins, buyers pay into this account. You can register one account in your own name, and it can be used 24 hours after you add or change it.',
+  '계좌 변경': 'Change account',
+  '새 계좌번호': 'New account number',
+  '진행 중인 내 광고는 새 계좌로 바뀌고, 이미 열린 주문은 원래 계좌로 입금받습니다.':
+    'Your open ads switch to the new account. Orders already opened are still paid into the old account.',
   은행: 'Bank',
   계좌: 'Account',
   예금주: 'Holder',
@@ -256,6 +260,8 @@ export const EN: Record<string, string> = {
   '은행 코드는 숫자 3자리입니다.': 'Bank codes are 3 digits.',
   '계좌번호는 숫자 8~20자리입니다.': 'Account numbers are 8 to 20 digits.',
   '입금받을 계좌를 선택해 주세요.': 'Choose the account to receive payment.',
+  '입금 계좌는 1개만 등록할 수 있습니다. 등록된 계좌를 변경해 주세요.':
+    'You can register only one account. Change the one you have instead.',
   '새로 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다.': 'A newly added account can be used after 24 hours.',
   '사용할 수 없는 계좌입니다.': 'This account cannot be used.',
   '내 광고로는 거래할 수 없습니다.': 'You cannot trade with your own ad.',

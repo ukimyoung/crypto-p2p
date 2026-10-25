@@ -18,6 +18,7 @@ const ERRORS: Record<string, string> = {
   payment_method_required: '입금받을 계좌를 선택해 주세요.',
   payment_method_cooldown: '새로 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다.',
   payment_method_invalid: '사용할 수 없는 계좌입니다.',
+  payment_method_exists: '입금 계좌는 1개만 등록할 수 있습니다. 등록된 계좌를 변경해 주세요.',
   self_trade: '내 광고로는 거래할 수 없습니다.',
   insufficient_balance: '잔고가 부족합니다.',
   insufficient_ad_amount: '광고의 남은 수량보다 많습니다.',

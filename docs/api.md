@@ -42,11 +42,12 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/payment-methods` | O | 내 계좌 목록 (계좌번호는 끝 4자리만) |
-| POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber, otp }`. 예금주가 KYC 실명과 같아야 함. OTP 필수 |
+| GET | `/payment-methods` | O | 내 계좌 목록 (최대 1개, 계좌번호는 끝 4자리만) |
+| POST | `/payment-methods` | O | `{ fiat, bankCode, accountHolder, accountNumber, otp }`. 예금주가 KYC 실명과 같아야 함. OTP 필수. 회원당 1개만 등록 가능 (이미 있으면 409 `payment_method_exists`) |
+| PUT | `/payment-methods/:id` | O | `{ bankCode, accountHolder, accountNumber, otp }`. 등록된 계좌의 은행·계좌번호 변경. 새 `id`로 바뀌고, 진행 중인 내 광고는 새 계좌로 옮겨짐. 이미 열린 주문은 원래 계좌 유지 |
 | DELETE | `/payment-methods/:id` | O | `{ otp }` |
 
-새 계좌는 등록 후 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다.
+새 계좌는 등록하거나 변경한 뒤 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다.
 
 ## 주문
 
