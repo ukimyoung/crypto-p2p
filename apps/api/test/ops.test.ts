@@ -304,7 +304,7 @@ describe('operations console', () => {
       await http()
         .put('/ops/settings/withdrawal-rules/BTC')
         .set(bearer(reviewerA))
-        .send({ fee: '20000', minAmount: '50000', autoApproveMax: '10000000', dailyLimits: { 1: '100000000', 2: '1000000000' }, reason: '원복' })
+        .send({ fee: '20000', minAmount: '50000', autoApproveMax: '10000000', dailyLimits: { 1: '100000000' }, reason: '원복' })
         .expect(200);
     });
   });
@@ -474,7 +474,7 @@ describe('operations console', () => {
       for (let i = 0; i < 3; i++) {
         const { rows } = await db.query(
           `INSERT INTO users (email, phone, legal_name, kyc_level, created_at)
-           VALUES ($1, $2, $3, 2, now() + make_interval(secs => $4)) RETURNING id`,
+           VALUES ($1, $2, $3, 0, now() + make_interval(secs => $4)) RETURNING id`,
           [`grid${i}@example.com`, `010-1234-567${i}`, '홍길동', 60 + i],
         );
         ids.push(rows[0].id);
@@ -487,7 +487,7 @@ describe('operations console', () => {
 
       const paged = await http()
         .get('/ops/users')
-        .query({ kycLevel: 2, sort: 'email', dir: 'asc', pageSize: 20, page: 1 })
+        .query({ q: 'grid', kycLevel: 0, sort: 'email', dir: 'asc', pageSize: 20, page: 1 })
         .set(bearer(reviewerB))
         .expect(200);
       expect(paged.body.users.map((u: { email: string }) => u.email)).toEqual([

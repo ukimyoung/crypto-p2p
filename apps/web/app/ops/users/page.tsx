@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { USER_STATUS } from '@/lib/messages';
+import { KYC_LEVEL, sumsubResult } from '@/lib/ops-labels';
 import type { UserRow } from '@/lib/types';
 import { Pager, SortHead, toQuery, useQueryState } from '../Grid';
 
@@ -59,9 +60,9 @@ export default function OpsUsersPage() {
           <label htmlFor="kyc">KYC 등급</label>
           <select id="kyc" value={draft.kycLevel} onChange={(e) => setDraft({ ...draft, kycLevel: e.target.value })}>
             <option value="">전체</option>
-            {[0, 1, 2, 3].map((n) => (
+            {[0, 1].map((n) => (
               <option key={n} value={n}>
-                {n}
+                {KYC_LEVEL[n]}
               </option>
             ))}
           </select>
@@ -126,8 +127,8 @@ export default function OpsUsersPage() {
                     <td>{u.email ?? u.id.slice(0, 8)}</td>
                     <td>{u.phone ?? '-'}</td>
                     <td>{u.legalName ?? '-'}</td>
-                    <td>{u.kycLevel}</td>
-                    <td className="muted">-</td>
+                    <td>{KYC_LEVEL[u.kycLevel] ?? u.kycLevel}</td>
+                    <td>{sumsubResult(u.sumsubStatus, u.sumsubAnswer, u.sumsubRejectType)}</td>
                     <td>{USER_STATUS[u.status]}</td>
                     <td>{u.openOrders}</td>
                   </tr>
