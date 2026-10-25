@@ -15,6 +15,9 @@ export interface UserSummary {
   phone: string | null;
   /** Masked unless the caller asked for the full value. */
   legalName: string | null;
+  /** Name the member typed at signup, masked like the legal name. Null for members who joined earlier. */
+  firstName: string | null;
+  lastName: string | null;
   kycLevel: number;
   status: UserStatus;
   statusReason: string | null;
@@ -88,6 +91,7 @@ export class OpsService {
          WHERE (o.buyer_id = u.id OR o.seller_id = u.id) AND o.status IN ('pending_payment', 'paid', 'under_review')
        ) oo
        WHERE ($1::text IS NULL OR u.id = $2::uuid OR u.email ILIKE '%' || $3 || '%' OR lower(u.nickname) = lower($1) OR u.legal_name = $1
+              OR lower(u.first_name) = lower($1) OR lower(u.last_name) = lower($1)
               OR regexp_replace(u.phone, '\\D', '', 'g') = NULLIF(regexp_replace($1, '\\D', '', 'g'), '')
               -- A number typed the local way (010-1234-5678) finds the saved +821012345678.
               OR (u.phone_country IS NOT NULL AND length(ltrim(regexp_replace($1, '\\D', '', 'g'), '0')) >= 7
@@ -134,11 +138,17 @@ export class OpsService {
     id: string,
     reason: string,
     operatorId: string,
-  ): Promise<{ email: string | null; phone: string | null; legalName: string | null }> {
+  ): Promise<{
+    email: string | null;
+    phone: string | null;
+    legalName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  }> {
     const text = reason.trim();
     if (!text) throw new DomainError('invalid_request', 'Give a reason');
     return withTransaction(this.db, async (tx) => {
-      const { rows } = await tx.query('SELECT email, phone, phone_country, legal_name FROM users WHERE id = $1', [id]);
+      const { rows } = await tx.query('SELECT email, phone, phone_country, legal_name, first_name, last_name FROM users WHERE id = $1', [id]);
       if (!rows[0]) throw new DomainError('not_found', 'User not found');
       await writeAudit(tx, { type: 'operator', id: operatorId }, 'user.reveal_pii', { type: 'user', id }, null, {
         reason: text,
@@ -147,6 +157,8 @@ export class OpsService {
         email: rows[0].email,
         phone: formatPhone(rows[0].phone, rows[0].phone_country),
         legalName: rows[0].legal_name,
+        firstName: rows[0].first_name,
+        lastName: rows[0].last_name,
       };
     });
   }
@@ -313,6 +325,8 @@ function toUser(row: any, masked = true): UserSummary {
     nickname: row.nickname,
     phone: masked ? maskPhone(phone) : phone,
     legalName: masked ? maskName(row.legal_name) : row.legal_name,
+    firstName: masked ? maskNamePart(row.first_name) : row.first_name,
+    lastName: masked ? maskNamePart(row.last_name) : row.last_name,
     kycLevel: row.kyc_level,
     status: row.status,
     statusReason: row.status_reason,
@@ -328,6 +342,14 @@ export function maskName(name: string | null): string | null {
   if (chars.length <= 1) return '*';
   if (chars.length === 2) return `${chars[0]}*`;
   return chars[0] + '*'.repeat(chars.length - 2) + chars[chars.length - 1];
+}
+
+/**
+ * One part of a name, masked like `maskName` except that a single letter stays: a one-letter
+ * Korean family name shows, as it does in a masked legal name (홍*동).
+ */
+export function maskNamePart(name: string | null): string | null {
+  return name && [...name.trim()].length === 1 ? name : maskName(name);
 }
 
 /**

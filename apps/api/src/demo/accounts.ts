@@ -5,8 +5,8 @@
 export const DEMO_PASSWORD = 'demo password 1';
 
 export const DEMO_USERS = [
-  { email: 'seller@demo.test', nickname: '코인상점', legalName: '김판매', phone: '+821011112222', otpSecret: 'DEMOSELLERDEMOSELLERDEMOSELLER22' },
-  { email: 'buyer@demo.test', nickname: '비트모으미', legalName: '이구매', phone: '+821033334444', otpSecret: 'DEMOBUYERDEMOBUYERDEMOBUYERDEMO2' },
+  { email: 'seller@demo.test', nickname: '코인상점', legalName: '김판매', firstName: '판매', lastName: '김', phone: '+821011112222', otpSecret: 'DEMOSELLERDEMOSELLERDEMOSELLER22' },
+  { email: 'buyer@demo.test', nickname: '비트모으미', legalName: '이구매', firstName: '구매', lastName: '이', phone: '+821033334444', otpSecret: 'DEMOBUYERDEMOBUYERDEMOBUYERDEMO2' },
 ] as const;
 
 /**
@@ -14,8 +14,8 @@ export const DEMO_USERS = [
  * trade right away. Added on every start when missing, also to a demo database seeded earlier.
  */
 export const DEMO_TESTERS = [
-  { email: 'tester1@demo.test', nickname: '테스터1', legalName: '박테스트', phone: '+821055550001', otpSecret: 'DEMOTESTERONEDEMOTESTERONEDEMO22' },
-  { email: 'tester2@demo.test', nickname: '테스터2', legalName: '최테스트', phone: '+821055550002', otpSecret: 'DEMOTESTERTWODEMOTESTERTWODEMO22' },
+  { email: 'tester1@demo.test', nickname: '테스터1', legalName: '박테스트', firstName: '테스트', lastName: '박', phone: '+821055550001', otpSecret: 'DEMOTESTERONEDEMOTESTERONEDEMO22' },
+  { email: 'tester2@demo.test', nickname: '테스터2', legalName: '최테스트', firstName: '테스트', lastName: '최', phone: '+821055550002', otpSecret: 'DEMOTESTERTWODEMOTESTERTWODEMO22' },
 ] as const;
 
 export const DEMO_OPERATORS = [

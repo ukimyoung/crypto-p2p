@@ -478,9 +478,9 @@ describe('operations console', () => {
       const ids: string[] = [];
       for (let i = 0; i < 3; i++) {
         const { rows } = await db.query(
-          `INSERT INTO users (email, phone, legal_name, kyc_level, created_at)
-           VALUES ($1, $2, $3, 0, now() + make_interval(secs => $4)) RETURNING id`,
-          [`grid${i}@example.com`, `010-1234-567${i}`, '홍길동', 60 + i],
+          `INSERT INTO users (email, phone, legal_name, first_name, last_name, kyc_level, created_at)
+           VALUES ($1, $2, $3, $5, 'Hong', 0, now() + make_interval(secs => $4)) RETURNING id`,
+          [`grid${i}@example.com`, `010-1234-567${i}`, '홍길동', 60 + i, `Gridmember${i}`],
         );
         ids.push(rows[0].id);
       }
@@ -488,7 +488,13 @@ describe('operations console', () => {
       expect(all.body.total).toBeGreaterThanOrEqual(3);
       // Newest first by default.
       expect(all.body.users.slice(0, 3).map((u: { id: string }) => u.id)).toEqual([...ids].reverse());
-      expect(all.body.users[0]).toMatchObject({ phone: '010-****-5672', legalName: '홍*동', openOrders: 0 });
+      expect(all.body.users[0]).toMatchObject({
+        phone: '010-****-5672',
+        legalName: '홍*동',
+        firstName: 'G*********2',
+        lastName: 'H**g',
+        openOrders: 0,
+      });
 
       const paged = await http()
         .get('/ops/users')
@@ -503,6 +509,8 @@ describe('operations console', () => {
       await http().get('/ops/users').query({ pageSize: 30 }).set(bearer(reviewerB)).expect(400);
       const byPhone = await http().get('/ops/users').query({ q: '01012345671' }).set(bearer(reviewerB)).expect(200);
       expect(byPhone.body.users.map((u: { id: string }) => u.id)).toEqual([ids[1]]);
+      const byName = await http().get('/ops/users').query({ q: 'gridmember2' }).set(bearer(reviewerB)).expect(200);
+      expect(byName.body.users.map((u: { id: string }) => u.id)).toEqual([ids[2]]);
 
       // Showing personal details needs a fresh OTP code and a reason.
       const noStepUp = await http()
@@ -517,7 +525,13 @@ describe('operations console', () => {
         .set(bearer(reviewerA))
         .send({ reason: '본인 확인 전화' })
         .expect(200);
-      expect(revealed.body.pii).toEqual({ email: 'grid0@example.com', phone: '010-1234-5670', legalName: '홍길동' });
+      expect(revealed.body.pii).toEqual({
+        email: 'grid0@example.com',
+        phone: '010-1234-5670',
+        legalName: '홍길동',
+        firstName: 'Gridmember0',
+        lastName: 'Hong',
+      });
 
       // Numbers saved with a country show the calling code, and the local form finds them.
       const { rows: intl } = await db.query(

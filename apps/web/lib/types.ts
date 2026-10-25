@@ -3,6 +3,9 @@ export interface Me {
   email: string;
   /** Public name other members see, e.g. as the advertiser on the market. */
   nickname: string;
+  /** Name typed at signup. Null for members who joined before it was asked. */
+  firstName: string | null;
+  lastName: string | null;
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
@@ -145,6 +148,9 @@ export interface UserSummary {
   phone: string | null;
   /** Masked (홍*동) unless revealed. */
   legalName: string | null;
+  /** Name typed at signup, masked like the legal name. Null for members who joined earlier. */
+  firstName: string | null;
+  lastName: string | null;
   kycLevel: number;
   status: 'active' | 'trade_suspended' | 'withdraw_held' | 'closed';
   statusReason: string | null;

@@ -8,6 +8,7 @@ import { NicknameInput } from '@/components/NicknameInput';
 import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { fullName } from '@/lib/names';
 import { BANKS } from '@/lib/messages';
 import type { Me, PaymentMethod } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
@@ -33,6 +34,8 @@ export default function AccountPage() {
           <dd>
             <NicknameEdit me={me} onSaved={reload} />
           </dd>
+          <dt>{t('성명')}</dt>
+          <dd>{fullName(me.firstName, me.lastName) ?? t('미입력')}</dd>
           <dt>{t('이메일')}</dt>
           <dd>{me.email}</dd>
           <dt>{t('휴대폰 번호')}</dt>
