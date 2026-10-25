@@ -2,6 +2,9 @@ import { DomainError } from '../common/errors';
 
 const BITCOIN = /^(bc1[02-9ac-hj-np-z]{11,71}|[13][1-9A-HJ-NP-Za-km-z]{25,34})$/;
 const ETHEREUM = /^0x[0-9a-f]{40}$/;
+const TRON = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+/** Networks that use Ethereum-style addresses. */
+const EVM = new Set(['ethereum', 'arbitrum', 'base', 'bsc']);
 
 /**
  * Checks the address format for the asset's network and returns its canonical form.
@@ -19,11 +22,14 @@ export function normalizeAddress(network: string, raw: string): string {
       if (BITCOIN.test(candidate)) return candidate;
       break;
     }
-    case 'ethereum': {
-      const lower = trimmed.toLowerCase();
-      if (ETHEREUM.test(lower)) return lower;
+    case 'tron':
+      if (TRON.test(trimmed)) return trimmed;
       break;
-    }
+    default:
+      if (EVM.has(network)) {
+        const lower = trimmed.toLowerCase();
+        if (ETHEREUM.test(lower)) return lower;
+      }
   }
   throw new DomainError('invalid_address', `Not a valid ${network} address`);
 }

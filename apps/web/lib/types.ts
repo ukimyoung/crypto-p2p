@@ -77,6 +77,16 @@ export interface PaymentMethod {
   usableFrom: string;
 }
 
+export interface ReceivingAddress {
+  id: string;
+  asset: string;
+  network: string;
+  address: string;
+  status: 'active' | 'removed';
+  createdAt: string;
+  removedAt: string | null;
+}
+
 export interface PaymentDetails {
   bankCode: string;
   accountHolder: string;

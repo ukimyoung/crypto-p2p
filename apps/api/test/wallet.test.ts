@@ -9,6 +9,7 @@ import { BTC, createUser, deposit, setupDb } from './helpers';
 
 const BECH32 = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
 const LEGACY = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
+const TRON_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const ETH_ADDRESS = '0x52908400098527886E0F7030069857D2E4169EE7';
 const FEE = 20_000n; // BTC withdrawal fee seeded by migration 007
 const OPERATOR = '00000000-0000-4000-8000-0000000000aa';
@@ -19,6 +20,8 @@ describe('address format', () => {
     expect(normalizeAddress('bitcoin', ` ${BECH32.toUpperCase()} `)).toBe(BECH32);
     expect(normalizeAddress('bitcoin', LEGACY)).toBe(LEGACY);
     expect(normalizeAddress('ethereum', ETH_ADDRESS)).toBe(ETH_ADDRESS.toLowerCase());
+    expect(normalizeAddress('bsc', ETH_ADDRESS)).toBe(ETH_ADDRESS.toLowerCase());
+    expect(normalizeAddress('tron', TRON_ADDRESS)).toBe(TRON_ADDRESS);
   });
 
   it('rejects typos, mixed-case bech32 and wrong-network addresses', () => {
@@ -28,6 +31,11 @@ describe('address format', () => {
       ['bitcoin', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN0'], // 0 is not base58
       ['ethereum', BECH32],
       ['ethereum', '0x1234'],
+      ['tron', ETH_ADDRESS],
+      ['tron', TRON_ADDRESS.slice(0, -1)],
+      ['tron', TRON_ADDRESS.toLowerCase()],
+      ['arbitrum', TRON_ADDRESS],
+      ['solana', ETH_ADDRESS],
     ] as const) {
       expect(() => normalizeAddress(network, address)).toThrow(expect.objectContaining({ code: 'invalid_address' }));
     }

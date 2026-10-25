@@ -14,6 +14,7 @@ import { FeesController } from './http/fees.controller';
 import { KycController } from './http/kyc.controller';
 import { OrdersController } from './http/orders.controller';
 import { PaymentMethodsController } from './http/payment-methods.controller';
+import { ReceivingAddressesController } from './http/receiving-addresses.controller';
 import { NotificationsController } from './http/notifications.controller';
 import { OpsAuthController, OpsController } from './http/ops.controller';
 import { OpsGuard } from './http/ops.guard';
@@ -32,11 +33,12 @@ import { OrderExpiryWorker } from './orders/expiry.worker';
 import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
 import { PaymentMethodsService } from './payments/payment-methods.service';
+import { ReceivingAddressesService } from './payments/receiving-addresses.service';
 import { CONFIG, DB, EMAIL_SENDER } from './tokens';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
-  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, WalletController, OpsAuthController, OpsController, NotificationsController, FeesController, KycController],
+  controllers: [HealthController, AuthController, AdsController, OrdersController, PaymentMethodsController, ReceivingAddressesController, WalletController, OpsAuthController, OpsController, NotificationsController, FeesController, KycController],
   providers: [
     { provide: CONFIG, useFactory: () => loadConfig() },
     { provide: DB, inject: [CONFIG], useFactory: (config: AppConfig) => createPool(config.databaseUrl) },
@@ -61,6 +63,7 @@ import { WalletService } from './wallet/wallet.service';
       useFactory: (db: Db, secrets: SecretBox, config: AppConfig) =>
         new PaymentMethodsService(db, secrets, { cooldownHours: config.paymentMethodCooldownHours }),
     },
+    { provide: ReceivingAddressesService, inject: [DB], useFactory: (db: Db) => new ReceivingAddressesService(db) },
     {
       provide: AdsService,
       inject: [DB, PaymentMethodsService],

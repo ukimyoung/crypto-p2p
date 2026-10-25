@@ -484,6 +484,38 @@ describe('HTTP API', () => {
       return codeAt(user.otpSecret!, counterAt(new Date()) + 1);
     }
 
+    it('registers a receiving address per coin only with an OTP code', async () => {
+      const user = await trader('receive@example.com');
+      const address = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+
+      const noOtp = await http().put('/receiving-addresses/USDT').set(auth(user)).send({ network: 'tron', address });
+      expect(noOtp.status).toBe(400);
+      const wrongNetwork = await http()
+        .put('/receiving-addresses/USDT')
+        .set(auth(user))
+        .send({ network: 'bitcoin', address, otp: await freshOtp(user) })
+        .expect(400);
+      expect(wrongNetwork.body.error.code).toBe('invalid_network');
+
+      const added = await http()
+        .put('/receiving-addresses/USDT')
+        .set(auth(user))
+        .send({ network: 'tron', address, otp: await freshOtp(user) })
+        .expect(200);
+      expect(added.body.receivingAddress).toMatchObject({ asset: 'USDT', network: 'tron', address });
+
+      const list = await http().get('/receiving-addresses').set(auth(user)).expect(200);
+      expect(list.body.receivingAddresses).toHaveLength(1);
+
+      await http()
+        .delete('/receiving-addresses/USDT')
+        .set(auth(user))
+        .send({ otp: await freshOtp(user) })
+        .expect(204);
+      const after = await http().get('/receiving-addresses').set(auth(user)).expect(200);
+      expect(after.body.receivingAddresses).toEqual([]);
+    });
+
     it('whitelists an address and withdraws to it', async () => {
       const user = await trader('wallet@example.com');
       await deposit(db, ledger, user.id, 'BTC', BTC);

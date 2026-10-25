@@ -1791,6 +1791,37 @@ ul.notifications li a:hover {
   color: var(--accent);
 }
 
+.receiving-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.receiving-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.receiving-list li:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.receiving-list strong {
+  min-width: 48px;
+}
+
+.receiving-list .link-button {
+  margin-left: auto;
+}
+
+.receiving-list + .settings-form {
+  border-top: none;
+  margin-top: 4px;
+}
+
 .settings-form {
   border-top: 1px solid var(--border);
   padding-top: 16px;

@@ -27,6 +27,7 @@ import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/
 import { maskName, OpsService, USER_SORTS } from '../ops/ops.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
+import { ReceivingAddressesService } from '../payments/receiving-addresses.service';
 import { DB } from '../tokens';
 import { loadWithdrawalRules, updateWithdrawalRules } from '../wallet/wallet-config';
 import { WalletService } from '../wallet/wallet.service';
@@ -161,6 +162,7 @@ export class OpsController {
     @Inject(WalletService) private readonly wallet: WalletService,
     @Inject(OrdersService) private readonly orders: OrdersService,
     @Inject(PaymentMethodsService) private readonly payments: PaymentMethodsService,
+    @Inject(ReceivingAddressesService) private readonly receiving: ReceivingAddressesService,
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(OpsTradesService) private readonly trades: OpsTradesService,
     @Inject(KycService) private readonly kyc: KycService,
@@ -268,6 +270,7 @@ export class OpsController {
       orders: await this.orders.listForUser(id),
       withdrawals: await this.wallet.listWithdrawals(id),
       paymentMethods: (await this.payments.list(id)).map((m) => ({ ...m, accountHolder: maskName(m.accountHolder) })),
+      receivingAddresses: await this.receiving.history(id),
       ...(await this.ops.userExtras(id)),
     };
   }
