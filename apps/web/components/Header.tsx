@@ -40,7 +40,7 @@ export function Header() {
             {t('P2P 거래')}
           </Link>
           <div className="nav-links">
-            <Link href="/" className={active('/')}>
+            <Link href="/market" className={active('/market')}>
               {t('P2P 마켓')}
             </Link>
             {me ? (

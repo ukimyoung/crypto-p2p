@@ -18,7 +18,7 @@ export function Footer() {
         </div>
         <div>
           <nav className="footer-links">
-            <Link href="/#market">{t('P2P 마켓')}</Link>
+            <Link href="/market">{t('P2P 마켓')}</Link>
             <Link href="/#how">{t('이용 방법')}</Link>
             <Link href="/fees">{t('수수료')}</Link>
           </nav>

@@ -68,7 +68,7 @@ export default function NewAdPage() {
           paymentMethodId: side === 'sell' ? methodId || undefined : undefined,
         },
       });
-      router.push('/');
+      router.push('/market');
     } catch (err) {
       setError(messageOf(err));
     }
