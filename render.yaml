@@ -28,3 +28,8 @@ services:
         value: '0'
       - key: ADDRESS_COOLDOWN_HOURS
         value: '0'
+      # Email through Resend (see README "이메일 발송"). Left empty, emails are only written to the log.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
