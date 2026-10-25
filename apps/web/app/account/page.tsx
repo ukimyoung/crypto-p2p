@@ -9,8 +9,8 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { fullName } from '@/lib/names';
 import { BANKS } from '@/lib/messages';
-import { addressExample, networkLabel, RECEIVING_NETWORKS } from '@/lib/networks';
-import type { Me, PaymentMethod, ReceivingAddress } from '@/lib/types';
+import { addressExample, networkLabel, RECEIVING_NETWORKS, WITHDRAWAL_NETWORKS } from '@/lib/networks';
+import type { Me, PaymentMethod, ReceivingAddress, WithdrawalAddress } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
 
 export default function AccountPage() {
@@ -81,6 +81,7 @@ export default function AccountPage() {
       {changingPassword && <PasswordChange onClose={() => setChangingPassword(false)} />}
       {me.kycLevel > 0 && <PaymentMethods />}
       {me.kycLevel > 0 && <ReceivingAddresses />}
+      {me.kycLevel > 0 && <WithdrawalAddresses />}
     </>
   );
 }
@@ -502,16 +503,76 @@ function PaymentMethods() {
   );
 }
 
-/** One crypto address per coin. The network is chosen first, and the address is checked against it. */
+/** A receiving or withdrawal address; only withdrawal addresses have a cooldown. */
+type CryptoAddress = Pick<ReceivingAddress, 'asset' | 'network' | 'address'> & Partial<Pick<WithdrawalAddress, 'usableFrom'>>;
+type Networks = Record<string, { value: string; label: string }[]>;
+
+/** Coins sent to the member: where buyers and others send them. */
 function ReceivingAddresses() {
   const { t } = useT();
-  const [addresses, setAddresses] = useState<ReceivingAddress[] | undefined>(undefined);
-  const [editing, setEditing] = useState<string | null>(null);
+  return (
+    <AddressSection
+      title={t('입금받을 암호화폐 주소')}
+      description={t(
+        '코인별로 받을 주소를 1개씩 등록할 수 있습니다. 먼저 네트워크를 고르고 그 네트워크의 주소를 입력하세요. 네트워크가 다르면 코인을 잃을 수 있으니 받는 지갑의 네트워크를 꼭 확인해 주세요.',
+      )}
+      networks={RECEIVING_NETWORKS}
+      path="receiving-addresses"
+      listField="receivingAddresses"
+      formTitle={(asset, changing) =>
+        t(changing ? '{asset} 입금 주소 변경' : '{asset} 입금 주소 등록', { asset })
+      }
+      confirmRemove={(asset) => t('{asset} 입금 주소를 삭제할까요?', { asset })}
+    />
+  );
+}
 
+/** The whitelist withdrawals from 내 지갑 go to, one address per coin. */
+function WithdrawalAddresses() {
+  const { t } = useT();
+  return (
+    <AddressSection
+      title={t('출금 주소')}
+      description={t(
+        '내 지갑에서 출금하면 코인별로 등록한 이 주소로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다. 네트워크는 지금 출금을 지원하는 것만 고를 수 있습니다.',
+      )}
+      networks={WITHDRAWAL_NETWORKS}
+      path="wallet/addresses"
+      listField="addresses"
+      formTitle={(asset, changing) =>
+        t(changing ? '{asset} 출금 주소 변경' : '{asset} 출금 주소 등록', { asset })
+      }
+      confirmRemove={(asset) => t('{asset} 출금 주소를 삭제할까요?', { asset })}
+    />
+  );
+}
+
+/** One crypto address per coin. The network is chosen first, and the address is checked against it. */
+function AddressSection({
+  title,
+  description,
+  networks,
+  path,
+  listField,
+  formTitle,
+  confirmRemove,
+}: {
+  title: string;
+  description: string;
+  networks: Networks;
+  path: string;
+  /** Where the list sits in the API's answer to GET `path`. */
+  listField: string;
+  formTitle: (asset: string, changing: boolean) => string;
+  confirmRemove: (asset: string) => string;
+}) {
+  const { t, date } = useT();
+  const [addresses, setAddresses] = useState<CryptoAddress[] | undefined>(undefined);
+  const [editing, setEditing] = useState<string | null>(null);
   const load = useCallback(async () => {
-    const { receivingAddresses } = await api<{ receivingAddresses: ReceivingAddress[] }>('receiving-addresses');
-    setAddresses(receivingAddresses);
-  }, []);
+    const res = await api<Record<string, CryptoAddress[]>>(path);
+    setAddresses(res[listField] ?? []);
+  }, [path, listField]);
 
   useEffect(() => {
     void load();
@@ -521,20 +582,20 @@ function ReceivingAddresses() {
 
   return (
     <section className="card">
-      <h2>{t('입금받을 암호화폐 주소')}</h2>
-      <p className="muted small-text">
-        {t(
-          '코인별로 받을 주소를 1개씩 등록할 수 있습니다. 먼저 네트워크를 고르고 그 네트워크의 주소를 입력하세요. 네트워크가 다르면 코인을 잃을 수 있으니 받는 지갑의 네트워크를 꼭 확인해 주세요.',
-        )}
-      </p>
+      <h2>{title}</h2>
+      <p className="muted small-text">{description}</p>
       <ul className="receiving-list">
-        {Object.keys(RECEIVING_NETWORKS).map((asset) => {
+        {Object.keys(networks).map((asset) => {
           const current = addresses.find((a) => a.asset === asset);
+          const waiting = current?.usableFrom && new Date(current.usableFrom) > new Date();
           return (
             <li key={asset}>
               <div className="row">
                 <strong>{asset}</strong>
                 <span className="muted small-text">{current ? networkLabel(asset, current.network) : t('미등록')}</span>
+                {waiting && (
+                  <span className="muted small-text">{t('{time}부터 출금 가능', { time: date(current.usableFrom!) })}</span>
+                )}
                 {editing !== asset && (
                   <button type="button" className="link-button small-text" onClick={() => setEditing(asset)}>
                     {t(current ? '변경' : '등록')}
@@ -547,10 +608,14 @@ function ReceivingAddresses() {
         })}
       </ul>
       {editing && (
-        <ReceivingAddressForm
+        <AddressForm
           key={editing}
           asset={editing}
+          networks={networks[editing] ?? []}
+          path={path}
           current={addresses.find((a) => a.asset === editing)}
+          title={formTitle(editing, addresses.some((a) => a.asset === editing))}
+          confirmRemove={confirmRemove(editing)}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
@@ -562,23 +627,31 @@ function ReceivingAddresses() {
   );
 }
 
-function ReceivingAddressForm({
+function AddressForm({
   asset,
+  networks,
+  path,
   current,
+  title,
+  confirmRemove,
   onClose,
   onSaved,
 }: {
   asset: string;
-  current: ReceivingAddress | undefined;
+  networks: { value: string; label: string }[];
+  path: string;
+  current: CryptoAddress | undefined;
+  title: string;
+  confirmRemove: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
   const { t } = useT();
-  const networks = RECEIVING_NETWORKS[asset] ?? [];
   const [network, setNetwork] = useState(current?.network ?? networks[0]?.value ?? '');
   const [address, setAddress] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const id = path.replace(/\W/g, '-');
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -595,28 +668,28 @@ function ReceivingAddressForm({
 
   function save(e: FormEvent) {
     e.preventDefault();
-    void run(() => api(`receiving-addresses/${asset}`, { method: 'PUT', body: { network, address } }));
+    void run(() => api(`${path}/${asset}`, { method: 'PUT', body: { network, address } }));
   }
 
   function remove() {
-    if (!window.confirm(t('{asset} 입금 주소를 삭제할까요?', { asset }))) return;
-    void run(() => api(`receiving-addresses/${asset}`, { method: 'DELETE' }));
+    if (!window.confirm(confirmRemove)) return;
+    void run(() => api(`${path}/${asset}`, { method: 'DELETE' }));
   }
 
   return (
     <form onSubmit={save} className="settings-form">
-      <h3>{t(current ? '{asset} 입금 주소 변경' : '{asset} 입금 주소 등록', { asset })}</h3>
-      <label htmlFor="ra-network">{t('네트워크')}</label>
-      <select id="ra-network" value={network} onChange={(e) => setNetwork(e.target.value)}>
+      <h3>{title}</h3>
+      <label htmlFor={`${id}-network`}>{t('네트워크')}</label>
+      <select id={`${id}-network`} value={network} onChange={(e) => setNetwork(e.target.value)}>
         {networks.map((n) => (
           <option key={n.value} value={n.value}>
             {n.label}
           </option>
         ))}
       </select>
-      <label htmlFor="ra-address">{t(current ? '새 주소' : '주소')}</label>
+      <label htmlFor={`${id}-address`}>{t(current ? '새 주소' : '주소')}</label>
       <input
-        id="ra-address"
+        id={`${id}-address`}
         className="address"
         autoComplete="off"
         spellCheck={false}

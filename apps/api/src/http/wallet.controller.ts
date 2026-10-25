@@ -1,16 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Put, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { WalletService } from '../wallet/wallet.service';
 import { AuthGuard, CurrentUser } from './auth.guard';
 import { amountString, parse } from './validation';
 
-const addAddressBody = z.object({
-  asset: z.string(),
-  address: z.string().max(200),
-  label: z.string().max(40).optional(),
-});
+const setAddressBody = z.object({ network: z.string(), address: z.string().max(200) });
 const withdrawBody = z.object({ addressId: z.uuid(), amount: amountString });
-const uuid = new ParseUUIDPipe({ version: '4' });
 
 @Controller('wallet')
 @UseGuards(AuthGuard)
@@ -27,15 +22,16 @@ export class WalletController {
     return { addresses: await this.wallet.listAddresses(userId) };
   }
 
-  @Post('addresses')
-  async addAddress(@CurrentUser() userId: string, @Body() body: unknown) {
-    return { address: await this.wallet.addAddress(userId, parse(addAddressBody, body)) };
+  /** One address per coin, managed from the account page next to the receiving addresses. */
+  @Put('addresses/:asset')
+  async setAddress(@CurrentUser() userId: string, @Param('asset') asset: string, @Body() body: unknown) {
+    return { address: await this.wallet.setAddress(userId, { asset, ...parse(setAddressBody, body) }) };
   }
 
-  @Delete('addresses/:id')
+  @Delete('addresses/:asset')
   @HttpCode(204)
-  async removeAddress(@CurrentUser() userId: string, @Param('id', uuid) id: string) {
-    await this.wallet.removeAddress(userId, id);
+  async removeAddress(@CurrentUser() userId: string, @Param('asset') asset: string) {
+    await this.wallet.removeAddress(userId, asset);
   }
 
   @Get('withdrawals')
@@ -51,7 +47,7 @@ export class WalletController {
 
   @Post('withdrawals/:id/cancel')
   @HttpCode(200)
-  async cancel(@CurrentUser() userId: string, @Param('id', uuid) id: string) {
+  async cancel(@CurrentUser() userId: string, @Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return { withdrawal: await this.wallet.cancel(id, userId) };
   }
 }

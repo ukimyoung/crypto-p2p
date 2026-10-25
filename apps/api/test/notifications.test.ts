@@ -131,7 +131,7 @@ describe('notifications', () => {
     it('reports review outcomes and sends, but not automatic approval', async () => {
       const userId = await user();
       await deposit(db, ledger, userId, 'BTC', BTC);
-      const address = await wallet.addAddress(userId, { asset: 'BTC', address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq' });
+      const address = await wallet.setAddress(userId, { asset: 'BTC', address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq' });
       const small = await wallet.requestWithdrawal(userId, address.id, BTC / 100n);
       expect(await types(userId)).toEqual([]);
 
@@ -150,7 +150,7 @@ describe('notifications', () => {
     it('skips the email for users without an address', async () => {
       const userId = await user('ko', null);
       await deposit(db, ledger, userId, 'BTC', BTC);
-      const address = await wallet.addAddress(userId, { asset: 'BTC', address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq' });
+      const address = await wallet.setAddress(userId, { asset: 'BTC', address: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq' });
       const w = await wallet.requestWithdrawal(userId, address.id, BTC / 100n);
       await wallet.markFailed(w.id, 'node down');
       expect(await types(userId)).toEqual(['withdrawal.failed']);

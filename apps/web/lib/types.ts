@@ -111,6 +111,7 @@ export interface Balance {
 export interface WithdrawalAddress {
   id: string;
   asset: string;
+  network: string;
   address: string;
   label: string;
   usableFrom: string;

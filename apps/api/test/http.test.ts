@@ -519,16 +519,17 @@ describe('HTTP API', () => {
 
       const address = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
       const bad = await http()
-        .post('/wallet/addresses')
+        .put('/wallet/addresses/BTC')
         .set(auth(user))
-        .send({ asset: 'BTC', address: '0x52908400098527886e0f7030069857d2e4169ee7' })
+        .send({ network: 'bitcoin', address: '0x52908400098527886e0f7030069857d2e4169ee7' })
         .expect(400);
       expect(bad.body.error.code).toBe('invalid_address');
       const added = await http()
-        .post('/wallet/addresses')
+        .put('/wallet/addresses/BTC')
         .set(auth(user))
-        .send({ asset: 'BTC', address, label: '내 지갑' })
-        .expect(201);
+        .send({ network: 'bitcoin', address })
+        .expect(200);
+      expect(added.body.address).toMatchObject({ asset: 'BTC', network: 'bitcoin', address });
       const addressId = added.body.address.id;
 
       const res = await http()
