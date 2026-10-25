@@ -447,10 +447,15 @@ export const EN: Record<string, string> = {
   '은행 이체': 'Bank transfer',
   // Nicknames
   닉네임: 'Nickname',
-  변경: 'Change',
   '2~16자 한글, 영문, 숫자, 밑줄(_)': '2-16 letters, digits or underscores',
-  '마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있습니다.':
-    'The name other members see on the market. Use 2-16 letters, digits or underscores.',
+  '마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있고, 정한 뒤에는 바꿀 수 없습니다.':
+    'The name other members see on the market. 2-16 letters, digits or underscores; it cannot be changed later.',
+  '닉네임은 바꿀 수 없습니다.': 'The nickname cannot be changed.',
+  '이름은 바꿀 수 없습니다.': 'The name cannot be changed.',
+  '이름은 가입한 뒤에는 바꿀 수 없으니 정확히 입력해 주세요.': 'Your name cannot be changed after signup, so enter it exactly.',
+  '한 번 저장하면 바꿀 수 없으니 정확히 입력해 주세요.': 'It cannot be changed once saved, so enter it exactly.',
+  '임시 닉네임': 'Temporary',
+  '닉네임 정하기': 'Choose nickname',
   '닉네임은 2~16자의 한글, 영문, 숫자, 밑줄(_)로 정해 주세요.': 'A nickname is 2-16 letters, digits or underscores.',
   '이미 쓰고 있는 닉네임입니다. 다른 닉네임을 정해 주세요.': 'This nickname is already in use. Please choose another.',
 };

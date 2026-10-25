@@ -107,6 +107,9 @@ export default function SignUpPage() {
             />
           </div>
         </div>
+        <p className="muted small-text" style={{ margin: '6px 0 0' }}>
+          {t('이름은 가입한 뒤에는 바꿀 수 없으니 정확히 입력해 주세요.')}
+        </p>
         <NicknameInput value={nickname} onChange={setNickname} />
         <PhoneField
           id="phone"

@@ -31,6 +31,8 @@ export interface Me {
   email: string;
   /** Public name other members see, e.g. as the advertiser on the market. */
   nickname: string;
+  /** True while the member still has the placeholder nickname given to accounts made before nicknames were asked. */
+  temporaryNickname: boolean;
   /** Name the member typed at signup. Null for members who joined before it was asked. */
   firstName: string | null;
   lastName: string | null;
@@ -238,12 +240,18 @@ export class AuthService {
     });
   }
 
-  /** Changes the member's public nickname. */
+  /**
+   * Replaces the placeholder nickname of a member who joined before nicknames were asked.
+   * A nickname the member chose cannot be changed.
+   */
   async setNickname(userId: string, rawNickname: string): Promise<Me> {
     const nickname = normalizeNickname(rawNickname);
     return withTransaction(this.db, async (tx) => {
       const before = await tx.query<{ nickname: string }>('SELECT nickname FROM users WHERE id = $1 FOR UPDATE', [userId]);
       if (!before.rows[0]) throw new DomainError('not_found', 'User not found');
+      if (!isTemporaryNickname(before.rows[0].nickname)) {
+        throw new DomainError('nickname_locked', 'The nickname cannot be changed');
+      }
       const { rows } = await tx
         .query('UPDATE users SET nickname = $2 WHERE id = $1 RETURNING *', [userId, nickname])
         .catch(uniqueTaken);
@@ -259,7 +267,7 @@ export class AuthService {
     });
   }
 
-  /** Sets the member's first and last name, e.g. for members who joined before signup asked for it. */
+  /** Sets the first and last name of a member who joined before signup asked for it. A name once set cannot be changed. */
   async setName(userId: string, rawFirstName: string, rawLastName: string): Promise<Me> {
     const firstName = normalizePersonName(rawFirstName);
     const lastName = normalizePersonName(rawLastName);
@@ -269,6 +277,9 @@ export class AuthService {
         [userId],
       );
       if (!before.rows[0]) throw new DomainError('not_found', 'User not found');
+      if (before.rows[0].first_name && before.rows[0].last_name) {
+        throw new DomainError('name_locked', 'The name cannot be changed');
+      }
       const { rows } = await tx.query('UPDATE users SET first_name = $2, last_name = $3 WHERE id = $1 RETURNING *', [
         userId,
         firstName,
@@ -391,13 +402,18 @@ function normalizeEmail(email: string): string {
   return e;
 }
 
-/** 2–16 letters (Korean or Latin), digits or underscores. */
+/** 2–16 letters (Korean or Latin), digits or underscores. The placeholder form user_xxxxxxxx is reserved. */
 export function normalizeNickname(nickname: string): string {
   const n = nickname.trim().normalize('NFC');
-  if (!/^[0-9A-Za-z_가-힣]{2,16}$/.test(n)) {
+  if (!/^[0-9A-Za-z_가-힣]{2,16}$/.test(n) || isTemporaryNickname(n)) {
     throw new DomainError('invalid_nickname', 'A nickname is 2-16 letters, digits or underscores');
   }
   return n;
+}
+
+/** The placeholder migration 015 gave accounts made before nicknames were asked. */
+function isTemporaryNickname(nickname: string): boolean {
+  return /^user_[0-9a-f]{8}$/i.test(nickname);
 }
 
 /** A first or last name: 1-50 letters in any script, with spaces, hyphens, apostrophes or dots between. */
@@ -430,6 +446,7 @@ function toMe(row: any): Me {
     id: row.id,
     email: row.email,
     nickname: row.nickname,
+    temporaryNickname: isTemporaryNickname(row.nickname),
     firstName: row.first_name,
     lastName: row.last_name,
     kycLevel: row.kyc_level,

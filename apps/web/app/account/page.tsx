@@ -72,7 +72,7 @@ export default function AccountPage() {
   );
 }
 
-/** The nickname with a way to change it in place. */
+/** The nickname. Only a placeholder nickname, from before signup asked for one, can be replaced, once. */
 function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -99,9 +99,14 @@ function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> })
     return (
       <span className="row">
         <strong>{me.nickname}</strong>
-        <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
-          {t('변경')}
-        </button>
+        {me.temporaryNickname && (
+          <>
+            <span className="muted small-text">{t('임시 닉네임')}</span>
+            <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
+              {t('닉네임 정하기')}
+            </button>
+          </>
+        )}
       </span>
     );
   }
@@ -129,7 +134,7 @@ function NicknameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> })
   );
 }
 
-/** Shows the name typed at signup. Members who joined before it was asked enter it here. */
+/** Shows the name typed at signup. Members who joined before it was asked enter it here, once. */
 function NameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
@@ -157,10 +162,16 @@ function NameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   if (!open) {
     return (
       <span className="row">
-        {name ? <strong>{name}</strong> : <span className="muted">{t('미입력')}</span>}
-        <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
-          {t(name ? '변경' : '입력')}
-        </button>
+        {name ? (
+          <strong>{name}</strong>
+        ) : (
+          <>
+            <span className="muted">{t('미입력')}</span>
+            <button type="button" className="link-button small-text" onClick={() => setOpen(true)}>
+              {t('입력')}
+            </button>
+          </>
+        )}
       </span>
     );
   }
@@ -190,6 +201,9 @@ function NameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
           />
         </div>
       </div>
+      <p className="muted small-text" style={{ margin: '6px 0 0' }}>
+        {t('한 번 저장하면 바꿀 수 없으니 정확히 입력해 주세요.')}
+      </p>
       <ErrorText error={error} />
       <div className="row" style={{ marginTop: 12 }}>
         <button className="small" disabled={busy}>

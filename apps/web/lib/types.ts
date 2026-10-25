@@ -3,6 +3,8 @@ export interface Me {
   email: string;
   /** Public name other members see, e.g. as the advertiser on the market. */
   nickname: string;
+  /** True while the member still has the placeholder nickname given to accounts made before nicknames were asked. */
+  temporaryNickname: boolean;
   /** Name typed at signup. Null for members who joined before it was asked. */
   firstName: string | null;
   lastName: string | null;
