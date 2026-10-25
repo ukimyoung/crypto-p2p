@@ -38,6 +38,10 @@ describe('passwords', () => {
     expect(() => assertPasswordPolicy('onlyletterslong')).toThrow();
     expect(() => assertPasswordPolicy('1234567890123')).toThrow();
     expect(() => assertPasswordPolicy('letters and 1 digit')).not.toThrow();
+    // Special characters are allowed, but do not stand in for a letter or a digit.
+    expect(() => assertPasswordPolicy('Abc123!@#$%^&*()')).not.toThrow();
+    expect(() => assertPasswordPolicy('!@#$%^&*()1234')).toThrow();
+    expect(() => assertPasswordPolicy('!@#$%^&*()abcd')).toThrow();
   });
 });
 

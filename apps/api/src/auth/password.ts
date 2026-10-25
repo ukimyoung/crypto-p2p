@@ -6,7 +6,10 @@ const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, op
 const PARAMS = { N: 16384, r: 8, p: 1 };
 const KEY_LEN = 32;
 
-/** AUTH-1 password policy: 10 to 128 characters with at least one letter and one digit. */
+/**
+ * AUTH-1 password policy: 10 to 128 characters with at least one letter and one digit.
+ * Any other characters are allowed too: special characters (! @ # ...), spaces, non-Latin letters.
+ */
 export function assertPasswordPolicy(password: string): void {
   if (password.length < 10 || password.length > 128 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
     throw new DomainError('weak_password', 'Password must be 10-128 characters with letters and digits');

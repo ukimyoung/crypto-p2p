@@ -89,7 +89,7 @@ export default function SignUpPage() {
           onCountry={setPhoneCountry}
           onNumber={setPhoneNumber}
         />
-        <label htmlFor="password">{t('비밀번호 (10자 이상, 영문과 숫자 포함)')}</label>
+        <label htmlFor="password">{t('비밀번호 (10자 이상, 영문과 숫자 포함, 특수문자 사용 가능)')}</label>
         <input
           id="password"
           type="password"

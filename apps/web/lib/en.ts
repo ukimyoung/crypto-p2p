@@ -180,7 +180,7 @@ export const EN: Record<string, string> = {
   '알림이 없습니다.': 'No notifications.',
   '비밀번호 확인이 일치하지 않습니다.': 'The passwords do not match.',
   가입하기: 'Sign up',
-  '비밀번호 (10자 이상, 영문과 숫자 포함)': 'Password (10+ characters, letters and numbers)',
+  '비밀번호 (10자 이상, 영문과 숫자 포함, 특수문자 사용 가능)': 'Password (10+ characters with letters and numbers; special characters allowed)',
   '비밀번호 확인': 'Confirm password',
   로그인: 'Log in',
   비밀번호: 'Password',
@@ -212,12 +212,11 @@ export const EN: Record<string, string> = {
   'OTP 코드가 맞지 않거나 이미 사용한 코드입니다. 다음 코드를 입력해 주세요.':
     'The OTP code is wrong or was already used. Enter the next code.',
   '거래하려면 먼저 내 계정에서 OTP를 등록해 주세요.': 'Set up OTP in My account before you trade.',
-  '비밀번호는 10자 이상이고 영문과 숫자를 모두 포함해야 합니다.':
-    'Passwords need at least 10 characters with both letters and numbers.',
+  '비밀번호는 10자 이상이고 영문과 숫자를 모두 포함해야 합니다. 특수문자(! @ # 등)도 쓸 수 있습니다.':
+    'A password needs at least 10 characters with both letters and numbers. Special characters (! @ # etc.) are allowed.',
   '이메일 주소 형식이 올바르지 않습니다.': 'That email address is not valid.',
   '이미 가입된 이메일입니다.': 'This email is already registered.',
   '이미 가입된 휴대폰 번호입니다.': 'This phone number is already registered.',
-  '방금 인증 메일을 보냈습니다. 1분 뒤에 다시 시도해 주세요.': 'We just sent a confirmation email. Try again in a minute.',
   '인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.': 'We could not send the confirmation email. Please try again later.',
   '인증 링크가 올바르지 않습니다. 이미 사용했거나 새 링크로 바뀌었을 수 있습니다.':
     'This link is not valid. It may have been used already or replaced by a newer one.',

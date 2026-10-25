@@ -26,7 +26,6 @@ const STATUS: Record<string, number> = {
   payment_method_exists: 409,
   invalid_transition: 409,
   too_many_attempts: 429,
-  signup_email_recent: 429,
   signup_link_expired: 410,
   email_unavailable: 503,
   kyc_provider_error: 502,
