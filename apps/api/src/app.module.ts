@@ -1,4 +1,4 @@
-import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
+import { Inject, Logger, Module, OnApplicationShutdown } from '@nestjs/common';
 import { AdsService } from './ads/ads.service';
 import { AuthService } from './auth/auth.service';
 import { SecretBox } from './auth/secret-box';
@@ -97,7 +97,13 @@ import { WalletService } from './wallet/wallet.service';
       provide: EMAIL_SENDER,
       useFactory: () => {
         const resend = loadResendConfig();
-        return resend ? new ResendEmailSender(resend) : new LogEmailSender();
+        const logger = new Logger('Email');
+        if (!resend) {
+          logger.warn('RESEND_API_KEY is not set: emails, signup links included, are written to this log instead of sent');
+          return new LogEmailSender();
+        }
+        logger.log(`Sending email through Resend as ${resend.from}`);
+        return new ResendEmailSender(resend);
       },
     },
     EmailWorker,

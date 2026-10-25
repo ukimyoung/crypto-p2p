@@ -30,6 +30,11 @@ services:
       OTP_ENCRYPTION_KEY: ZGVtby1vbmx5LWtleS1kby1ub3QtdXNlLWluLXByb2Q=
       PAYMENT_METHOD_COOLDOWN_HOURS: 0
       ADDRESS_COOLDOWN_HOURS: 0
+      # Email through Resend. Put these in a `.env` file next to this one (see README "이메일 발송").
+      # Left empty, emails (signup links too) are only written to the api log.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      APP_URL: ${APP_URL:-http://localhost:3001}
     depends_on:
       db:
         condition: service_healthy
