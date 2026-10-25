@@ -27,7 +27,7 @@ export default function LoginPage() {
       const { user } = await api<{ user: Me }>('me');
       document.cookie = `${LOCALE_COOKIE}=${user.locale}; path=/; max-age=31536000; samesite=lax`;
       // Full reload so the header picks up the new session.
-      window.location.href = '/';
+      window.location.href = '/market';
     } catch (err) {
       if (err instanceof ApiError && err.code === 'otp_required') setNeedOtp(true);
       setError(messageOf(err));

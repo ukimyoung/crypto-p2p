@@ -1065,6 +1065,11 @@ code.secret {
   padding: 40px 0 8px;
 }
 
+/* On the market page the section opens the page, so it lines up with other page titles. */
+main > .section:first-child {
+  padding-top: 8px;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
