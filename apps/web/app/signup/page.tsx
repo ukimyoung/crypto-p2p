@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
+import { NicknameInput } from '@/components/NicknameInput';
 import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -9,6 +10,7 @@ import { useT } from '@/lib/i18n';
 export default function SignUpPage() {
   const { t, locale } = useT();
   const [email, setEmail] = useState('');
+  const [nickname, setNickname] = useState('');
   const [phoneCountry, setPhoneCountry] = useState('KR');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +27,7 @@ export default function SignUpPage() {
     setBusy(true);
     setError(null);
     try {
-      await api('auth/signup', { body: { email, password, phoneCountry, phoneNumber } });
+      await api('auth/signup', { body: { email, password, phoneCountry, phoneNumber, nickname } });
       await api('auth/login', { body: { email, password } });
       // Emails go out in the language the user signed up in.
       await api('me/locale', { body: { locale } });
@@ -42,6 +44,7 @@ export default function SignUpPage() {
       <form className="card" onSubmit={submit}>
         <label htmlFor="email">{t('이메일')}</label>
         <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <NicknameInput value={nickname} onChange={setNickname} />
         <PhoneField
           id="phone"
           country={phoneCountry}

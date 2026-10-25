@@ -22,6 +22,8 @@ export interface RequestMeta {
 export interface Me {
   id: string;
   email: string;
+  /** Public name other members see, e.g. as the advertiser on the market. */
+  nickname: string;
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
@@ -48,19 +50,20 @@ export class AuthService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async signUp(rawEmail: string, password: string, rawPhone: PhoneInput): Promise<Me> {
+  async signUp(rawEmail: string, password: string, rawPhone: PhoneInput, rawNickname: string): Promise<Me> {
     const email = normalizeEmail(rawEmail);
     const phone = normalizePhone(rawPhone.country, rawPhone.number);
+    const nickname = normalizeNickname(rawNickname);
     assertPasswordPolicy(password);
     const passwordHash = await hashPassword(password);
     const { rows } = await this.db
       .query(
-        `INSERT INTO users (email, password_hash, phone, phone_country) VALUES ($1, $2, $3, $4)
+        `INSERT INTO users (email, password_hash, phone, phone_country, nickname) VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (email) DO NOTHING
          RETURNING *`,
-        [email, passwordHash, phone.e164, phone.country],
+        [email, passwordHash, phone.e164, phone.country, nickname],
       )
-      .catch(phoneTaken);
+      .catch(uniqueTaken);
     if (!rows[0]) throw new DomainError('email_taken', 'This email is already registered');
     return toMe(rows[0]);
   }
@@ -80,7 +83,7 @@ export class AuthService {
           phone.e164,
           phone.country,
         ])
-        .catch(phoneTaken);
+        .catch(uniqueTaken);
       await writeAudit(
         tx,
         { type: 'user', id: userId },
@@ -88,6 +91,27 @@ export class AuthService {
         { type: 'user', id: userId },
         { phoneCountry: before.phoneCountry },
         { phoneCountry: phone.country },
+      );
+      return toMe(rows[0]);
+    });
+  }
+
+  /** Changes the member's public nickname. */
+  async setNickname(userId: string, rawNickname: string): Promise<Me> {
+    const nickname = normalizeNickname(rawNickname);
+    return withTransaction(this.db, async (tx) => {
+      const before = await tx.query<{ nickname: string }>('SELECT nickname FROM users WHERE id = $1 FOR UPDATE', [userId]);
+      if (!before.rows[0]) throw new DomainError('not_found', 'User not found');
+      const { rows } = await tx
+        .query('UPDATE users SET nickname = $2 WHERE id = $1 RETURNING *', [userId, nickname])
+        .catch(uniqueTaken);
+      await writeAudit(
+        tx,
+        { type: 'user', id: userId },
+        'user.nickname_change',
+        { type: 'user', id: userId },
+        { nickname: before.rows[0].nickname },
+        { nickname },
       );
       return toMe(rows[0]);
     });
@@ -241,9 +265,22 @@ function normalizeEmail(email: string): string {
   return e;
 }
 
-function phoneTaken(err: unknown): never {
-  if ((err as { code?: string; constraint?: string }).constraint === 'users_phone_key') {
+/** 2–16 letters (Korean or Latin), digits or underscores. */
+export function normalizeNickname(nickname: string): string {
+  const n = nickname.trim().normalize('NFC');
+  if (!/^[0-9A-Za-z_가-힣]{2,16}$/.test(n)) {
+    throw new DomainError('invalid_nickname', 'A nickname is 2-16 letters, digits or underscores');
+  }
+  return n;
+}
+
+function uniqueTaken(err: unknown): never {
+  const constraint = (err as { constraint?: string }).constraint;
+  if (constraint === 'users_phone_key') {
     throw new DomainError('phone_taken', 'This phone number is already registered');
+  }
+  if (constraint === 'users_nickname_key') {
+    throw new DomainError('nickname_taken', 'This nickname is already in use');
   }
   throw err;
 }
@@ -257,6 +294,7 @@ function toMe(row: any): Me {
   return {
     id: row.id,
     email: row.email,
+    nickname: row.nickname,
     kycLevel: row.kyc_level,
     status: row.status,
     otpEnabled: row.otp_enabled,

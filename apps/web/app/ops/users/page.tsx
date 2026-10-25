@@ -42,7 +42,7 @@ export default function OpsUsersPage() {
       <h1>회원</h1>
       <form className="card filters" onSubmit={apply}>
         <div style={{ gridColumn: 'span 2' }}>
-          <label htmlFor="q">검색 (이메일 일부, 전화, 실명, 회원 ID)</label>
+          <label htmlFor="q">검색 (이메일 일부, 닉네임, 전화, 실명, 회원 ID)</label>
           <input id="q" value={draft.q} onChange={(e) => setDraft({ ...draft, q: e.target.value })} />
         </div>
         <div>
@@ -106,6 +106,7 @@ export default function OpsUsersPage() {
                       onSort={(sort, dir) => update({ sort, dir, page: '1' })}
                     />
                   ))}
+                  <th>닉네임</th>
                   <th>전화</th>
                   <th>실명</th>
                   <SortHead label="KYC" column="kyc_level" sort={state.sort} dir={state.dir} onSort={(sort, dir) => update({ sort, dir, page: '1' })} />
@@ -125,6 +126,7 @@ export default function OpsUsersPage() {
                   <tr key={u.id} className="clickable" onClick={() => router.push(`/ops/users/${u.id}`)}>
                     <td>{new Date(u.createdAt).toLocaleDateString('ko-KR')}</td>
                     <td>{u.email ?? u.id.slice(0, 8)}</td>
+                    <td>{u.nickname}</td>
                     <td>{u.phone ?? '-'}</td>
                     <td>{u.legalName ?? '-'}</td>
                     <td>{KYC_LEVEL[u.kycLevel] ?? u.kycLevel}</td>

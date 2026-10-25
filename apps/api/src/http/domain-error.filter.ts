@@ -21,6 +21,7 @@ const STATUS: Record<string, number> = {
   not_found: 404,
   email_taken: 409,
   phone_taken: 409,
+  nickname_taken: 409,
   address_exists: 409,
   payment_method_exists: 409,
   invalid_transition: 409,

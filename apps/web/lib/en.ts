@@ -424,9 +424,16 @@ export const EN: Record<string, string> = {
   '거래 금액이나 코인을 바꿔 보세요.': 'Try a different amount or coin.',
   '다른 코인을 고르거나 직접 광고를 올려 보세요.': 'Choose another coin, or post an ad yourself.',
   '금액 필터 지우기': 'Clear amount filter',
-  '광고주 {code}': 'Advertiser {code}',
   '내 광고': 'My ad',
   '판매 광고': 'Selling',
   '구매 광고': 'Buying',
   '은행 이체': 'Bank transfer',
+  // Nicknames
+  닉네임: 'Nickname',
+  변경: 'Change',
+  '2~16자 한글, 영문, 숫자, 밑줄(_)': '2-16 letters, digits or underscores',
+  '마켓에서 다른 회원에게 보이는 이름입니다. 2~16자 한글, 영문, 숫자, 밑줄(_)을 쓸 수 있습니다.':
+    'The name other members see on the market. Use 2-16 letters, digits or underscores.',
+  '닉네임은 2~16자의 한글, 영문, 숫자, 밑줄(_)로 정해 주세요.': 'A nickname is 2-16 letters, digits or underscores.',
+  '이미 쓰고 있는 닉네임입니다. 다른 닉네임을 정해 주세요.': 'This nickname is already in use. Please choose another.',
 };

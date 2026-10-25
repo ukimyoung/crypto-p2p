@@ -11,6 +11,8 @@ const ERRORS: Record<string, string> = {
   email_taken: '이미 가입된 이메일입니다.',
   invalid_phone: '휴대폰 번호를 확인해 주세요. 국가 번호를 고르고 번호는 숫자로만 입력하면 됩니다.',
   phone_taken: '이미 가입된 휴대폰 번호입니다.',
+  invalid_nickname: '닉네임은 2~16자의 한글, 영문, 숫자, 밑줄(_)로 정해 주세요.',
+  nickname_taken: '이미 쓰고 있는 닉네임입니다. 다른 닉네임을 정해 주세요.',
   kyc_required: '본인인증(KYC)을 먼저 완료해 주세요.',
   holder_name_mismatch: '예금주가 본인 실명과 같아야 합니다.',
   invalid_bank: '은행 코드는 숫자 3자리입니다.',

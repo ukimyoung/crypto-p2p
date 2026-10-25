@@ -1,6 +1,8 @@
 export interface Me {
   id: string;
   email: string;
+  /** Public name other members see, e.g. as the advertiser on the market. */
+  nickname: string;
   kycLevel: number;
   status: string;
   otpEnabled: boolean;
@@ -29,6 +31,8 @@ export interface Ad {
   feeRateBp?: number;
   /** The price buyers see: the maker's price plus the fee. */
   finalPriceMinor?: string;
+  /** The advertiser's public nickname. Present on market lists. */
+  makerNickname?: string;
 }
 
 export interface Order {
@@ -135,6 +139,8 @@ export interface Operator {
 export interface UserSummary {
   id: string;
   email: string | null;
+  /** Public nickname shown on the market. */
+  nickname: string;
   /** Masked (010-****-5678) unless revealed. */
   phone: string | null;
   /** Masked (홍*동) unless revealed. */

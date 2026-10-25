@@ -204,11 +204,6 @@ function HowItWorks() {
   );
 }
 
-/** A short, stable label for an advertiser; the market list does not carry names. */
-function makerCode(makerId: string): string {
-  return makerId.replace(/-/g, '').slice(0, 6).toUpperCase();
-}
-
 function Market() {
   const { me } = useMe();
   const { t, locale } = useT();
@@ -370,15 +365,15 @@ function Market() {
         )}
         <div className="market-list">
           {shown?.map((ad) => {
-            const code = makerCode(ad.makerId);
+            const name = ad.makerNickname ?? '-';
             const mine = me?.id === ad.makerId;
             return (
               <div key={ad.id}>
                 <div className="market-row">
                   <div className="maker">
-                    <span className="avatar">{code[0]}</span>
+                    <span className="avatar">{[...name][0]?.toUpperCase()}</span>
                     <div>
-                      <strong>{t('광고주 {code}', { code })}</strong>
+                      <strong>{name}</strong>
                       <span className="muted">{mine ? t('내 광고') : t(ad.side === 'sell' ? '판매 광고' : '구매 광고')}</span>
                     </div>
                   </div>

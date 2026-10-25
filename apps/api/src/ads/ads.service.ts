@@ -39,10 +39,11 @@ export interface Ad {
   paymentMethodId: string | null;
 }
 
-/** An ad as the market shows it: the maker's price plus the fee. */
+/** An ad as the market shows it: the maker's price plus the fee, and the maker's nickname. */
 export interface MarketAd extends Ad {
   feeRateBp: number;
   finalPriceMinor: bigint;
+  makerNickname: string;
 }
 
 export class AdsService {
@@ -105,16 +106,16 @@ export class AdsService {
   async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<MarketAd[]> {
     const feeRateBp = await currentFeeRate(this.db, filter.asset, filter.fiat);
     const { rows } = await this.db.query(
-      `SELECT * FROM ads
-       WHERE asset = $1 AND fiat = $2 AND side = $3 AND status = 'online' AND remaining_amount > 0
+      `SELECT ads.*, u.nickname AS maker_nickname FROM ads JOIN users u ON u.id = ads.maker_id
+       WHERE asset = $1 AND fiat = $2 AND side = $3 AND ads.status = 'online' AND remaining_amount > 0
          AND ${NOT_ON_FEE_HOLD('ads')} AND ${IN_OPEN_MARKET('ads')}
-       ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, created_at
+       ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, ads.created_at
        LIMIT $4`,
       [filter.asset, filter.fiat, filter.side, Math.min(filter.limit ?? 50, 100)],
     );
     return rows.map((row) => {
       const ad = toAd(row);
-      return { ...ad, feeRateBp, finalPriceMinor: finalPrice(ad.priceMinor, feeRateBp) };
+      return { ...ad, feeRateBp, finalPriceMinor: finalPrice(ad.priceMinor, feeRateBp), makerNickname: row.maker_nickname };
     });
   }
 
