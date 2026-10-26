@@ -21,13 +21,15 @@ cd crypto-p2p
 docker compose up --build        # 처음엔 몇 분 걸립니다
 ```
 
-브라우저에서 http://localhost:3001 (고객 화면)과 http://localhost:3001/ops (운영 콘솔)를 엽니다. 비밀번호는 모두 `demo password 1`입니다.
+브라우저에서 http://localhost:3001 (고객 화면)과 http://localhost:3001/ops (운영 콘솔)를 엽니다. 비밀번호는 QA용 계정(`buyer2`, `seller2`)을 빼고 모두 `demo password 1`입니다.
 
 | 계정 | 용도 |
 | --- | --- |
 | `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
 | `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
 | `tester1@demo.test`, `tester2@demo.test` | 빈 테스트 회원(테스터1·테스터2). 본인인증은 끝났고 잔고·광고·주문은 없음 |
+| `buyer2@demo.test` | QA용 구매자 이순신(순신77). 비밀번호 `test12!@`. 본인인증 완료, 신한은행 계좌 등록, 잔고·광고·주문 없음 |
+| `seller2@demo.test` | QA용 판매자 박기자(기자77). 비밀번호 `test12!@`. 본인인증 완료, KB국민은행 계좌 등록, 1 BTC·10,000 USDT 잔고, 광고·주문 없음 |
 | `reviewer1@demo.test` | 운영자(administrator). reviewer 권한에 더해 관리자 관리 메뉴에서 운영자 계정을 관리합니다 |
 | `reviewer2@demo.test` | 운영자(reviewer). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
 
