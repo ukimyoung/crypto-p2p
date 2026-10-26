@@ -66,7 +66,7 @@ export default function OpsDisputePage() {
         <Link href="/ops/disputes">← 분쟁 목록</Link>
       </p>
       <h1>
-        분쟁 주문 {order.id.slice(0, 8)} <span className={`badge ${order.status}`}>{ORDER_STATUS[order.status]}</span>
+        분쟁 주문 {order.orderNumber} <span className={`badge ${order.status}`}>{ORDER_STATUS[order.status]}</span>
       </h1>
 
       <div className="grid2">

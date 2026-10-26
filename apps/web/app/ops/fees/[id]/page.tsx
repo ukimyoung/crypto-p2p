@@ -153,6 +153,7 @@ export default function OpsInvoicePage() {
           <table>
             <thead>
               <tr>
+                <th>주문 번호</th>
                 <th>완료</th>
                 <th>수량</th>
                 <th>입력 가격</th>
@@ -164,6 +165,9 @@ export default function OpsInvoicePage() {
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
+                  <td>
+                    <Link href={`/ops/orders/${o.id}`}>{o.orderNumber}</Link>
+                  </td>
                   <td>{new Date(o.completedAt).toLocaleString('ko-KR')}</td>
                   <td>
                     {formatUnits(o.amount, ASSETS[o.asset as AssetCode]?.decimals ?? 0)} {o.asset}

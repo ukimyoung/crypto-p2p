@@ -36,6 +36,7 @@ export interface FeePayment {
 
 export interface InvoiceOrder {
   id: string;
+  orderNumber: string;
   asset: string;
   amount: bigint;
   basePriceMinor: bigint;
@@ -275,7 +276,7 @@ export class BillingService {
     );
     if (!res.rows[0]) return null;
     const orders = await this.db.query(
-      `SELECT id, asset, amount, base_price_minor, fee_rate_bp, fiat_amount_minor, fee_fiat_minor, completed_at
+      `SELECT id, order_number, asset, amount, base_price_minor, fee_rate_bp, fiat_amount_minor, fee_fiat_minor, completed_at
        FROM orders WHERE fee_invoice_id = $1 ORDER BY completed_at`,
       [invoiceId],
     );
@@ -288,6 +289,7 @@ export class BillingService {
       invoice: toInvoice(res.rows[0]),
       orders: orders.rows.map((r) => ({
         id: r.id,
+        orderNumber: r.order_number,
         asset: r.asset,
         amount: BigInt(r.amount),
         basePriceMinor: BigInt(r.base_price_minor),

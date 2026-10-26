@@ -108,6 +108,7 @@ export default function OpsAdPage() {
             <table>
               <thead>
                 <tr>
+                  <th>주문 번호</th>
                   <th>시각</th>
                   <th>구매자</th>
                   <th>판매자</th>
@@ -119,6 +120,9 @@ export default function OpsAdPage() {
               <tbody>
                 {orders.map((o) => (
                   <tr key={o.id}>
+                    <td>
+                      <Link href={`/ops/orders/${o.id}`}>{o.orderNumber}</Link>
+                    </td>
                     <td>{new Date(o.createdAt).toLocaleString('ko-KR')}</td>
                     <td>{o.buyerEmail}</td>
                     <td>{o.sellerEmail}</td>

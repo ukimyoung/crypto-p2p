@@ -41,7 +41,7 @@ export default function OpsDisputesPage() {
                 {rows.map(({ order }) => (
                   <tr key={order.id}>
                     <td>
-                      <Link href={`/ops/disputes/${order.id}`}>{order.id.slice(0, 8)}</Link>
+                      <Link href={`/ops/disputes/${order.id}`}>{order.orderNumber}</Link>
                     </td>
                     <td>
                       {formatUnits(order.amount, ASSETS[order.asset as AssetCode]?.decimals ?? 0)} {order.asset}

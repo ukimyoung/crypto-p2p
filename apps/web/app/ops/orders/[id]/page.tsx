@@ -59,7 +59,7 @@ export default function OpsOrderPage() {
         <Link href="/ops/orders">← 주문</Link>
       </p>
       <h1>
-        주문 <span className={`badge ${o.status}`}>{ORDER_STATUS[o.status]}</span>
+        주문 {o.orderNumber} <span className={`badge ${o.status}`}>{ORDER_STATUS[o.status]}</span>
       </h1>
       {o.status === 'under_review' && (
         <p className="notice">
@@ -112,6 +112,8 @@ export default function OpsOrderPage() {
             <dt>결제 기한</dt>
             <dd>{when(o.paymentDeadline)}</dd>
             <dt>주문 번호</dt>
+            <dd>{o.orderNumber}</dd>
+            <dt>내부 ID</dt>
             <dd className="muted small-text">{o.id}</dd>
           </dl>
         </section>

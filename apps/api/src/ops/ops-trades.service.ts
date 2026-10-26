@@ -25,13 +25,15 @@ export interface OrderListFilter {
   asset?: string;
   /** Buyer or seller. */
   userId?: string;
+  /** Whole order number, or its leading digits (e.g. a day: 20261026). */
+  orderNumber?: string;
   from?: Date;
   to?: Date;
   page?: number;
   pageSize?: number;
 }
 
-const ORDER_COLUMNS = `o.id, o.ad_id, o.maker_id, o.buyer_id, o.seller_id, o.asset, o.fiat, o.price_minor, o.base_price_minor,
+const ORDER_COLUMNS = `o.id, o.order_number, o.ad_id, o.maker_id, o.buyer_id, o.seller_id, o.asset, o.fiat, o.price_minor, o.base_price_minor,
   o.amount, o.fiat_amount_minor, o.fee_rate_bp, o.fee_fiat_minor, o.escrow_amount, o.status, o.created_at,
   o.paid_at, o.completed_at, o.cancelled_at, o.cancel_reason, bu.email AS buyer_email, se.email AS seller_email`;
 
@@ -131,6 +133,7 @@ export class OpsTradesService {
        WHERE ($1::text IS NULL OR o.status = $1) AND ($2::text IS NULL OR o.asset = $2)
          AND ($3::uuid IS NULL OR o.buyer_id = $3 OR o.seller_id = $3)
          AND ($4::timestamptz IS NULL OR o.created_at >= $4) AND ($5::timestamptz IS NULL OR o.created_at < $5)
+         AND ($8::text IS NULL OR o.order_number LIKE $8 || '%')
        ORDER BY o.created_at DESC, o.id
        LIMIT $6 OFFSET $7`,
       [
@@ -141,6 +144,7 @@ export class OpsTradesService {
         filter.to ?? null,
         pageSize,
         (page - 1) * pageSize,
+        filter.orderNumber ?? null,
       ],
     );
     return { orders: rows.map(toOrderRow), total: Number(rows[0]?.total_count ?? 0) };
@@ -207,6 +211,7 @@ export class OpsTradesService {
 function toOrderRow(r: any) {
   return {
     id: r.id,
+    orderNumber: r.order_number,
     adId: r.ad_id,
     makerId: r.maker_id,
     buyerId: r.buyer_id,

@@ -100,13 +100,13 @@ describe('notifications', () => {
       // Emails go out in each user's language; chat messages stay in the app.
       expect(await emails(seller)).toEqual([
         {
-          subject: `[P2P] New order on your ad (${order.id.slice(0, 8)})`,
+          subject: `[P2P] New order on your ad (${order.orderNumber})`,
           body: expect.stringContaining('0.01 BTC'),
         },
         { subject: expect.stringContaining('marked the order as paid'), body: expect.any(String) },
       ]);
       expect(await emails(buyer)).toEqual([
-        { subject: `[P2P] 거래가 완료되었습니다 (${order.id.slice(0, 8)})`, body: '0.01 BTC 거래가 완료되었습니다.' },
+        { subject: `[P2P] 거래가 완료되었습니다 (${order.orderNumber})`, body: '0.01 BTC 거래가 완료되었습니다.' },
       ]);
     });
 
