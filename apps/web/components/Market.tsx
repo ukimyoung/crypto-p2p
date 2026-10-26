@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
-import { InfoIcon, ResetIcon, SearchIcon } from '@/components/icons';
+import { InfoIcon, ResetIcon, SearchIcon, SortIcon } from '@/components/icons';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
@@ -13,7 +13,21 @@ import { ASSETS, AssetCode, fiatFor, formatKrw, formatRate, formatUnits, orderCo
 import { useMe } from '@/lib/use-me';
 
 type Mode = 'buy' | 'sell';
-type Sort = 'created' | 'price' | 'limit' | 'amount';
+type Sort = 'created' | 'price-asc' | 'price-desc' | 'amount-desc' | 'amount-asc' | 'limit';
+type Column = 'price' | 'amount';
+
+/** A column header click: first direction, then the other, then back to the oldest-first default. */
+const COLUMN_CYCLE: Record<Column, [Sort, Sort]> = {
+  price: ['price-asc', 'price-desc'],
+  amount: ['amount-desc', 'amount-asc'],
+};
+
+function nextSort(current: Sort, column: Column): Sort {
+  const [first, second] = COLUMN_CYCLE[column];
+  if (current === first) return second;
+  if (current === second) return 'created';
+  return first;
+}
 
 /** The marketplace panel: buy/sell tabs, filters and the ad list. Used on the landing page and the market page. */
 export function Market() {
@@ -60,13 +74,38 @@ export function Market() {
     const cmp = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);
     return list.sort((a, b) => {
       // The API lists the oldest ad first; the sort is stable, so returning 0 keeps that order.
-      if (sort === 'created') return 0;
-      if (sort === 'limit') return cmp(BigInt(b.maxOrderFiatMinor), BigInt(a.maxOrderFiatMinor));
-      if (sort === 'amount') return cmp(BigInt(b.remainingAmount), BigInt(a.remainingAmount));
-      // Buyers want the lowest price, sellers the highest.
-      return mode === 'buy' ? cmp(price(a), price(b)) : cmp(price(b), price(a));
+      switch (sort) {
+        case 'price-asc':
+          return cmp(price(a), price(b));
+        case 'price-desc':
+          return cmp(price(b), price(a));
+        case 'amount-desc':
+          return cmp(BigInt(b.remainingAmount), BigInt(a.remainingAmount));
+        case 'amount-asc':
+          return cmp(BigInt(a.remainingAmount), BigInt(b.remainingAmount));
+        case 'limit':
+          return cmp(BigInt(b.maxOrderFiatMinor), BigInt(a.maxOrderFiatMinor));
+        default:
+          return 0;
+      }
     });
-  }, [ads, wanted, sort, mode, decimals]);
+  }, [ads, wanted, sort, decimals]);
+
+  /** A header that sorts by its column; the arrow shows the direction in force. */
+  function sortHeader(column: Column, label: ReactNode) {
+    const [first, second] = COLUMN_CYCLE[column];
+    const dir = sort === first || sort === second ? (sort.endsWith('asc') ? 'asc' : 'desc') : undefined;
+    return (
+      <button
+        type="button"
+        className={`sort-header${dir ? ' active' : ''}`}
+        onClick={() => setSort(nextSort(sort, column))}
+      >
+        {label}
+        <SortIcon size={14} dir={dir} />
+      </button>
+    );
+  }
 
   function reset() {
     setAmount('');
@@ -122,9 +161,11 @@ export function Market() {
             <label htmlFor="market-sort">{t('정렬 기준')}</label>
             <select id="market-sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
               <option value="created">{t('등록순')}</option>
-              <option value="price">{t('유리한 가격순')}</option>
+              <option value="price-asc">{t('가격 낮은순')}</option>
+              <option value="price-desc">{t('가격 높은순')}</option>
+              <option value="amount-desc">{t('수량 많은순')}</option>
+              <option value="amount-asc">{t('수량 적은순')}</option>
               <option value="limit">{t('한도 높은순')}</option>
-              <option value="amount">{t('수량 많은순')}</option>
             </select>
           </div>
           <button type="button" className="link-button reset-button" onClick={reset}>
@@ -141,13 +182,18 @@ export function Market() {
           <span>{t('가격은 수수료가 포함된 금액입니다')}</span>
         </div>
 
-        <div className="market-head" aria-hidden="true">
+        <div className="market-head">
           <span>{t('광고주')}</span>
           <span>
-            {t('가격')}
-            <span className="unit">KRW</span>
+            {sortHeader(
+              'price',
+              <>
+                {t('가격')}
+                <span className="unit">KRW</span>
+              </>,
+            )}
           </span>
-          <span>{t('거래 가능 수량 / 한도')}</span>
+          <span>{sortHeader('amount', t('거래 가능 수량 / 한도'))}</span>
           <span>{t('거래 조건')}</span>
           <span />
         </div>

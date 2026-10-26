@@ -89,3 +89,11 @@ export const WalletIcon = (p: Props) => (
     <path d="M3 10h18M16 15h2" />
   </Icon>
 );
+
+/** Up and down chevrons for a sortable column; `dir` draws only the active one. */
+export const SortIcon = ({ dir, ...p }: Props & { dir?: 'asc' | 'desc' }) => (
+  <Icon {...p}>
+    {dir !== 'desc' && <path d="M8 10l4-4 4 4" />}
+    {dir !== 'asc' && <path d="M8 14l4 4 4-4" />}
+  </Icon>
+);
