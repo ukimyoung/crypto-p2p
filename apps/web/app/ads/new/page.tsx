@@ -8,8 +8,11 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
 import type { PaymentMethod } from '@/lib/types';
-import { ASSETS, AssetCode, feeOn, formatKrw, formatRate, parseUnits } from '@/lib/units';
+import { ASSETS, AssetCode, feeOn, formatKrw, formatRate, orderCost, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
+
+/** Fee the '최대(수수료포함)' button adds on top of the whole ad's value: 5.00%. */
+const MAX_BUTTON_FEE_RATE_BP = 500;
 
 export default function NewAdPage() {
   const { me } = useMe();
@@ -36,6 +39,12 @@ export default function NewAdPage() {
   const finalPrice =
     feeRateBp !== null && /^\d+$/.test(priceInput) && BigInt(priceInput) > 0n
       ? BigInt(priceInput) + feeOn(BigInt(priceInput), feeRateBp)
+      : null;
+
+  const totalUnits = parseUnits(total, ASSETS[asset].decimals);
+  const maxWithFee =
+    /^\d+$/.test(priceInput) && BigInt(priceInput) > 0n && totalUnits
+      ? orderCost(totalUnits, BigInt(priceInput), MAX_BUTTON_FEE_RATE_BP, ASSETS[asset].decimals)
       : null;
 
   useEffect(() => {
@@ -149,7 +158,23 @@ export default function NewAdPage() {
           </div>
           <div>
             <label htmlFor="max">{t('주문당 최대 (원)')}</label>
-            <input id="max" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} required />
+            {side === 'sell' ? (
+              <div className="row" style={{ flexWrap: 'nowrap' }}>
+                <input id="max" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} required />
+                <button
+                  type="button"
+                  className="secondary small"
+                  style={{ whiteSpace: 'nowrap' }}
+                  disabled={maxWithFee === null}
+                  title={maxWithFee === null ? t('가격과 총 수량을 먼저 입력해 주세요.') : undefined}
+                  onClick={() => maxWithFee !== null && setMax(maxWithFee.toString())}
+                >
+                  {t('최대(수수료포함)')}
+                </button>
+              </div>
+            ) : (
+              <input id="max" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} required />
+            )}
           </div>
         </div>
         {side === 'sell' && (

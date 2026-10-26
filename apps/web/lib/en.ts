@@ -198,6 +198,8 @@ export const EN: Record<string, string> = {
   '결제 기한 (분)': 'Payment window (minutes)',
   '주문당 최소 (원)': 'Minimum per order (KRW)',
   '주문당 최대 (원)': 'Maximum per order (KRW)',
+  '최대(수수료포함)': 'Max (incl. fee)',
+  '가격과 총 수량을 먼저 입력해 주세요.': 'Enter the price and total quantity first.',
   '판매 수량만큼 지갑 잔고가 있어야 주문을 받을 수 있습니다.':
     'You need enough coins in your wallet to cover the amount you sell before orders can be filled.',
   '광고 올리기': 'Post ad',
