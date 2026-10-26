@@ -30,8 +30,10 @@
   --header-h: 68px;
 }
 
+/* Dark colours follow the device setting unless the member picked a theme
+   in the header (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0a110e;
     --surface: #111a16;
     --surface-2: #16221d;
@@ -59,6 +61,35 @@
     --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
     --ring: 0 0 0 3px rgba(47, 180, 135, 0.28);
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0a110e;
+  --surface: #111a16;
+  --surface-2: #16221d;
+  --fg: #e6eeea;
+  --fg-soft: #c3d0ca;
+  --muted: #8fa199;
+  --border: #22312b;
+  --border-strong: #2e4038;
+  --accent: #2fb487;
+  --accent-strong: #5fd0a8;
+  --accent-soft: #143127;
+  --accent-fg: #04120c;
+  --gold: #e0b955;
+  --buy: #34c48c;
+  --buy-soft: #12301f;
+  --sell: #ff6b6b;
+  --sell-soft: #3a1a1c;
+  --info: #6ea2ff;
+  --info-soft: #172640;
+  --warn-bg: #33290f;
+  --warn-fg: #ffd57a;
+  --error: #ff8a80;
+  --shadow-sm: none;
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-lg: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
+  --ring: 0 0 0 3px rgba(47, 180, 135, 0.28);
 }
 
 * {
@@ -263,6 +294,47 @@ h2 {
   background: var(--surface-2);
   border-color: var(--border-strong);
   color: var(--fg);
+}
+
+.theme-switch {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg-soft);
+}
+
+.theme-switch:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+/* The icon shows the theme a click switches to: a moon while light, a sun while dark. */
+.theme-switch .icon-sun {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-switch .icon-sun {
+  display: block;
+}
+
+:root[data-theme='dark'] .theme-switch .icon-moon {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-switch .icon-sun {
+    display: block;
+  }
+
+  :root:not([data-theme='light']) .theme-switch .icon-moon {
+    display: none;
+  }
 }
 
 /* Signed-in member's nickname; the logout button drops down on hover or tap. */
