@@ -443,6 +443,7 @@ export const EN: Record<string, string> = {
   '거래 금액': 'Amount',
   '금액 입력': 'Enter amount',
   '정렬 기준': 'Sort by',
+  '등록순': 'Oldest first',
   '유리한 가격순': 'Best price',
   '한도 높은순': 'Highest limit',
   '수량 많은순': 'Most available',

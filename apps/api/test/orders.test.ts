@@ -102,6 +102,27 @@ describe('OrdersService', () => {
     expect(await feeRevenue()).toBe(0n);
   });
 
+  it('lists ads on both sides oldest first, whatever their price', async () => {
+    const created = ['2026-10-01T00:00:03Z', '2026-10-01T00:00:01Z', '2026-10-01T00:00:02Z'];
+    const prices = [PRICE - 1_000n, PRICE + 1_000n, PRICE];
+    for (const side of ['sell', 'buy'] as const) {
+      const ids: string[] = [];
+      for (let i = 0; i < created.length; i++) {
+        const maker = await createUser(db);
+        let paymentMethodId: string | undefined;
+        if (side === 'sell') {
+          await deposit(db, ledger, maker, 'BTC', BTC);
+          paymentMethodId = await addBankAccount(db, payments, maker);
+        }
+        const ad = await ads.create(adInput(maker, { side, priceMinor: prices[i], paymentMethodId }));
+        await db.query('UPDATE ads SET created_at = $2 WHERE id = $1', [ad.id, created[i]]);
+        ids.push(ad.id);
+      }
+      const listed = (await ads.list({ asset: 'BTC', fiat: 'KRW', side, limit: 100 })).map((a) => a.id).filter((id) => ids.includes(id));
+      expect(listed).toEqual([ids[1], ids[2], ids[0]]);
+    }
+  });
+
   it('on a buy ad the taker sells, and the buying maker pays the fee in KRW', async () => {
     const maker = await createUser(db);
     const taker = await createUser(db);
