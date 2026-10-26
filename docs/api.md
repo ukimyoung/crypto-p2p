@@ -53,7 +53,7 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | PUT | `/receiving-addresses/:asset` | O | `{ network, address }`. 코인(BTC·ETH·USDT)의 입금 주소 등록 또는 변경. 네트워크는 BTC `bitcoin`, ETH `ethereum`·`arbitrum`·`base`, USDT `ethereum`·`tron`·`bsc`. 주소 형식은 네트워크별로 검사 (`invalid_address`), 지원하지 않는 네트워크는 `invalid_network` |
 | DELETE | `/receiving-addresses/:asset` | O | |
 
-새 계좌는 처음 등록한 뒤 `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 24시간)가 지나야 광고·주문에 쓸 수 있습니다. 등록된 계좌를 변경하면 기존 계좌의 쿨다운을 이어받으므로 바로 쓸 수 있습니다.
+등록한 계좌는 바로 광고·주문에 쓸 수 있습니다. `PAYMENT_METHOD_COOLDOWN_HOURS`(기본 0)를 설정하면 처음 등록한 계좌는 그 시간이 지나야 쓸 수 있고, 등록된 계좌를 변경하면 기존 계좌의 쿨다운을 이어받습니다.
 
 ## 주문
 

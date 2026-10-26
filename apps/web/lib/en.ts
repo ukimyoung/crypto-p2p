@@ -288,7 +288,8 @@ export const EN: Record<string, string> = {
   '입금받을 계좌를 선택해 주세요.': 'Choose the account to receive payment.',
   '입금 계좌는 1개만 등록할 수 있습니다. 등록된 계좌를 변경해 주세요.':
     'You can register only one account. Change the one you have instead.',
-  '새로 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다.': 'A newly added account can be used after 24 hours.',
+  '이 계좌는 아직 사용할 수 없습니다. 내 계정에서 사용 가능 시각을 확인해 주세요.':
+    'This account cannot be used yet. Check when it becomes available in My account.',
   '사용할 수 없는 계좌입니다.': 'This account cannot be used.',
   '내 광고로는 거래할 수 없습니다.': 'You cannot trade with your own ad.',
   '잔고가 부족합니다.': 'Insufficient balance.',

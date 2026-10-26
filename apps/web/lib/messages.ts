@@ -24,7 +24,7 @@ const ERRORS: Record<string, string> = {
   invalid_bank: '은행 코드는 숫자 3자리입니다.',
   invalid_account: '계좌번호는 숫자 8~20자리입니다.',
   payment_method_required: '입금받을 계좌를 선택해 주세요.',
-  payment_method_cooldown: '새로 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다.',
+  payment_method_cooldown: '이 계좌는 아직 사용할 수 없습니다. 내 계정에서 사용 가능 시각을 확인해 주세요.',
   payment_method_invalid: '사용할 수 없는 계좌입니다.',
   payment_method_exists: '입금 계좌는 1개만 등록할 수 있습니다. 등록된 계좌를 변경해 주세요.',
   self_trade: '내 광고로는 거래할 수 없습니다.',
