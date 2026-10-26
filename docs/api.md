@@ -77,7 +77,7 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | --- | --- | --- | --- |
 | GET | `/wallet/balances` | O | 코인별 `available`, `escrow`, `withdrawalPending` |
 | GET | `/wallet/addresses` | O | 출금 주소 화이트리스트 (코인당 최대 1개, 내 계정 화면에서 관리) |
-| PUT | `/wallet/addresses/:asset` | O | `{ network, address }`. 코인의 출금 주소 등록 또는 변경. 네트워크는 커스터디가 보내는 것만 됨(BTC `bitcoin`, ETH·USDT `ethereum`, 다르면 `invalid_network`). 주소 형식 검사(`invalid_address`). 새로 등록하거나 바꾼 주소는 쿨다운(기본 24시간)을 새로 시작. 같은 주소를 다시 저장하면 그대로 둠 |
+| PUT | `/wallet/addresses/:asset` | O | `{ network, address }`. 코인의 출금 주소 등록 또는 변경. 네트워크는 BTC `bitcoin`, ETH `ethereum`, USDT `ethereum`·`tron`·`bsc` (그 밖은 `invalid_network`). 출금 신청에는 주소의 네트워크가 `network`로 함께 기록됨. 주소 형식 검사(`invalid_address`). 새로 등록하거나 바꾼 주소는 쿨다운(기본 24시간)을 새로 시작. 같은 주소를 다시 저장하면 그대로 둠 |
 | DELETE | `/wallet/addresses/:asset` | O | |
 | GET | `/wallet/withdrawals` | O | 내 출금 내역(최신순)과 코인별 수수료·최소 수량·24시간 한도·사용량 |
 | POST | `/wallet/withdrawals` | O | `{ addressId, amount }`. `amount`는 받을 수량이고 수수료는 별도로 빠짐 |

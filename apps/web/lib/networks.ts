@@ -13,14 +13,15 @@ export const RECEIVING_NETWORKS: Record<string, { value: string; label: string }
   ],
 };
 
-/**
- * Networks custody sends each coin on (the API's `assets.network`). Withdrawals can only go out on
- * these, so the withdrawal address form offers no others.
- */
+/** Networks each coin can be withdrawn on, matching the API's WITHDRAWAL_NETWORKS. */
 export const WITHDRAWAL_NETWORKS: Record<string, { value: string; label: string }[]> = {
   BTC: [{ value: 'bitcoin', label: 'Bitcoin' }],
   ETH: [{ value: 'ethereum', label: 'Ethereum' }],
-  USDT: [{ value: 'ethereum', label: 'Ethereum (ERC-20)' }],
+  USDT: [
+    { value: 'ethereum', label: 'Ethereum (ERC-20)' },
+    { value: 'tron', label: 'Tron (TRC-20)' },
+    { value: 'bsc', label: 'BNB Smart Chain (BEP-20)' },
+  ],
 };
 
 export function networkLabel(asset: string, network: string): string {

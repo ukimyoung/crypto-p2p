@@ -37,6 +37,8 @@ export interface Withdrawal {
   id: string;
   userId: string;
   asset: string;
+  /** The network custody must send on, copied from the address like the address itself. */
+  network: string;
   addressId: string;
   address: string;
   amount: bigint;
@@ -58,6 +60,17 @@ export interface WithdrawalLimit {
 }
 
 const DAY_MS = 24 * 3_600_000;
+
+/**
+ * Networks members can withdraw each coin on, first one the default. USDT can go out on Ethereum
+ * (ERC-20), Tron (TRC-20) and BNB Smart Chain (BEP-20); each withdrawal records its network so
+ * custody sends it on the right chain.
+ */
+export const WITHDRAWAL_NETWORKS: Record<string, readonly string[]> = {
+  BTC: ['bitcoin'],
+  ETH: ['ethereum'],
+  USDT: ['ethereum', 'tron', 'bsc'],
+};
 
 const WITHDRAWAL_NOTICES: Partial<Record<WithdrawalStatus, NotificationType>> = {
   approved: 'withdrawal.approved',
@@ -116,9 +129,11 @@ export class WalletService {
     userId: string,
     input: { asset: string; network?: string; address: string },
   ): Promise<WithdrawalAddress> {
-    const network = await this.networkOf(input.asset);
-    if (input.network !== undefined && input.network !== network) {
-      throw new DomainError('invalid_network', `${input.asset} withdrawals go out on ${network} only`);
+    await this.assertWithdrawable(input.asset);
+    const networks = WITHDRAWAL_NETWORKS[input.asset] ?? [];
+    const network = input.network ?? networks[0]!;
+    if (!networks.includes(network)) {
+      throw new DomainError('invalid_network', `${input.asset} withdrawals cannot go out on ${network}`);
     }
     const address = normalizeAddress(network, input.address);
 
@@ -244,10 +259,19 @@ export class WalletService {
       }
 
       const { rows } = await tx.query(
-        `INSERT INTO withdrawals (user_id, asset, address_id, address, amount, fee, status, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 'requested', $7, $7)
+        `INSERT INTO withdrawals (user_id, asset, network, address_id, address, amount, fee, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested', $8, $8)
          RETURNING *`,
-        [userId, address.asset, address.id, address.address, amount.toString(), rules.fee.toString(), this.now()],
+        [
+          userId,
+          address.asset,
+          address.network,
+          address.id,
+          address.address,
+          amount.toString(),
+          rules.fee.toString(),
+          this.now(),
+        ],
       );
       let withdrawal = toWithdrawal(rows[0]);
       await this.ledger.post(tx, {
@@ -380,12 +404,10 @@ export class WalletService {
     });
   }
 
-  private async networkOf(asset: string): Promise<string> {
-    const { rows } = await this.db.query<{ network: string }>('SELECT network FROM assets WHERE code = $1', [asset]);
-    if (!rows[0] || (await loadWithdrawalRules(this.db, asset)).length === 0) {
+  private async assertWithdrawable(asset: string): Promise<void> {
+    if (!WITHDRAWAL_NETWORKS[asset] || (await loadWithdrawalRules(this.db, asset)).length === 0) {
       throw new DomainError('asset_unsupported', `${asset} withdrawals are not supported`);
     }
-    return rows[0].network;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -408,6 +430,7 @@ function toWithdrawal(row: any): Withdrawal {
     id: row.id,
     userId: row.user_id,
     asset: row.asset,
+    network: row.network,
     addressId: row.address_id,
     address: row.address,
     amount: BigInt(row.amount),

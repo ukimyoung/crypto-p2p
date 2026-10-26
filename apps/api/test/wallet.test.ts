@@ -122,13 +122,27 @@ describe('wallet', () => {
         code: 'address_invalid',
       });
 
-      // A bitcoin address is no good for an ethereum asset, and USDT goes out on Ethereum only.
+      // A bitcoin address is no good for an ethereum asset, and each coin goes out on its own networks.
       await expect(wallet.setAddress(userId, { asset: 'ETH', address: BECH32 })).rejects.toMatchObject({
         code: 'invalid_address',
       });
       await expect(
-        wallet.setAddress(userId, { asset: 'USDT', network: 'tron', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }),
+        wallet.setAddress(userId, { asset: 'ETH', network: 'tron', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }),
       ).rejects.toMatchObject({ code: 'invalid_network' });
+      await expect(wallet.setAddress(userId, { asset: 'USDT', network: 'tron', address: ETH_ADDRESS })).rejects.toMatchObject({
+        code: 'invalid_address',
+      });
+      const tron = await wallet.setAddress(userId, {
+        asset: 'USDT',
+        network: 'tron',
+        address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      });
+      expect(tron).toMatchObject({ network: 'tron' });
+      expect(await wallet.setAddress(userId, { asset: 'USDT', network: 'bsc', address: ETH_ADDRESS })).toMatchObject({
+        network: 'bsc',
+        address: ETH_ADDRESS.toLowerCase(),
+      });
+      await wallet.removeAddress(userId, 'USDT');
 
       await wallet.removeAddress(userId, 'BTC');
       expect(await wallet.listAddresses(userId)).toEqual([]);
@@ -140,6 +154,9 @@ describe('wallet', () => {
       expect(audit.rows.map((r) => r.action)).toEqual([
         'withdrawal_address.add',
         'withdrawal_address.change',
+        'withdrawal_address.add',
+        'withdrawal_address.change',
+        'withdrawal_address.remove',
         'withdrawal_address.remove',
       ]);
     });
@@ -149,7 +166,7 @@ describe('wallet', () => {
     it('auto-approves small withdrawals and locks amount plus fee', async () => {
       const { userId, addressId } = await funded();
       const w = await wallet.requestWithdrawal(userId, addressId, BTC / 100n);
-      expect(w).toMatchObject({ status: 'approved', amount: BTC / 100n, fee: FEE, address: BECH32 });
+      expect(w).toMatchObject({ status: 'approved', amount: BTC / 100n, fee: FEE, address: BECH32, network: 'bitcoin' });
       expect(await available(userId)).toBe(BTC - BTC / 100n - FEE);
       expect(await pending(userId)).toBe(BTC / 100n + FEE);
 
