@@ -52,6 +52,8 @@ const ERRORS: Record<string, string> = {
   kyc_unavailable: '본인 인증을 아직 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   kyc_provider_error: '본인 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.',
   kyc_rejected: '본인 인증이 최종 거절되었습니다. 자세한 내용은 고객센터에 문의해 주세요.',
+  last_administrator: '활성 administrator가 적어도 한 명은 남아 있어야 합니다.',
+  cannot_change_self: '내 역할과 상태는 다른 administrator가 바꿔야 합니다. 내 계정도 직접 삭제할 수 없습니다.',
   fee_overdue: '연체된 광고 수수료가 있어 새 광고를 올릴 수 없습니다. 수수료 청구 화면을 확인해 주세요.',
 };
 
@@ -92,8 +94,8 @@ export const INVOICE_STATUS: Record<string, string> = {
 };
 
 export const OPERATOR_ROLE: Record<string, string> = {
-  reviewer: '심사',
-  admin: '관리자',
+  reviewer: 'reviewer',
+  administrator: 'administrator',
 };
 
 /** A few common Korean bank codes (KFTC). */

@@ -32,15 +32,15 @@ export function AuditTable({ entries, names }: { entries: AuditEntry[]; names: R
                 {e.targetType} {e.targetId.slice(0, 8)}
               </td>
               <td>
-                {/* Settings changes show the old values too, so the change can be read in one place. */}
-                {e.action.startsWith('settings.') && e.before ? (
+                {/* Settings and operator changes show the old values too, so the change can be read in one place. */}
+                {(e.action.startsWith('settings.') || e.action.startsWith('operator.')) && e.before ? (
                   <>
                     <div className="muted small-text">변경 전</div>
                     <pre className="json">{JSON.stringify(e.before, null, 1)}</pre>
-                    <div className="muted small-text">변경 후</div>
+                    {e.after ? <div className="muted small-text">변경 후</div> : null}
                   </>
                 ) : null}
-                {e.after ? <pre className="json">{JSON.stringify(e.after, null, 1)}</pre> : '-'}
+                {e.after ? <pre className="json">{JSON.stringify(e.after, null, 1)}</pre> : e.before ? null : '-'}
               </td>
             </tr>
           ))}

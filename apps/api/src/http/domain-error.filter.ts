@@ -25,6 +25,8 @@ const STATUS: Record<string, number> = {
   address_exists: 409,
   payment_method_exists: 409,
   invalid_transition: 409,
+  last_administrator: 409,
+  cannot_change_self: 409,
   too_many_attempts: 429,
   signup_link_expired: 410,
   email_unavailable: 503,

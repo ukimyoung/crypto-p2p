@@ -18,7 +18,8 @@ export const DEMO_TESTERS = [
   { email: 'tester2@demo.test', nickname: '테스터2', legalName: '최테스트', firstName: '테스트', lastName: '최', phone: '+821055550002' },
 ] as const;
 
+/** The first one is the administrator, who also manages operator accounts. */
 export const DEMO_OPERATORS = [
-  { email: 'reviewer1@demo.test', name: '김심사', role: 'reviewer', otpSecret: 'DEMOREVIEWERONEDEMOREVIEWERONE22' },
+  { email: 'reviewer1@demo.test', name: '김심사', role: 'administrator', otpSecret: 'DEMOREVIEWERONEDEMOREVIEWERONE22' },
   { email: 'reviewer2@demo.test', name: '박심사', role: 'reviewer', otpSecret: 'DEMOREVIEWERTWODEMOREVIEWERTWO22' },
 ] as const;

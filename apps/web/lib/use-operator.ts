@@ -24,8 +24,8 @@ export function useOperator() {
   return { operator, reload };
 }
 
-/** Admins also manage markets, notices and operator accounts. */
-export const isAdmin = (operator: Operator | null | undefined) => operator?.role === 'admin';
+/** Administrators also manage markets, billing runs and operator accounts. */
+export const isAdmin = (operator: Operator | null | undefined) => operator?.role === 'administrator';
 
 /**
  * Runs a console action. Moving money and changing limits need a fresh OTP code:

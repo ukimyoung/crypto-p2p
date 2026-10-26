@@ -147,9 +147,28 @@ export interface Operator {
   id: string;
   email: string;
   name: string;
-  role: 'reviewer' | 'admin';
+  role: OperatorRole;
   /** Sensitive actions are unlocked until this time. */
   stepUpUntil: string | null;
+}
+
+export type OperatorRole = 'reviewer' | 'administrator';
+
+/** An operator account on the operator management page. */
+export interface OperatorAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: OperatorRole;
+  status: 'active' | 'disabled';
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+/** The OTP secret for a new or reset operator account, shown once. */
+export interface OperatorOtp {
+  otpSecret: string;
+  otpauthUrl: string;
 }
 
 export interface UserSummary {

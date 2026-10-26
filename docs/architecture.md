@@ -72,8 +72,9 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 ## 운영 콘솔
 
 - 운영자는 `operators` 테이블에 따로 있고 세션(`operator_sessions`, 기본 8시간)과 로그인 기록도 이용자와 분리합니다. 이용자 토큰은 `/ops`에서, 운영자 토큰은 이용자 API에서 통하지 않습니다. 웹도 쿠키를 따로 씁니다(`p2p_ops_session`).
-- 로그인할 때마다 OTP가 필요하고, 계정은 CLI로만 만듭니다.
-- 역할은 `reviewer`와 `admin` 둘입니다. 2인 승인은 없고 reviewer 한 명이 바로 처리합니다.
+- 로그인할 때마다 OTP가 필요합니다. 계정은 운영 콘솔의 관리자 관리(administrator만)나 CLI로 만들고, 새 계정의 OTP 비밀키는 만들 때 한 번만 보여 줍니다.
+- 역할은 `reviewer`와 `administrator` 둘입니다. administrator는 reviewer 권한에 더해 마켓 상태, 청구 실행, 운영자 계정(등록, 수정, 역할 변경, 사용 중지, 삭제, 비밀번호·OTP 재설정)을 관리합니다. 2인 승인은 없고 reviewer 한 명이 바로 처리합니다.
+- 활성 administrator가 적어도 한 명은 남아야 합니다. 마지막 administrator를 내리거나 멈추거나 지울 수 없고, 자기 역할·상태는 다른 administrator가 바꿉니다. 삭제한 운영자는 `status = 'deleted'`로 남겨 감사 로그와 지난 결정에 이름이 계속 보입니다.
 - 분쟁 해결은 reviewer가 사유와 함께 결정하면 같은 트랜잭션에서 주문을 `completed`/`cancelled`로 바꾸고 에스크로를 옮긴 뒤 `dispute_resolutions`에 기록합니다.
 - 분쟁 결정, 출금 승인, 출금 한도 변경, 계정 해지는 재확인(step-up)이 필요합니다. 새 OTP 코드를 넣으면 그 세션의 `step_up_until`이 5분 뒤로 잡힙니다. 코드는 로그인과 같은 카운터를 써서 한 번만 쓸 수 있습니다.
 - 설정 변경은 감사 로그에 변경 전·후 값을 함께 남깁니다. 감사 로그의 `target_id`는 회원·주문 ID뿐 아니라 코인 코드 같은 설정 키도 담도록 text입니다.
@@ -107,7 +108,7 @@ PRD 6.4가 없어서 아래 상태는 PRD 5장의 흐름을 바탕으로 정했�
 
 - 마켓은 `markets`(코인 × 법정화폐)에 `open`, `paused`, `closed` 상태로 있습니다. `open`이 아니면 새 광고와 새 주문을 막고(`market_unavailable`) 마켓 목록에서 광고를 숨깁니다. 진행 중인 주문은 그대로 끝까지 갑니다.
 - 코인 상태(`assets.status`): `ads_paused`는 새 광고만, `withdrawals_paused`는 새 출금만(`withdrawals_paused`) 막습니다. `delisted`는 새 광고, 주문, 출금을 모두 막습니다.
-- 바꾸는 것은 관리자(admin)만 할 수 있고, 사유와 전·후 상태가 감사 로그에 남습니다.
+- 바꾸는 것은 administrator만 할 수 있고, 사유와 전·후 상태가 감사 로그에 남습니다.
 
 ## 운영 콘솔의 개인정보
 

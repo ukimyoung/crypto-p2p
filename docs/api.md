@@ -132,8 +132,8 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | GET | `/ops/orders?status=&asset=&userId=&from=&to=&page=&pageSize=` | 모두 | 전체 주문, 최신순 |
 | GET | `/ops/orders/:id` | 모두 | 주문, 상태 이력, 채팅, 원장 분개 |
 | GET | `/ops/markets` | 모두 | 코인 상태와 마켓(코인 × 법정화폐) 상태, 노출 광고·진행 중 주문 수 |
-| PUT | `/ops/markets/:asset/:fiat` | admin | `{ status: open \| paused \| closed, reason }`. 멈추면 새 광고·주문을 막고 마켓 목록에서 숨김 |
-| PUT | `/ops/markets/assets/:code` | admin | `{ status: active \| ads_paused \| withdrawals_paused \| delisted, reason }` |
+| PUT | `/ops/markets/:asset/:fiat` | administrator | `{ status: open \| paused \| closed, reason }`. 멈추면 새 광고·주문을 막고 마켓 목록에서 숨김 |
+| PUT | `/ops/markets/assets/:code` | administrator | `{ status: active \| ads_paused \| withdrawals_paused \| delisted, reason }` |
 | POST | `/ops/users/:id/status` | reviewer | `{ status, reason }`. `closed`는 모든 세션을 끊고 step-up 필요 |
 | GET | `/ops/settings/withdrawal-rules` | 모두 | 코인별 출금 수수료, 최소 수량, 자동 승인 기준, KYC 단계별 24시간 한도 |
 | PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 키는 KYC 0 또는 1, 빠진 단계는 출금 불가. step-up 필요 |
@@ -147,6 +147,11 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | GET | `/ops/fee-invoices?status=&makerId=&page=` | 모두 | 청구서 목록, 20건씩 |
 | GET | `/ops/fee-invoices/:id` | 모두 | 청구서, 포함된 주문, 납부 내역 |
 | POST | `/ops/fee-invoices/:id/payments` | reviewer | `{ amountMinor, paidAt, memo }`. 시스템 밖 입금을 기록. step-up 필요 |
-| POST | `/ops/fees/run-billing` | admin | 청구 작업을 바로 실행 |
+| POST | `/ops/fees/run-billing` | administrator | 청구 작업을 바로 실행 |
+| GET | `/ops/operators` | administrator | 삭제되지 않은 운영자 계정(이메일, 이름, 역할, 상태, 마지막 로그인) |
+| POST | `/ops/operators` | administrator | `{ email, name, role: reviewer \| administrator, password }`. 응답의 `otpSecret`·`otpauthUrl`은 이때 한 번만 나옴. step-up 필요 |
+| PUT | `/ops/operators/:id` | administrator | `{ name?, role?, status?: active \| disabled }`. 사용 중지하면 세션을 끊음. 자기 역할·상태는 못 바꾸고(`cannot_change_self`), 마지막 활성 administrator는 내리거나 멈출 수 없음(`last_administrator`). step-up 필요 |
+| DELETE | `/ops/operators/:id` | administrator | 계정 삭제(행은 감사 로그용으로 남고 이메일은 다시 등록 가능). 자기 자신과 마지막 활성 administrator는 불가. step-up 필요 |
+| POST | `/ops/operators/:id/reset-credentials` | administrator | `{ password }`. 새 비밀번호와 새 OTP 비밀키를 정하고 세션을 끊음. `otpSecret`·`otpauthUrl`은 한 번만 나옴. step-up 필요 |
 | GET | `/ops/audit?targetId=&actorId=` | 모두 | 최근 100건. `targetId`는 회원·주문 ID나 코인 코드 |
 
