@@ -116,8 +116,8 @@ export const EN: Record<string, string> = {
   '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 처음 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다. 등록된 계좌를 변경하면 바로 사용할 수 있습니다.':
     'When you sell coins, buyers pay into this account. You can register one account in your own name. It can be used 24 hours after you first add it, and right away after you change it.',
   '계좌 변경': 'Change account',
-  '입금받을 암호화폐 주소': 'Crypto addresses for receiving coins',
-  '출금 주소': 'Withdrawal addresses',
+  '입금주소 관리': 'Manage deposit addresses',
+  '출금주소 관리': 'Manage withdrawal addresses',
   '내 지갑에서 출금하면 코인별로 등록한 이 주소와 네트워크로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다.':
     'Withdrawals from My wallet go only to the address and network registered here for each coin. To prevent theft, a new or changed address can receive withdrawals after 24 hours.',
   '{asset} 출금 주소 변경': 'Change {asset} withdrawal address',
