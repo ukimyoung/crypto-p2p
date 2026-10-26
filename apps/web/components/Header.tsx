@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { LOCALE_COOKIE } from '@/lib/locale';
@@ -74,9 +74,7 @@ export function Header() {
               <Link href="/account" className={active('/account')}>
                 {t('내 계정')}
               </Link>
-              <button type="button" className="link-button" onClick={logout} style={{ padding: '8px 10px' }}>
-                {t('로그아웃')}
-              </button>
+              <UserMenu nickname={me.nickname} onLogout={logout} />
             </>
           )}
           {me === null && (
@@ -102,6 +100,51 @@ export function Header() {
         </div>
       </nav>
     </header>
+  );
+}
+
+/**
+ * The signed-in member's nickname. Hovering it (or tapping it on a touch
+ * screen) shows the logout button.
+ */
+function UserMenu({ nickname, onLogout }: { nickname: string; onLogout: () => void }) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={open ? 'user-menu open' : 'user-menu'}>
+      <button
+        type="button"
+        className="user-menu-trigger"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="user-menu-name">{nickname}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      <div className="user-menu-pop">
+        <button type="button" className="user-menu-item" onClick={onLogout}>
+          {t('로그아웃')}
+        </button>
+      </div>
+    </div>
   );
 }
 

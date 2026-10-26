@@ -265,6 +265,94 @@ h2 {
   color: var(--fg);
 }
 
+/* Signed-in member's nickname; the logout button drops down on hover or tap. */
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.user-menu-trigger:hover:not(:disabled),
+.user-menu.open .user-menu-trigger {
+  background: var(--surface-2);
+  color: var(--fg);
+  transform: none;
+}
+
+.user-menu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-trigger svg {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.user-menu.open .user-menu-trigger svg {
+  transform: rotate(180deg);
+}
+
+/* padding-top bridges the gap so the pointer can move onto the menu. */
+.user-menu-pop {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  padding-top: 6px;
+}
+
+.user-menu.open .user-menu-pop {
+  display: block;
+}
+
+@media (hover: hover) {
+  .user-menu:hover .user-menu-pop {
+    display: block;
+  }
+
+  .user-menu:hover .user-menu-trigger svg {
+    transform: rotate(180deg);
+  }
+}
+
+.user-menu-item {
+  display: block;
+  min-width: 120px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.user-menu-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--error);
+  transform: none;
+}
+
 @media (max-width: 860px) {
   .nav {
     padding: 10px 16px;
