@@ -113,8 +113,8 @@ export const EN: Record<string, string> = {
   미완료: 'Not done',
   미등록: 'Not set up',
   '입금받을 계좌': 'Account for receiving payment',
-  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있고, 처음 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다. 등록된 계좌를 변경하면 바로 사용할 수 있습니다.':
-    'When you sell coins, buyers pay into this account. You can register one account in your own name. It can be used 24 hours after you first add it, and right away after you change it.',
+  '코인을 팔 때 구매자가 이 계좌로 입금합니다. 본인 명의 계좌 1개만 등록할 수 있습니다.':
+    'When you sell coins, buyers pay into this account. You can register one account in your own name.',
   '계좌 변경': 'Change account',
   '입금주소 관리': 'Manage deposit addresses',
   '출금주소 관리': 'Manage withdrawal addresses',
@@ -288,7 +288,8 @@ export const EN: Record<string, string> = {
   '입금받을 계좌를 선택해 주세요.': 'Choose the account to receive payment.',
   '입금 계좌는 1개만 등록할 수 있습니다. 등록된 계좌를 변경해 주세요.':
     'You can register only one account. Change the one you have instead.',
-  '새로 등록한 계좌는 24시간 뒤부터 사용할 수 있습니다.': 'A newly added account can be used after 24 hours.',
+  '이 계좌는 아직 사용할 수 없습니다. 내 계정에서 사용 가능 시각을 확인해 주세요.':
+    'This account cannot be used yet. Check when it becomes available in My account.',
   '사용할 수 없는 계좌입니다.': 'This account cannot be used.',
   '내 광고로는 거래할 수 없습니다.': 'You cannot trade with your own ad.',
   '잔고가 부족합니다.': 'Insufficient balance.',

@@ -4,7 +4,7 @@ import { DomainError } from '../common/errors';
 import { Db, Tx, withTransaction } from '../db/database';
 
 export interface PaymentMethodsConfig {
-  /** Hours before a newly added account can receive payments (anti-fraud cooldown). */
+  /** Hours before a newly added account can receive payments (anti-fraud cooldown). 0 by default. */
   cooldownHours: number;
 }
 

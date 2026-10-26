@@ -32,7 +32,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: Number(env.PORT ?? 3000),
     otpEncryptionKey,
     sessionTtlHours: Number(env.SESSION_TTL_HOURS ?? 12),
-    paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 24),
+    paymentMethodCooldownHours: Number(env.PAYMENT_METHOD_COOLDOWN_HOURS ?? 0),
     orderExpiryIntervalSeconds: Number(env.ORDER_EXPIRY_INTERVAL_SECONDS ?? 30),
     addressCooldownHours: Number(env.ADDRESS_COOLDOWN_HOURS ?? 24),
     opsSessionTtlHours: Number(env.OPS_SESSION_TTL_HOURS ?? 8),
