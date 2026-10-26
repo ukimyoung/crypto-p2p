@@ -8,7 +8,7 @@ import { OrderChatService } from '../orders/order-chat.service';
 import { OrdersService } from '../orders/orders.service';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
 import { WalletService } from '../wallet/wallet.service';
-import { DEMO_OPERATORS, DEMO_PASSWORD, DEMO_TESTERS, DEMO_USERS } from './accounts';
+import { DEMO_OPERATORS, DEMO_PASSWORD, DEMO_TESTERS, DEMO_USERS, DemoTester } from './accounts';
 
 const BTC = 100_000_000n;
 const USDT = 1_000_000n;
@@ -56,22 +56,44 @@ async function addTesters(db: Db, secrets: SecretBox) {
       [u.email, await hashPassword(u.password ?? DEMO_PASSWORD), u.phone, u.legalName, u.nickname, u.firstName, u.lastName],
     );
     const id = rows[0]?.id;
-    if (!id) continue;
-    for (const [asset, amount] of [['BTC', u.btc], ['USDT', u.usdt]] as const) {
-      if (amount) await deposit(db, ledger, id, asset, amount);
+    if (id) {
+      for (const [asset, amount] of [['BTC', u.btc], ['USDT', u.usdt]] as const) {
+        if (amount) await deposit(db, ledger, id, asset, amount);
+      }
+      if (u.bank) {
+        await payments.addBankAccount(id, { fiat: 'KRW', bankCode: u.bank.bankCode, accountHolder: u.legalName, accountNumber: u.bank.accountNumber });
+      }
+      console.log(`Demo tester ${u.email} created`);
     }
-    if (u.bank) {
-      await payments.addBankAccount(id, { fiat: 'KRW', bankCode: u.bank.bankCode, accountHolder: u.legalName, accountNumber: u.bank.accountNumber });
+    await topUp(db, ledger, u);
+  }
+}
+
+/** Adds the tester's top-ups not added yet. */
+async function topUp(db: Db, ledger: LedgerService, u: DemoTester) {
+  if (!u.topUps?.length) return;
+  const { rows } = await db.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [u.email]);
+  const userId = rows[0]?.id;
+  if (!userId) return;
+  for (const t of u.topUps) {
+    for (const [asset, amount] of Object.entries(t.amounts)) {
+      if (amount) await deposit(db, ledger, userId, asset, amount, `demo-top-up:${t.id}:${userId}:${asset}`);
     }
-    console.log(`Demo tester ${u.email} created`);
   }
 }
 
 /** Stands in for on-chain deposits until the custody integration exists. */
-function deposit(db: Db, ledger: LedgerService, userId: string, asset: string, amount: bigint) {
+function deposit(
+  db: Db,
+  ledger: LedgerService,
+  userId: string,
+  asset: string,
+  amount: bigint,
+  idempotencyKey = `demo-deposit:${userId}:${asset}`,
+) {
   return withTransaction(db, (tx) =>
     ledger.post(tx, {
-      idempotencyKey: `demo-deposit:${userId}:${asset}`,
+      idempotencyKey,
       kind: 'deposit',
       postings: [
         { account: { system: 'custody', asset }, amount: -amount },
