@@ -36,25 +36,49 @@ async function main() {
       await seed(db, secrets);
       console.log('Demo data created');
     }
-    await addTesters(db);
+    await addTesters(db, secrets);
   } finally {
     await db.end();
   }
 }
 
-/** Adds the empty tester accounts that are missing. Skips one whose email, phone or nickname is taken. */
-async function addTesters(db: Db) {
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
+/** Adds the tester accounts that are missing. Skips one whose email, phone or nickname is taken. */
+async function addTesters(db: Db, secrets: SecretBox) {
+  const ledger = new LedgerService();
+  const payments = new PaymentMethodsService(db, secrets, { cooldownHours: 0 });
   for (const u of DEMO_TESTERS) {
-    const { rowCount } = await db.query(
+    const { rows } = await db.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, phone, phone_country, kyc_level, legal_name, nickname,
-                          email_verified_at, first_name, last_name)
-       VALUES ($1, $2, $3, 'KR', 1, $4, $5, now(), $6, $7)
-       ON CONFLICT DO NOTHING`,
-      [u.email, passwordHash, u.phone, u.legalName, u.nickname, u.firstName, u.lastName],
+                          first_name, last_name)
+       VALUES ($1, $2, $3, 'KR', 1, $4, $5, $6, $7)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [u.email, await hashPassword(u.password ?? DEMO_PASSWORD), u.phone, u.legalName, u.nickname, u.firstName, u.lastName],
     );
-    if (rowCount) console.log(`Demo tester ${u.email} created`);
+    const id = rows[0]?.id;
+    if (!id) continue;
+    for (const [asset, amount] of [['BTC', u.btc], ['USDT', u.usdt]] as const) {
+      if (amount) await deposit(db, ledger, id, asset, amount);
+    }
+    if (u.bank) {
+      await payments.addBankAccount(id, { fiat: 'KRW', bankCode: u.bank.bankCode, accountHolder: u.legalName, accountNumber: u.bank.accountNumber });
+    }
+    console.log(`Demo tester ${u.email} created`);
   }
+}
+
+/** Stands in for on-chain deposits until the custody integration exists. */
+function deposit(db: Db, ledger: LedgerService, userId: string, asset: string, amount: bigint) {
+  return withTransaction(db, (tx) =>
+    ledger.post(tx, {
+      idempotencyKey: `demo-deposit:${userId}:${asset}`,
+      kind: 'deposit',
+      postings: [
+        { account: { system: 'custody', asset }, amount: -amount },
+        { account: { userId, asset, kind: 'available' }, amount },
+      ],
+    }),
+  );
 }
 
 async function seed(db: Db, secrets: SecretBox) {
@@ -84,21 +108,9 @@ async function seed(db: Db, secrets: SecretBox) {
     );
   }
 
-  // Stands in for on-chain deposits until the custody integration exists.
-  const deposit = (userId: string, asset: string, amount: bigint) =>
-    withTransaction(db, (tx) =>
-      ledger.post(tx, {
-        idempotencyKey: `demo-deposit:${userId}:${asset}`,
-        kind: 'deposit',
-        postings: [
-          { account: { system: 'custody', asset }, amount: -amount },
-          { account: { userId, asset, kind: 'available' }, amount },
-        ],
-      }),
-    );
-  await deposit(seller, 'BTC', 2n * BTC);
-  await deposit(seller, 'USDT', 20_000n * USDT);
-  await deposit(buyer, 'BTC', BTC / 2n);
+  await deposit(db, ledger, seller, 'BTC', 2n * BTC);
+  await deposit(db, ledger, seller, 'USDT', 20_000n * USDT);
+  await deposit(db, ledger, buyer, 'BTC', BTC / 2n);
 
   const sellerBank = await payments.addBankAccount(seller, {
     fiat: 'KRW',
