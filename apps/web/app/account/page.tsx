@@ -512,7 +512,7 @@ function ReceivingAddresses() {
   const { t } = useT();
   return (
     <AddressSection
-      title={t('입금받을 암호화폐 주소')}
+      title={t('입금주소 관리')}
       description={t(
         '코인별로 받을 주소를 1개씩 등록할 수 있습니다. 먼저 네트워크를 고르고 그 네트워크의 주소를 입력하세요. 네트워크가 다르면 코인을 잃을 수 있으니 받는 지갑의 네트워크를 꼭 확인해 주세요.',
       )}
@@ -532,7 +532,7 @@ function WithdrawalAddresses() {
   const { t } = useT();
   return (
     <AddressSection
-      title={t('출금 주소')}
+      title={t('출금주소 관리')}
       description={t(
         '내 지갑에서 출금하면 코인별로 등록한 이 주소와 네트워크로만 보냅니다. 새로 등록하거나 바꾼 주소는 도용 피해를 막기 위해 24시간 뒤부터 출금할 수 있습니다.',
       )}
