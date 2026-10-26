@@ -21,9 +21,20 @@ export interface DemoTester {
   /** Starting balance in the smallest unit (satoshi, micro-USDT). */
   btc?: bigint;
   usdt?: bigint;
+  /**
+   * Coins added on top, also to an account created earlier. Each top-up is added once, recognised
+   * by its id, so a restart does not add it again; a new request needs a new id.
+   */
+  topUps?: { id: string; amounts: Partial<Record<'BTC' | 'ETH' | 'USDT', bigint>> }[];
   /** A KRW account in the member's legal name, usable at once. */
   bank?: { bankCode: string; accountNumber: string };
 }
+
+/** 10,000 USDT, 100 BTC and 100 ETH for QA testing. */
+const QA_TOP_UP = {
+  id: 'qa-2026-10-26',
+  amounts: { USDT: 10_000_000_000n, BTC: 10_000_000_000n, ETH: 100_000_000_000_000_000_000n },
+};
 
 /**
  * Members past KYC, so they can trade right away. tester1 and tester2 start empty (no balance,
@@ -42,6 +53,7 @@ export const DEMO_TESTERS: DemoTester[] = [
     phone: '+821055550003',
     password: 'test12!@',
     bank: { bankCode: '088', accountNumber: '110123456789' },
+    topUps: [QA_TOP_UP],
   },
   {
     email: 'seller2@demo.test',
@@ -54,6 +66,7 @@ export const DEMO_TESTERS: DemoTester[] = [
     btc: 100_000_000n,
     usdt: 10_000_000_000n,
     bank: { bankCode: '004', accountNumber: '987654321098' },
+    topUps: [QA_TOP_UP],
   },
 ];
 
