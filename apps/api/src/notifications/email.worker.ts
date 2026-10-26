@@ -17,7 +17,7 @@ export interface EmailSender {
 
 /**
  * Used when no Resend API key is set (local development, the hosted demo): writes the
- * message to the log instead of sending it, so a signup link can be copied from there.
+ * message to the log instead of sending it.
  */
 export class LogEmailSender implements EmailSender {
   private readonly logger = new Logger('Email');

@@ -41,8 +41,8 @@ async function forward(req: NextRequest, { params }: { params: Promise<{ path: s
     cache: 'no-store',
   });
 
-  // Opening the signup link logs the new member in, like a login.
-  if ((path === 'auth/login' || path === 'auth/signup/verify' || path === 'ops/auth/login') && upstream.ok) {
+  // Signing up logs the new member in, like a login.
+  if ((path === 'auth/login' || path === 'auth/signup' || path === 'ops/auth/login') && upstream.ok) {
     const { token: newToken, ...rest } = (await upstream.json()) as { token: string };
     const res = NextResponse.json({ ok: true, ...rest });
     res.cookies.set(cookieName, newToken, {

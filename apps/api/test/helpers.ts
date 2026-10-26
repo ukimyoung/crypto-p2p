@@ -87,7 +87,7 @@ export function testSecretBox(): SecretBox {
   return new SecretBox(randomBytes(32).toString('base64'));
 }
 
-/** Keeps sent emails in memory so tests can open the links in them. */
+/** Keeps sent emails in memory so tests can check them. */
 export class MemoryEmailSender implements EmailSender {
   sent: EmailMessage[] = [];
   fail = false;
@@ -96,23 +96,9 @@ export class MemoryEmailSender implements EmailSender {
     if (this.fail) throw new Error('mail server down');
     this.sent.push(message);
   }
-
-  /** The token in the latest signup link sent to `email`. */
-  signupToken(email: string): string {
-    const message = this.sent.filter((m) => m.to === email.toLowerCase()).at(-1);
-    const token = message?.body.match(/\/signup\/verify\?token=([\w-]+)/)?.[1];
-    if (!token) throw new Error(`No signup link was sent to ${email}`);
-    return token;
-  }
 }
 
-/** Signs a member up and opens the emailed link, as a new member does. */
-export async function signUpConfirmed(
-  auth: AuthService,
-  mail: MemoryEmailSender,
-  email: string,
-  password: string,
-): Promise<Me> {
-  await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname(), ...NAME });
-  return (await auth.completeSignUp(mail.signupToken(email), {})).user;
+/** Signs a member up through the service, as the signup form does. */
+export async function signUpMember(auth: AuthService, email: string, password: string): Promise<Me> {
+  return (await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname(), ...NAME }, {})).user;
 }
