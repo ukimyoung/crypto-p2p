@@ -13,7 +13,7 @@ import { ASSETS, AssetCode, fiatFor, formatKrw, formatRate, formatUnits, orderCo
 import { useMe } from '@/lib/use-me';
 
 type Mode = 'buy' | 'sell';
-type Sort = 'price' | 'limit' | 'amount';
+type Sort = 'created' | 'price' | 'limit' | 'amount';
 
 /** The marketplace panel: buy/sell tabs, filters and the ad list. Used on the landing page and the market page. */
 export function Market() {
@@ -22,7 +22,7 @@ export function Market() {
   const [mode, setMode] = useState<Mode>('buy');
   const [asset, setAsset] = useState<AssetCode>('BTC');
   const [amount, setAmount] = useState('');
-  const [sort, setSort] = useState<Sort>('price');
+  const [sort, setSort] = useState<Sort>('created');
   const [ads, setAds] = useState<Ad[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openAd, setOpenAd] = useState<string | null>(null);
@@ -59,6 +59,8 @@ export function Market() {
     });
     const cmp = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);
     return list.sort((a, b) => {
+      // The API lists the oldest ad first; the sort is stable, so returning 0 keeps that order.
+      if (sort === 'created') return 0;
       if (sort === 'limit') return cmp(BigInt(b.maxOrderFiatMinor), BigInt(a.maxOrderFiatMinor));
       if (sort === 'amount') return cmp(BigInt(b.remainingAmount), BigInt(a.remainingAmount));
       // Buyers want the lowest price, sellers the highest.
@@ -68,7 +70,7 @@ export function Market() {
 
   function reset() {
     setAmount('');
-    setSort('price');
+    setSort('created');
   }
 
   return (
@@ -119,6 +121,7 @@ export function Market() {
           <div>
             <label htmlFor="market-sort">{t('정렬 기준')}</label>
             <select id="market-sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+              <option value="created">{t('등록순')}</option>
               <option value="price">{t('유리한 가격순')}</option>
               <option value="limit">{t('한도 높은순')}</option>
               <option value="amount">{t('수량 많은순')}</option>

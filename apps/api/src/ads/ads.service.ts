@@ -99,9 +99,8 @@ export class AdsService {
 
   /**
    * Market list (AD-1). `side` is the maker's side: a buyer browses `sell` ads.
-   * Best price first: cheapest sell ads, highest buy ads. One market has one fee rate,
-   * so ordering by the maker's price orders by the final price too. Ads of makers with
-   * an overdue fee invoice are left out (FEE-8).
+   * Oldest ad first on both sides, with the id breaking ties so the order is stable.
+   * Ads of makers with an overdue fee invoice are left out (FEE-8).
    */
   async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<MarketAd[]> {
     const feeRateBp = await currentFeeRate(this.db, filter.asset, filter.fiat);
@@ -109,7 +108,7 @@ export class AdsService {
       `SELECT ads.*, u.nickname AS maker_nickname FROM ads JOIN users u ON u.id = ads.maker_id
        WHERE asset = $1 AND fiat = $2 AND side = $3 AND ads.status = 'online' AND remaining_amount > 0
          AND ${NOT_ON_FEE_HOLD('ads')} AND ${IN_OPEN_MARKET('ads')}
-       ORDER BY price_minor ${filter.side === 'sell' ? 'ASC' : 'DESC'}, ads.created_at
+       ORDER BY ads.created_at, ads.id
        LIMIT $4`,
       [filter.asset, filter.fiat, filter.side, Math.min(filter.limit ?? 50, 100)],
     );

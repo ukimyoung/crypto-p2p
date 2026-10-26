@@ -37,7 +37,7 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 
 | 메서드 | 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
-| GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 좋은 가격 순. 각 광고에 `feeRateBp`와 수수료를 더한 `finalPriceMinor`. 연체 광고주의 광고는 빠짐 |
+| GET | `/ads?asset=BTC&fiat=KRW&side=sell` | - | 마켓 목록. `side`는 광고주 기준(구매자는 `sell` 광고를 봄). 등록 시간이 오래된 순(같으면 id 순). 각 광고에 `feeRateBp`와 수수료를 더한 `finalPriceMinor`. 연체 광고주의 광고는 빠짐 |
 | GET | `/ads/fee-rate?asset=BTC&fiat=KRW` | - | 마켓의 지금 광고 수수료율 `{ feeRateBp }` (0.01% 단위). 광고 등록 화면의 가격 미리보기용 |
 | POST | `/ads` | O + KYC 1 | `{ side, asset, fiat, priceMinor, totalAmount, minOrderFiatMinor, maxOrderFiatMinor, paymentWindowMinutes?, minTakerKycLevel?, paymentMethodId? }`. 판매 광고는 입금받을 `paymentMethodId` 필수 |
 
