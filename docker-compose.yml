@@ -31,10 +31,9 @@ services:
       PAYMENT_METHOD_COOLDOWN_HOURS: 0
       ADDRESS_COOLDOWN_HOURS: 0
       # Email through Resend. Put these in a `.env` file next to this one (see README "이메일 발송").
-      # Left empty, emails (signup links too) are only written to the api log.
+      # Left empty, emails are only written to the api log.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
-      APP_URL: ${APP_URL:-http://localhost:3001}
       # Identity verification through Sumsub (see README "본인 인증 (Sumsub)"). All four are needed.
       SUMSUB_APP_TOKEN: ${SUMSUB_APP_TOKEN:-}
       SUMSUB_SECRET_KEY: ${SUMSUB_SECRET_KEY:-}

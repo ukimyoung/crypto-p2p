@@ -27,14 +27,10 @@ describe('HTTP API', () => {
     token: string;
   }
 
-  /** Opens the link in the signup email sent to `email`. */
-  const confirm = (email: string) => http().post('/auth/signup/verify').send({ token: mail.signupToken(email) });
-
   async function signUpAndLogin(email: string): Promise<TestUser> {
-    await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(202);
-    const verified = await confirm(email).expect(200);
+    const signedUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(200);
     const login = await http().post('/auth/login').send({ email, password: PASSWORD }).expect(200);
-    return { id: verified.body.user.id, email, token: login.body.token };
+    return { id: signedUp.body.user.id, email, token: login.body.token };
   }
 
   /** A trader who passed KYC level 1 (set directly instead of going through the KYC flow). */
@@ -77,8 +73,7 @@ describe('HTTP API', () => {
     it('validates sign-up input and rejects duplicate emails', async () => {
       const weak = await http().post('/auth/signup').send({ email: 'weak@example.com', password: 'short', ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(400);
       expect(weak.body.error.code).toBe('weak_password');
-      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(202);
-      await confirm('dup@example.com').expect(200);
+      await http().post('/auth/signup').send({ email: 'Dup@Example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(200);
       const dup = await http()
         .post('/auth/signup')
         .send({ email: 'dup@example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME })
@@ -86,69 +81,20 @@ describe('HTTP API', () => {
       expect(dup.body.error.code).toBe('email_taken');
     });
 
-    it('creates the account only when the emailed link is opened', async () => {
-      const email = 'confirm@example.com';
-      const body = { email: 'Confirm@Example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME, locale: 'en' };
-      const res = await http().post('/auth/signup').send(body).expect(202);
-      expect(res.body).toEqual({ email });
-      const sent = mail.sent.at(-1)!;
-      expect(sent.to).toBe(email);
-      expect(sent.subject).toMatch(/Confirm your email/);
-      expect(sent.html).toContain('/signup/verify?token=');
-
-      // Nothing exists yet: no account, no login.
-      expect((await db.query('SELECT 1 FROM users WHERE email = $1', [email])).rowCount).toBe(0);
-      await http().post('/auth/login').send({ email, password: PASSWORD }).expect(401);
-
-      // Submitting again within a minute (a double click, say) updates the details but keeps the link
-      // already sent; so does the resend endpoint, which also stays quiet about unknown addresses.
+    it('creates the account and logs the member in right away', async () => {
+      const email = 'join@example.com';
       const special = 'P@ss!#word$%^&*()-_=+ 123';
-      const sentCount = mail.sent.length;
-      const again = await http().post('/auth/signup').send({ ...body, password: special }).expect(202);
-      expect(again.body).toEqual({ email });
-      await http().post('/auth/signup/resend').send({ email }).expect(204);
-      expect(mail.sent.length).toBe(sentCount);
-      await http().post('/auth/signup/resend').send({ email: 'nobody@example.com' }).expect(204);
-      const count = mail.sent.length;
-
-      // A minute later a new link replaces the old one.
-      const token = mail.signupToken(email);
-      await db.query("UPDATE signup_requests SET sent_at = sent_at - interval '2 minutes' WHERE email = $1", [email]);
-      await http().post('/auth/signup/resend').send({ email }).expect(204);
-      expect(mail.sent.length).toBe(count + 1);
-      const stale = await http().post('/auth/signup/verify').send({ token }).expect(400);
-      expect(stale.body.error.code).toBe('invalid_signup_link');
-
-      const verified = await confirm(email).expect(200);
-      expect(verified.body.token).toEqual(expect.any(String));
-      expect(verified.body.user).toMatchObject({ email, locale: 'en', firstName: 'Gildong', lastName: 'Hong' });
-      const me = await http().get('/me').set({ Authorization: `Bearer ${verified.body.token}` }).expect(200);
-      expect(me.body.user.id).toBe(verified.body.user.id);
-      const { rows } = await db.query('SELECT email_verified_at FROM users WHERE email = $1', [email]);
-      expect(rows[0].email_verified_at).toBeInstanceOf(Date);
-      // The password from the second submit, special characters and all, is the one that counts.
-      await http().post('/auth/login').send({ email, password: PASSWORD }).expect(401);
+      const body = { email: 'Join@Example.com', password: special, ...nextPhone(), nickname: nextNickname(), ...NAME, locale: 'en' };
+      const res = await http().post('/auth/signup').send(body).expect(200);
+      expect(res.body.token).toEqual(expect.any(String));
+      expect(res.body.user).toMatchObject({ email, locale: 'en', firstName: 'Gildong', lastName: 'Hong' });
+      const me = await http().get('/me').set({ Authorization: `Bearer ${res.body.token}` }).expect(200);
+      expect(me.body.user.id).toBe(res.body.user.id);
+      // No email is sent, and the password, special characters and all, works for login at once.
+      expect(mail.sent).toHaveLength(0);
       await http().post('/auth/login').send({ email, password: special }).expect(200);
-
-      // The link works once.
-      const reused = await confirm(email).expect(400);
-      expect(reused.body.error.code).toBe('invalid_signup_link');
-    });
-
-    it('rejects expired links and details taken while the link waited', async () => {
-      await http().post('/auth/signup').send({ email: 'late@example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(202);
-      await db.query("UPDATE signup_requests SET expires_at = now() - interval '1 second' WHERE email = 'late@example.com'");
-      const expired = await confirm('late@example.com').expect(410);
-      expect(expired.body.error.code).toBe('signup_link_expired');
-
-      // Two people pick the same nickname; whoever confirms first gets it.
-      await http().post('/auth/signup').send({ email: 'first@example.com', password: PASSWORD, ...nextPhone(), nickname: 'samename', ...NAME }).expect(202);
-      await http().post('/auth/signup').send({ email: 'second@example.com', password: PASSWORD, ...nextPhone(), nickname: 'samename', ...NAME }).expect(202);
-      await confirm('second@example.com').expect(200);
-      const lost = await confirm('first@example.com').expect(409);
-      expect(lost.body.error.code).toBe('nickname_taken');
-      // The failed request is gone, so signing up again with another nickname works at once.
-      await http().post('/auth/signup').send({ email: 'first@example.com', password: PASSWORD, ...nextPhone(), nickname: 'othername', ...NAME }).expect(202);
+      const { rows } = await db.query("SELECT 1 FROM audit_logs WHERE action = 'user.signup' AND target_id = $1", [res.body.user.id]);
+      expect(rows).toHaveLength(1);
     });
 
     it('asks for a first and last name at sign-up', async () => {
@@ -160,11 +106,10 @@ describe('HTTP API', () => {
         expect(res.body.error.code).toBe('invalid_name');
       }
       // Any script, with spaces, hyphens and apostrophes between the letters.
-      await http().post('/auth/signup').send({ ...base, firstName: '  Jean-Luc  ', lastName: "O'Brien  Smith" }).expect(202);
-      const ok = await confirm('named@example.com').expect(200);
+      const ok = await http().post('/auth/signup').send({ ...base, firstName: '  Jean-Luc  ', lastName: "O'Brien  Smith" }).expect(200);
       expect(ok.body.user).toMatchObject({ firstName: 'Jean-Luc', lastName: "O'Brien Smith" });
-      await http().post('/auth/signup').send({ ...base, email: 'named2@example.com', ...nextPhone(), nickname: nextNickname(), firstName: '길동', lastName: '홍' }).expect(202);
-      expect((await confirm('named2@example.com').expect(200)).body.user).toMatchObject({ firstName: '길동', lastName: '홍' });
+      const named2 = await http().post('/auth/signup').send({ ...base, email: 'named2@example.com', ...nextPhone(), nickname: nextNickname(), firstName: '길동', lastName: '홍' }).expect(200);
+      expect(named2.body.user).toMatchObject({ firstName: '길동', lastName: '홍' });
     });
 
     it('lets a member without a name enter it once', async () => {
@@ -185,18 +130,6 @@ describe('HTTP API', () => {
       await http().post('/me/name').set(auth(named)).send({ firstName: '철수', lastName: '김' }).expect(409);
     });
 
-    it('reports a mail failure and lets the member try again', async () => {
-      mail.fail = true;
-      const body = { email: 'nomail@example.com', password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME };
-      try {
-        const res = await http().post('/auth/signup').send(body).expect(503);
-        expect(res.body.error.code).toBe('email_unavailable');
-      } finally {
-        mail.fail = false;
-      }
-      await http().post('/auth/signup').send(body).expect(202);
-    });
-
     it('requires a phone number with its country at sign-up', async () => {
       const body = { email: 'phone@example.com', password: PASSWORD, nickname: nextNickname(), ...NAME };
       const missing = await http().post('/auth/signup').send(body).expect(400);
@@ -213,11 +146,10 @@ describe('HTTP API', () => {
         expect(res.body.error.code).toBe('invalid_phone');
       }
 
-      await http()
+      const ok = await http()
         .post('/auth/signup')
         .send({ ...body, phoneCountry: 'KR', phoneNumber: '010-9876-5432' })
-        .expect(202);
-      const ok = await confirm('phone@example.com').expect(200);
+        .expect(200);
       expect(ok.body.user).toMatchObject({
         phone: '+82 10-9876-5432',
         phoneCountry: 'KR',
@@ -243,11 +175,10 @@ describe('HTTP API', () => {
           .expect(400);
         expect(res.body.error.code).toBe('invalid_nickname');
       }
-      await http()
+      const ok = await http()
         .post('/auth/signup')
         .send({ ...base, email: 'nick@example.com', nickname: ' 코인_Lover1 ', ...nextPhone() })
-        .expect(202);
-      const ok = await confirm('nick@example.com').expect(200);
+        .expect(200);
       expect(ok.body.user.nickname).toBe('코인_Lover1');
       // Letter case does not make a different nickname.
       const taken = await http()
@@ -355,7 +286,7 @@ describe('HTTP API', () => {
       const { rows } = await db.query(
         "SELECT success, reason FROM login_attempts WHERE email = 'bob@example.com' ORDER BY id",
       );
-      // Opening the signup link logs the member in; then the explicit login.
+      // Signing up logs the member in; then the explicit login.
       expect(rows.slice(0, 2)).toEqual([
         { success: true, reason: 'signup' },
         { success: true, reason: null },

@@ -41,14 +41,13 @@ docker compose exec api node dist/demo/otp-cli.js
 
 ### 이메일 발송 (Resend)
 
-가입 인증 메일과 알림 메일은 [Resend](https://resend.com)로 보냅니다. 설정하지 않으면 메일을 보내지 않고 API 로그에만 남깁니다. 서버가 뜰 때 로그에 `Sending email through Resend as ...`가 나오면 연동된 것이고, `RESEND_API_KEY is not set`이 나오면 키가 서버에 전달되지 않은 것입니다.
+알림 메일(주문, 출금, 계정 제한)은 [Resend](https://resend.com)로 보냅니다. 설정하지 않으면 메일을 보내지 않고 API 로그에만 남깁니다. 서버가 뜰 때 로그에 `Sending email through Resend as ...`가 나오면 연동된 것이고, `RESEND_API_KEY is not set`이 나오면 키가 서버에 전달되지 않은 것입니다.
 
-1. Resend **Domains**에서 발송 도메인(예: `mail.example.com`)을 추가하고, 안내하는 DNS 레코드(DKIM·SPF)를 넣어 **Verified**가 될 때까지 기다립니다. 인증 전에는 Resend가 발송을 거절하고, 가입 화면에 "인증 메일을 보내지 못했습니다"가 뜹니다.
+1. Resend **Domains**에서 발송 도메인(예: `mail.example.com`)을 추가하고, 안내하는 DNS 레코드(DKIM·SPF)를 넣어 **Verified**가 될 때까지 기다립니다. 인증 전에는 Resend가 발송을 거절합니다.
 2. **API Keys**에서 Sending access 키를 만듭니다.
 3. 서버에 아래 값을 넣고 다시 시작합니다.
    - `RESEND_API_KEY=re_...`
    - `EMAIL_FROM=P2P <no-reply@mail.example.com>` (1번에서 인증한 도메인)
-   - `APP_URL` 메일 링크에 들어갈 웹 주소. Docker는 기본값 `http://localhost:3001`, Render는 서비스 주소가 자동으로 들어갑니다.
 
 Docker로 띄울 때는 `docker-compose.yml`과 같은 폴더에 `.env` 파일을 만들어 위 값을 적고 `docker compose up -d`를 다시 실행합니다. Render는 서비스의 **Environment** 탭에 넣으면 다시 배포됩니다.
 

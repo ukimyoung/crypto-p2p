@@ -16,10 +16,6 @@ export interface AppConfig {
   emailIntervalSeconds: number;
   /** How often fee invoices are issued and checked for due dates. 0 turns the worker off. */
   billingIntervalSeconds: number;
-  /** Web app address, used in links sent by email. */
-  appUrl: string;
-  /** Hours a signup confirmation link stays valid. */
-  signupLinkTtlHours: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -38,8 +34,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     opsSessionTtlHours: Number(env.OPS_SESSION_TTL_HOURS ?? 8),
     emailIntervalSeconds: Number(env.EMAIL_INTERVAL_SECONDS ?? 10),
     billingIntervalSeconds: Number(env.BILLING_INTERVAL_SECONDS ?? 300),
-    // Render sets RENDER_EXTERNAL_URL for the hosted demo.
-    appUrl: (env.APP_URL ?? env.RENDER_EXTERNAL_URL ?? 'http://localhost:3001').replace(/\/+$/, ''),
-    signupLinkTtlHours: Number(env.SIGNUP_LINK_TTL_HOURS ?? 24),
   };
 }

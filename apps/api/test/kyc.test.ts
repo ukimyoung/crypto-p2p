@@ -135,9 +135,8 @@ describe('identity verification', () => {
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
   async function member(email: string): Promise<{ id: string; token: string }> {
-    await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(202);
-    const verified = await http().post('/auth/signup/verify').send({ token: mail.signupToken(email) }).expect(200);
-    return { id: verified.body.user.id, token: verified.body.token };
+    const signedUp = await http().post('/auth/signup').send({ email, password: PASSWORD, ...nextPhone(), nickname: nextNickname(), ...NAME }).expect(200);
+    return { id: signedUp.body.user.id, token: signedUp.body.token };
   }
 
   /** Posts a webhook signed like Sumsub signs it. */

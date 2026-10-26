@@ -228,21 +228,9 @@ export const EN: Record<string, string> = {
   '성 (Last name)': 'Last name',
   미입력: 'Not entered',
   입력: 'Add',
-  '인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.': 'We could not send the confirmation email. Please try again later.',
-  '인증 링크가 올바르지 않습니다. 이미 사용했거나 새 링크로 바뀌었을 수 있습니다.':
-    'This link is not valid. It may have been used already or replaced by a newer one.',
-  '인증 링크의 유효 시간이 지났습니다. 다시 가입해 주세요.': 'This link has expired. Please sign up again.',
-  '이메일을 확인해 주세요': 'Check your email',
-  '{email}(으)로 인증 메일을 보냈습니다.': 'We sent a confirmation email to {email}.',
-  '메일의 링크를 누르면 이메일 인증과 가입이 완료됩니다. 링크는 24시간 동안 유효합니다.':
-    'Open the link in the email to confirm your address and finish signing up. The link works for 24 hours.',
-  '메일이 보이지 않으면 스팸함을 확인하거나 1분 뒤에 다시 보내 주세요.':
-    "If you don't see it, check your spam folder or resend it after a minute.",
-  '인증 메일을 다시 보냈습니다.': 'We sent the confirmation email again.',
-  '인증 메일 다시 보내기': 'Resend confirmation email',
   '이메일 인증': 'Email confirmation',
-  '다시 가입하기': 'Sign up again',
-  '이메일을 인증하고 가입을 마치는 중입니다…': 'Confirming your email and finishing your signup…',
+  '이제 이메일 인증 없이 바로 가입됩니다. 가입할 때 정한 이메일과 비밀번호로 로그인해 주세요.':
+    'Signing up no longer needs email confirmation. Log in with the email and password you chose when signing up.',
   '휴대폰 번호를 확인해 주세요. 국가 번호를 고르고 번호는 숫자로만 입력하면 됩니다.':
     'Check the phone number. Pick the country code and type the number in digits.',
   '휴대폰 번호': 'Mobile number',
