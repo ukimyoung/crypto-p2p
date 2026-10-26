@@ -299,6 +299,9 @@ export const EN: Record<string, string> = {
   '결제 기한이 지났습니다.': 'The payment window has closed.',
   '현재 주문 상태에서는 할 수 없는 동작입니다.': 'You cannot do that while the order is in this state.',
   '권한이 없습니다.': 'You do not have permission.',
+  '활성 administrator가 적어도 한 명은 남아 있어야 합니다.': 'At least one active administrator must remain.',
+  '내 역할과 상태는 다른 administrator가 바꿔야 합니다. 내 계정도 직접 삭제할 수 없습니다.':
+    'Another administrator has to change your own role or status. You cannot delete your own account either.',
   '찾을 수 없습니다.': 'Not found.',
   '메시지는 1~1000자로 입력해 주세요.': 'Messages must be 1 to 1000 characters.',
   '주소 형식이 올바르지 않습니다. 코인과 네트워크가 맞는지 확인해 주세요.':

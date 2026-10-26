@@ -8,7 +8,7 @@ import { api } from '@/lib/api';
 import { LocaleProvider } from '@/lib/i18n';
 import { OPERATOR_ROLE } from '@/lib/messages';
 import type { Operator } from '@/lib/types';
-import { useOperator } from '@/lib/use-operator';
+import { isAdmin, useOperator } from '@/lib/use-operator';
 
 const OperatorContext = createContext<Operator | null>(null);
 
@@ -31,6 +31,9 @@ const LINKS = [
   ['/ops/settings', '정책 설정'],
   ['/ops/audit', '감사 로그'],
 ] as const;
+
+/** Shown to administrators only. */
+const ADMIN_LINKS = [['/ops/admins', '관리자 관리']] as const;
 
 export function OpsShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -69,7 +72,7 @@ export function OpsShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
             <nav>
-              {LINKS.map(([href, label]) => (
+              {[...LINKS, ...(isAdmin(operator) ? ADMIN_LINKS : [])].map(([href, label]) => (
                 <Link key={href} href={href} className={(href === '/ops' ? pathname === href : pathname.startsWith(href)) ? 'active' : undefined}>
                   {label}
                 </Link>

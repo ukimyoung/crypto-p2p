@@ -28,7 +28,8 @@ docker compose up --build        # 처음엔 몇 분 걸립니다
 | `seller@demo.test` | 판매자 김판매. BTC·USDT 잔고, 판매 광고 2개, 검토 대기 출금 |
 | `buyer@demo.test` | 구매자 이구매. BTC 잔고, 구매 광고 1개 |
 | `tester1@demo.test`, `tester2@demo.test` | 빈 테스트 회원(테스터1·테스터2). 본인인증은 끝났고 잔고·광고·주문은 없음 |
-| `reviewer1@demo.test`, `reviewer2@demo.test` | 운영자(심사). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
+| `reviewer1@demo.test` | 운영자(administrator). reviewer 권한에 더해 관리자 관리 메뉴에서 운영자 계정을 관리합니다 |
+| `reviewer2@demo.test` | 운영자(reviewer). 분쟁 결정, 출금 승인, 한도 변경 때는 OTP 코드를 한 번 더 입력합니다 |
 
 회원은 이메일과 비밀번호만으로 로그인하고, 출금·코인 전달·계좌 등록에 OTP를 쓰지 않습니다(본인인증으로 대신합니다). 운영 콘솔만 OTP 코드가 필요하며, 인증 앱 없이 아래 명령으로 지금 코드를 볼 수 있습니다. 코드는 한 번만 쓸 수 있으니 같은 계정에 두 번째 코드가 필요하면 `next` 코드를 쓰거나 30초 기다리세요.
 
@@ -113,14 +114,14 @@ API_URL=http://localhost:3000 pnpm --filter @crypto-p2p/web dev
 
 ### 운영 콘솔
 
-운영 콘솔은 같은 웹 앱의 `/ops`에 있습니다. 운영자 계정은 가입 화면 없이 CLI로만 만듭니다. 출력되는 OTP 키를 인증 앱에 등록해야 로그인할 수 있습니다.
+운영 콘솔은 같은 웹 앱의 `/ops`에 있습니다. 운영자 계정은 가입 화면이 없습니다. 첫 계정은 CLI로 만들고, 이후 계정은 administrator가 콘솔의 관리자 관리 메뉴에서 만듭니다. 출력되는 OTP 키를 인증 앱에 등록해야 로그인할 수 있습니다.
 
 ```bash
 OPERATOR_PASSWORD='...' DATABASE_URL=... OTP_ENCRYPTION_KEY=... \
-  node apps/api/dist/ops/create-operator-cli.js kim@company.com 김운영 reviewer
+  node apps/api/dist/ops/create-operator-cli.js kim@company.com 김운영 administrator
 ```
 
-권한은 `reviewer`(조회, 출금 승인·거절, 분쟁 결정, 계정 제한, 출금 한도 변경)와 `admin`(reviewer 권한에 더해 시스템 관리) 두 가지입니다. 코인이 움직이거나 한도가 바뀌는 동작은 새 OTP 코드로 5분 동안 열리는 재확인(step-up)이 필요합니다. 운영 환경에서는 `/ops`를 사내망이나 VPN 뒤에만 열어 두세요.
+권한은 `reviewer`(조회, 출금 승인·거절, 분쟁 결정, 계정 제한, 출금 한도 변경)와 `administrator`(reviewer 권한에 더해 시스템 관리와 운영 콘솔 관리자 관리 메뉴에서 운영자 등록·수정·삭제·역할 변경) 두 가지입니다. 코인이 움직이거나 한도가 바뀌는 동작은 새 OTP 코드로 5분 동안 열리는 재확인(step-up)이 필요합니다. 운영 환경에서는 `/ops`를 사내망이나 VPN 뒤에만 열어 두세요.
 
 API 테스트는 실제 PostgreSQL에 붙어서 돌고, 실행할 때마다 `public` 스키마를 지우고 다시 만듭니다. 운영 DB를 `DATABASE_URL`로 지정하지 마세요.
 

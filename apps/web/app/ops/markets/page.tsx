@@ -44,8 +44,8 @@ export default function OpsMarketsPage() {
       <h1>마켓</h1>
       <p className="muted small-text">
         {admin
-          ? '상태 변경은 관리자만 할 수 있고, 사유와 함께 감사 로그에 남습니다. 진행 중인 주문과 출금은 그대로 처리됩니다.'
-          : '상태 변경은 관리자만 할 수 있습니다.'}
+          ? '상태 변경은 administrator만 할 수 있고, 사유와 함께 감사 로그에 남습니다. 진행 중인 주문과 출금은 그대로 처리됩니다.'
+          : '상태 변경은 administrator만 할 수 있습니다.'}
       </p>
       <ErrorText error={error} />
       <section className="card">

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -132,6 +133,18 @@ const statusBody = z.object({
   status: z.enum(['active', 'trade_suspended', 'withdraw_held', 'closed']),
   reason: z.string().max(500),
 });
+const OPERATOR_ROLES = ['reviewer', 'administrator'] as const;
+const operatorName = z.string().trim().min(1).max(50);
+const createOperatorBody = z.object({
+  email: z.string().max(200),
+  name: operatorName,
+  role: z.enum(OPERATOR_ROLES),
+  password: z.string(),
+});
+const updateOperatorBody = z
+  .object({ name: operatorName, role: z.enum(OPERATOR_ROLES), status: z.enum(['active', 'disabled']) })
+  .partial();
+const resetOperatorBody = z.object({ password: z.string() });
 const auditQuery = z.object({ targetId: z.string().max(100).optional(), actorId: z.uuid().optional() });
 const uuid = new ParseUUIDPipe({ version: '4' });
 
@@ -148,7 +161,8 @@ export class OpsAuthController {
 }
 
 /**
- * Operations console API. Reviewers can look and act; admins also manage the system.
+ * Operations console API. Reviewers can look and act; administrators also manage the system
+ * and the operator accounts.
  * Moving money and changing limits need a recent OTP step-up. Every action is
  * written to the audit log with the operator's id.
  */
@@ -361,7 +375,7 @@ export class OpsController {
 
   @Put('markets/assets/:code')
   async setAssetStatus(@CurrentOperator() operator: Operator, @Param('code') code: string, @Body() body: unknown) {
-    assertRole(operator, 'admin');
+    assertRole(operator, 'administrator');
     const { status, reason } = parse(assetStatusBody, body);
     return { asset: await setAssetStatus(this.db, code, status, reason, operator.id) };
   }
@@ -373,7 +387,7 @@ export class OpsController {
     @Param('fiat') fiat: string,
     @Body() body: unknown,
   ) {
-    assertRole(operator, 'admin');
+    assertRole(operator, 'administrator');
     const { status, reason } = parse(marketStatusBody, body);
     await setMarketStatus(this.db, asset, fiat, status, reason, operator.id);
     return listMarkets(this.db);
@@ -509,8 +523,53 @@ export class OpsController {
   @Post('fees/run-billing')
   @HttpCode(200)
   async runBilling(@CurrentOperator() operator: Operator) {
-    assertRole(operator, 'admin');
+    assertRole(operator, 'administrator');
     return this.billing.run();
+  }
+
+  // Operator accounts (administrators only) ---------------------------------------
+
+  @Get('operators')
+  async operators(@CurrentOperator() operator: Operator) {
+    assertRole(operator, 'administrator');
+    return { operators: await this.auth.list() };
+  }
+
+  /** Returns the new operator's OTP secret once, to put in their authenticator app. */
+  @Post('operators')
+  async createOperator(@CurrentOperator() operator: Operator, @Body() body: unknown) {
+    assertRole(operator, 'administrator');
+    assertStepUp(operator);
+    const created = await this.auth.create(parse(createOperatorBody, body), operator.id);
+    return { operator: created.operator, otpSecret: created.otpSecret, otpauthUrl: created.otpauthUrl };
+  }
+
+  @Put('operators/:id')
+  async updateOperator(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string, @Body() body: unknown) {
+    assertRole(operator, 'administrator');
+    assertStepUp(operator);
+    return { operator: await this.auth.update(id, parse(updateOperatorBody, body), operator.id) };
+  }
+
+  @Delete('operators/:id')
+  @HttpCode(204)
+  async deleteOperator(@CurrentOperator() operator: Operator, @Param('id', uuid) id: string) {
+    assertRole(operator, 'administrator');
+    assertStepUp(operator);
+    await this.auth.remove(id, operator.id);
+  }
+
+  /** New password and OTP secret for an operator who lost either. Returns the OTP secret once. */
+  @Post('operators/:id/reset-credentials')
+  @HttpCode(200)
+  async resetOperatorCredentials(
+    @CurrentOperator() operator: Operator,
+    @Param('id', uuid) id: string,
+    @Body() body: unknown,
+  ) {
+    assertRole(operator, 'administrator');
+    assertStepUp(operator);
+    return this.auth.resetCredentials(id, parse(resetOperatorBody, body).password, operator.id);
   }
 
   @Get('audit')

@@ -106,7 +106,7 @@ describe('operations console', () => {
     reviewerAId = a.id;
     await stepUp(a);
     reviewerB = (await operator('bob@ops.test', 'reviewer')).token;
-    admin = (await operator('sam@ops.test', 'admin')).token;
+    admin = (await operator('sam@ops.test', 'administrator')).token;
   });
 
   afterAll(async () => {
@@ -673,6 +673,129 @@ describe('operations console', () => {
 
       const audit = await http().get('/ops/audit').query({ targetId: 'BTC/KRW' }).set(bearer(admin)).expect(200);
       expect(audit.body.entries[0]).toMatchObject({ action: 'market.status', after: { status: 'open', reason: '재개' } });
+    });
+  });
+
+  describe('operator management', () => {
+    it('lets only administrators list, create, edit and delete operators', async () => {
+      const boss = await operator('boss@ops.test', 'administrator');
+      // Listing needs the administrator role, changes also a fresh OTP code.
+      const denied = await http().get('/ops/operators').set(bearer(reviewerA)).expect(403);
+      expect(denied.body.error.code).toBe('forbidden');
+      const noStepUp = await http()
+        .post('/ops/operators')
+        .set(bearer(boss.token))
+        .send({ email: 'new@ops.test', name: '신입', role: 'reviewer', password: PASSWORD })
+        .expect(403);
+      expect(noStepUp.body.error.code).toBe('step_up_required');
+      await stepUp(boss);
+
+      const created = await http()
+        .post('/ops/operators')
+        .set(bearer(boss.token))
+        .send({ email: 'New@ops.test', name: '신입', role: 'reviewer', password: PASSWORD })
+        .expect(201);
+      expect(created.body.operator).toMatchObject({ email: 'new@ops.test', name: '신입', role: 'reviewer' });
+      expect(created.body.otpSecret).toMatch(/^[A-Z2-7]+$/);
+      expect(created.body.otpauthUrl).toContain('otpauth://totp/');
+      const newId = created.body.operator.id as string;
+      const taken = await http()
+        .post('/ops/operators')
+        .set(bearer(boss.token))
+        .send({ email: 'new@ops.test', name: '중복', role: 'reviewer', password: PASSWORD })
+        .expect(409);
+      expect(taken.body.error.code).toBe('email_taken');
+
+      // The new operator can log in with the secret shown once.
+      const login = await http()
+        .post('/ops/auth/login')
+        .send({ email: 'new@ops.test', password: PASSWORD, otp: codeAt(created.body.otpSecret, counterAt(new Date())) })
+        .expect(200);
+      const list = await http().get('/ops/operators').set(bearer(boss.token)).expect(200);
+      const listed = list.body.operators.find((o: { id: string }) => o.id === newId);
+      expect(listed).toMatchObject({ status: 'active', role: 'reviewer' });
+      expect(listed.lastLoginAt).not.toBeNull();
+      expect(listed).not.toHaveProperty('password_hash');
+
+      // Promoting takes effect on the next request; disabling signs the operator out.
+      await http().put(`/ops/operators/${newId}`).set(bearer(boss.token)).send({ role: 'administrator' }).expect(200);
+      expect((await http().get('/ops/me').set(bearer(login.body.token)).expect(200)).body.operator.role).toBe(
+        'administrator',
+      );
+      const disabled = await http()
+        .put(`/ops/operators/${newId}`)
+        .set(bearer(boss.token))
+        .send({ name: '신입2', status: 'disabled' })
+        .expect(200);
+      expect(disabled.body.operator).toMatchObject({ name: '신입2', status: 'disabled' });
+      await http().get('/ops/me').set(bearer(login.body.token)).expect(401);
+
+      // Deleted operators stay in the audit log, and their email can be used again.
+      await http().delete(`/ops/operators/${newId}`).set(bearer(boss.token)).expect(204);
+      const after = await http().get('/ops/operators').set(bearer(boss.token)).expect(200);
+      expect(after.body.operators.map((o: { id: string }) => o.id)).not.toContain(newId);
+      await http().delete(`/ops/operators/${newId}`).set(bearer(boss.token)).expect(404);
+      await http()
+        .post('/ops/operators')
+        .set(bearer(boss.token))
+        .send({ email: 'new@ops.test', name: '재입사', role: 'reviewer', password: PASSWORD })
+        .expect(201);
+      const audit = await http().get('/ops/audit').query({ targetId: newId }).set(bearer(boss.token)).expect(200);
+      expect(audit.body.entries.map((e: { action: string }) => e.action)).toEqual([
+        'operator.delete',
+        'operator.update',
+        'operator.update',
+        'operator.login',
+        'operator.create',
+      ]);
+      expect(audit.body.operatorNames[boss.id]).toBe('boss');
+    });
+
+    it('resets a lost password and OTP secret', async () => {
+      const boss = await operator('reset-boss@ops.test', 'administrator');
+      await stepUp(boss);
+      const lost = await operator('lost@ops.test', 'reviewer');
+      const reset = await http()
+        .post(`/ops/operators/${lost.id}/reset-credentials`)
+        .set(bearer(boss.token))
+        .send({ password: 'brand new password 2' })
+        .expect(200);
+      await http().get('/ops/me').set(bearer(lost.token)).expect(401);
+      // The old secret no longer works; the new one does.
+      await http()
+        .post('/ops/auth/login')
+        .send({ email: 'lost@ops.test', password: 'brand new password 2', otp: codeAt(lost.otpSecret, counterAt(new Date()) + 1) })
+        .expect(401);
+      await http()
+        .post('/ops/auth/login')
+        .send({ email: 'lost@ops.test', password: 'brand new password 2', otp: codeAt(reset.body.otpSecret, counterAt(new Date())) })
+        .expect(200);
+    });
+
+    it('never leaves the console without an active administrator', async () => {
+      const a = await operator('admin-a@ops.test', 'administrator');
+      const b = await operator('admin-b@ops.test', 'administrator');
+      await stepUp(a);
+      await stepUp(b);
+
+      // Administrators cannot demote, disable or delete themselves.
+      const self = await http().put(`/ops/operators/${a.id}`).set(bearer(a.token)).send({ role: 'reviewer' }).expect(409);
+      expect(self.body.error.code).toBe('cannot_change_self');
+      await http().put(`/ops/operators/${a.id}`).set(bearer(a.token)).send({ status: 'disabled' }).expect(409);
+      await http().delete(`/ops/operators/${a.id}`).set(bearer(a.token)).expect(409);
+      // Renaming yourself is fine.
+      await http().put(`/ops/operators/${a.id}`).set(bearer(a.token)).send({ name: '에이' }).expect(200);
+
+      // Two administrators demoting each other at once: only one change goes through.
+      const results = await Promise.all([
+        http().put(`/ops/operators/${b.id}`).set(bearer(a.token)).send({ role: 'reviewer' }),
+        http().put(`/ops/operators/${a.id}`).set(bearer(b.token)).send({ role: 'reviewer' }),
+      ]);
+      expect(results.map((r) => r.status).sort()).toEqual([200, 403]);
+      const { rows } = await db.query(
+        `SELECT role FROM operators WHERE email IN ('admin-a@ops.test', 'admin-b@ops.test') ORDER BY role`,
+      );
+      expect(rows.map((r) => r.role)).toEqual(['administrator', 'reviewer']);
     });
   });
 });
