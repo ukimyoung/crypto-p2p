@@ -1218,6 +1218,33 @@ main > .section:first-child {
   min-height: 44px;
 }
 
+.market-head .sort-header,
+.market-head .sort-header:hover:not(:disabled) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.market-head .sort-header:hover:not(:disabled),
+.market-head .sort-header.active {
+  color: var(--fg);
+}
+
+.market-head .sort-header svg {
+  opacity: 0.5;
+}
+
+.market-head .sort-header.active svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
 .market-head .unit {
   margin-left: 6px;
   font-size: 11px;
