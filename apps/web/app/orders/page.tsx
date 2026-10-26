@@ -33,6 +33,7 @@ export default function OrdersPage() {
             <table>
               <thead>
                 <tr>
+                  <th>{t('주문 번호')}</th>
                   <th>{t('구분')}</th>
                   <th>{t('수량')}</th>
                   <th>{t('금액')}</th>
@@ -43,6 +44,9 @@ export default function OrdersPage() {
               <tbody>
                 {orders.map((o) => (
                   <tr key={o.id}>
+                    <td>
+                      <Link href={`/orders/${o.id}`}>{o.orderNumber}</Link>
+                    </td>
                     <td>{t(o.buyerId === me.id ? '구매' : '판매')}</td>
                     <td>
                       {formatUnits(o.amount, ASSETS[o.asset as AssetCode].decimals)} {o.asset}

@@ -14,6 +14,8 @@ import { nextStatus, OrderEvent, OrderRole, OrderStatus } from './order-state';
 
 export interface Order {
   id: string;
+  /** What people see: the order date in Korea time and a daily sequence, e.g. 202610260001. */
+  orderNumber: string;
   adId: string;
   makerId: string;
   buyerId: string;
@@ -119,8 +121,9 @@ export class OrdersService {
       const inserted = await tx.query(
         `INSERT INTO orders (ad_id, maker_id, buyer_id, seller_id, asset, fiat, price_minor, amount,
                              fiat_amount_minor, fee_amount, escrow_amount, status, payment_deadline, created_at,
-                             seller_payment_method_id, base_price_minor, fee_rate_bp, fee_fiat_minor)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, 'pending_payment', $11, $12, $13, $14, $15, $16)
+                             seller_payment_method_id, base_price_minor, fee_rate_bp, fee_fiat_minor, order_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, $10, 'pending_payment', $11, $12, $13, $14, $15, $16,
+                 next_order_number($12))
          RETURNING *`,
         [
           ad.id,
@@ -376,6 +379,7 @@ async function assetDecimals(tx: Tx, asset: string): Promise<number> {
 function toOrder(row: any): Order {
   return {
     id: row.id,
+    orderNumber: row.order_number,
     adId: row.ad_id,
     makerId: row.maker_id,
     buyerId: row.buyer_id,
@@ -413,6 +417,7 @@ const NOTIFY_ON: Partial<Record<OrderStatus, NotificationType>> = {
 function orderData(order: Order) {
   return {
     orderId: order.id,
+    orderNumber: order.orderNumber,
     asset: order.asset,
     amount: order.amount.toString(),
     fiat: order.fiat,

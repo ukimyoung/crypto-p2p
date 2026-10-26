@@ -28,7 +28,7 @@ export class OrderChatService {
         [orderId, senderId, text, this.now()],
       );
       const other = order.buyer_id === senderId ? order.seller_id : order.buyer_id;
-      await notify(tx, other, 'order.message', { orderId });
+      await notify(tx, other, 'order.message', { orderId, orderNumber: order.order_number });
       return toMessage(rows[0]);
     });
   }
@@ -43,9 +43,12 @@ export class OrderChatService {
     return rows.map(toMessage);
   }
 
-  private async assertParty(orderId: string, userId: string): Promise<{ buyer_id: string; seller_id: string }> {
-    const { rows } = await this.db.query<{ buyer_id: string; seller_id: string }>(
-      'SELECT buyer_id, seller_id FROM orders WHERE id = $1',
+  private async assertParty(
+    orderId: string,
+    userId: string,
+  ): Promise<{ buyer_id: string; seller_id: string; order_number: string }> {
+    const { rows } = await this.db.query<{ buyer_id: string; seller_id: string; order_number: string }>(
+      'SELECT buyer_id, seller_id, order_number FROM orders WHERE id = $1',
       [orderId],
     );
     const order = rows[0];

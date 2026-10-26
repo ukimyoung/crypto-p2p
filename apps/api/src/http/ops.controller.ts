@@ -120,6 +120,7 @@ const orderQuery = z.object({
   status: z.enum(['pending_payment', 'paid', 'completed', 'cancelled', 'under_review']).optional(),
   asset: z.string().max(10).optional(),
   userId: z.uuid().optional(),
+  orderNumber: z.string().regex(/^\d{1,13}$/).optional(),
   from: dateTime.optional(),
   to: dateTime.optional(),
   ...paging,

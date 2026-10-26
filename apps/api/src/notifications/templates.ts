@@ -32,7 +32,8 @@ interface Template {
   body: (d: Data) => string;
 }
 
-const orderRef = (d: Data) => (d.orderId ?? '').slice(0, 8);
+/** Order number; notifications from before order numbers carry only the uuid. */
+const orderRef = (d: Data) => d.orderNumber ?? (d.orderId ?? '').slice(0, 8);
 
 /** Fiat amounts in fee notifications are minor-unit strings; KRW has no minor unit. */
 const money = (d: Data, locale: Locale) => {

@@ -249,9 +249,12 @@ export default function OpsUserPage() {
           </Table>
         )}
         {tab === 'orders' && (
-          <Table head={['시각', '역할', '수량', '금액', '상태']} empty="주문이 없습니다.">
+          <Table head={['주문 번호', '시각', '역할', '수량', '금액', '상태']} empty="주문이 없습니다.">
             {data.orders.map((o) => (
               <tr key={o.id}>
+                <td>
+                  <Link href={`/ops/orders/${o.id}`}>{o.orderNumber}</Link>
+                </td>
                 <td>{o.createdAt ? when(o.createdAt) : '-'}</td>
                 <td>{o.buyerId === user.id ? '구매' : '판매'}</td>
                 <td>{fmt(o.amount, o.asset)}</td>

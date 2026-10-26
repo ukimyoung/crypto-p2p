@@ -97,7 +97,7 @@ export default function OrderPage() {
             </>
           )}
           <dt>{t('주문 번호')}</dt>
-          <dd className="muted small-text">{order.id}</dd>
+          <dd>{order.orderNumber}</dd>
         </dl>
         <Actions order={order} isBuyer={isBuyer} onChange={load} />
       </section>

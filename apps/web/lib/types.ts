@@ -41,6 +41,8 @@ export interface Ad {
 
 export interface Order {
   id: string;
+  /** Order date in Korea time and a daily sequence, e.g. 202610260001. */
+  orderNumber: string;
   adId: string;
   makerId: string;
   buyerId: string;
@@ -276,6 +278,7 @@ export interface FeeInvoiceDetail {
   invoice: FeeInvoice;
   orders: {
     id: string;
+    orderNumber: string;
     asset: string;
     amount: string;
     basePriceMinor: string;
@@ -303,6 +306,7 @@ export interface OpsAd extends Ad {
 
 export interface OpsOrder {
   id: string;
+  orderNumber: string;
   adId: string;
   makerId: string;
   buyerId: string;
