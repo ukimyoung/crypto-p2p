@@ -11,9 +11,6 @@ import type { PaymentMethod } from '@/lib/types';
 import { ASSETS, AssetCode, feeOn, formatKrw, formatRate, orderCost, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
-/** Fee the '최대(수수료포함)' button adds on top of the whole ad's value: 5.00%. */
-const MAX_BUTTON_FEE_RATE_BP = 500;
-
 export default function NewAdPage() {
   const { me } = useMe();
   const router = useRouter();
@@ -43,8 +40,8 @@ export default function NewAdPage() {
 
   const totalUnits = parseUnits(total, ASSETS[asset].decimals);
   const maxWithFee =
-    /^\d+$/.test(priceInput) && BigInt(priceInput) > 0n && totalUnits
-      ? orderCost(totalUnits, BigInt(priceInput), MAX_BUTTON_FEE_RATE_BP, ASSETS[asset].decimals)
+    feeRateBp !== null && /^\d+$/.test(priceInput) && BigInt(priceInput) > 0n && totalUnits
+      ? orderCost(totalUnits, BigInt(priceInput), feeRateBp, ASSETS[asset].decimals)
       : null;
 
   useEffect(() => {
