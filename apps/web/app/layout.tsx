@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { SiteFrame } from '@/components/SiteFrame';
 import { LocaleProvider } from '@/lib/i18n';
 import { LOCALE_COOKIE, localeFrom, translate } from '@/lib/locale';
+import { THEME_COOKIE, themeFrom } from '@/lib/theme';
 import './globals.css';
 
 async function currentLocale() {
@@ -20,8 +21,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await currentLocale();
+  // Set on the server so a picked theme shows from the first paint.
+  const theme = themeFrom((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang={locale} data-scroll-behavior="smooth">
+    <html lang={locale} data-theme={theme} data-scroll-behavior="smooth">
       <body>
         <LocaleProvider locale={locale}>
           <SiteFrame>{children}</SiteFrame>

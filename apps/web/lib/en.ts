@@ -182,6 +182,7 @@ export const EN: Record<string, string> = {
   '알림이 없습니다.': 'No notifications.',
   '비밀번호 확인이 일치하지 않습니다.': 'The passwords do not match.',
   가입하기: 'Sign up',
+  '화면 테마 바꾸기': 'Switch light or dark theme',
   '비밀번호 (10자 이상, 영문과 숫자 포함, 특수문자 사용 가능)': 'Password (10+ characters with letters and numbers; special characters allowed)',
   '비밀번호 확인': 'Confirm password',
   로그인: 'Log in',
