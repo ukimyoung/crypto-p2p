@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -11,7 +11,6 @@ import { BrandLink } from './BrandLink';
 
 export function Header() {
   const { me } = useMe();
-  const router = useRouter();
   const pathname = usePathname();
   const active = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href)) ? 'active' : undefined;
   const unread = useUnreadCount(Boolean(me));
@@ -26,9 +25,13 @@ export function Header() {
   }
 
   async function logout() {
-    await api('auth/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
+    try {
+      await api('auth/logout', { method: 'POST' });
+    } finally {
+      // A full page load: the header lives in the root layout and keeps the
+      // signed-in member in state across client-side navigation.
+      window.location.href = '/login';
+    }
   }
 
   return (
