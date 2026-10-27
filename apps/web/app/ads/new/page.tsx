@@ -174,23 +174,19 @@ export default function NewAdPage() {
           </div>
           <div>
             <label htmlFor="max">{t('주문당 최대 (원)')}</label>
-            {side === 'sell' ? (
-              <div className="row" style={{ flexWrap: 'nowrap' }}>
-                <input id="max" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} required />
-                <button
-                  type="button"
-                  className="secondary small"
-                  style={{ whiteSpace: 'nowrap' }}
-                  disabled={maxWithFee === null}
-                  title={maxWithFee === null ? t('가격과 총 수량을 먼저 입력해 주세요.') : undefined}
-                  onClick={() => maxWithFee !== null && setMax(maxWithFee.toString())}
-                >
-                  {t('최대(수수료포함)')}
-                </button>
-              </div>
-            ) : (
+            <div className="row" style={{ flexWrap: 'nowrap' }}>
               <input id="max" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} required />
-            )}
+              <button
+                type="button"
+                className="secondary small"
+                style={{ whiteSpace: 'nowrap' }}
+                disabled={maxWithFee === null}
+                title={maxWithFee === null ? t('가격과 총 수량을 먼저 입력해 주세요.') : undefined}
+                onClick={() => maxWithFee !== null && setMax(maxWithFee.toString())}
+              >
+                {t('최대(수수료포함)')}
+              </button>
+            </div>
           </div>
         </div>
         {side === 'sell' && (
