@@ -3,7 +3,7 @@ import { DomainError } from '../common/errors';
 import { toAd } from '../ads/ads.service';
 import { Db, Tx, withTransaction } from '../db/database';
 import { NOT_ON_FEE_HOLD } from '../fees/billing.service';
-import { currentFeeRate, feeOn, finalPrice } from '../fees/fee-rates';
+import { feeOn, finalPrice } from '../fees/fee-rates';
 import { assertCanTrade } from '../ops/markets';
 import { autoReviewMinutes } from '../ops/ops-settings';
 import { LedgerService, Posting } from '../ledger/ledger.service';
@@ -98,7 +98,8 @@ export class OrdersService {
 
       const decimals = await assetDecimals(tx, ad.asset);
       const now = this.now();
-      const feeRateBp = await currentFeeRate(tx, ad.asset, ad.fiat, now);
+      // The ad's own rate, so the order costs what the market showed.
+      const feeRateBp = ad.feeRateBp;
       const baseFiatMinor = (amount * ad.priceMinor) / 10n ** BigInt(decimals);
       const feeFiatMinor = feeOn(baseFiatMinor, feeRateBp);
       const fiatAmountMinor = baseFiatMinor + feeFiatMinor;

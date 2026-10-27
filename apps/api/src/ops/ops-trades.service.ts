@@ -2,7 +2,7 @@ import { toAd } from '../ads/ads.service';
 import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, withTransaction } from '../db/database';
-import { currentFeeRate, finalPrice } from '../fees/fee-rates';
+import { finalPrice } from '../fees/fee-rates';
 import { notify } from '../notifications/notify';
 
 export const AD_SORTS = ['created_at', 'price_minor', 'remaining_amount'] as const;
@@ -70,7 +70,7 @@ export class OpsTradesService {
     };
   }
 
-  /** An ad with its final price at today's rate and the orders it produced. */
+  /** An ad with its final price at the rate it was posted with, and the orders it produced. */
   async getAd(id: string) {
     const { rows } = await this.db.query(
       'SELECT a.*, u.email AS maker_email FROM ads a JOIN users u ON u.id = a.maker_id WHERE a.id = $1',
@@ -78,7 +78,6 @@ export class OpsTradesService {
     );
     if (!rows[0]) throw new DomainError('not_found', 'Ad not found');
     const ad = toAd(rows[0]);
-    const feeRateBp = await currentFeeRate(this.db, ad.asset, ad.fiat);
     const orders = await this.db.query(
       `SELECT ${ORDER_COLUMNS} FROM orders o JOIN users bu ON bu.id = o.buyer_id JOIN users se ON se.id = o.seller_id
        WHERE o.ad_id = $1 ORDER BY o.created_at DESC LIMIT 100`,
@@ -89,8 +88,7 @@ export class OpsTradesService {
         ...ad,
         makerEmail: rows[0].maker_email,
         createdAt: rows[0].created_at,
-        feeRateBp,
-        finalPriceMinor: finalPrice(ad.priceMinor, feeRateBp),
+        finalPriceMinor: finalPrice(ad.priceMinor, ad.feeRateBp),
       },
       orders: orders.rows.map(toOrderRow),
     };

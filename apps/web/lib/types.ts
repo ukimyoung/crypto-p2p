@@ -31,7 +31,7 @@ export interface Ad {
   maxOrderFiatMinor: string;
   paymentWindowMinutes: number;
   minTakerKycLevel: number;
-  /** Maker fee in 0.01% units (25 = 0.25%). Present on market lists. */
+  /** Maker fee in 0.01% units (25 = 0.25%), fixed when the ad was posted. */
   feeRateBp?: number;
   /** The price buyers see: the maker's price plus the fee. */
   finalPriceMinor?: string;

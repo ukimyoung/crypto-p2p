@@ -135,6 +135,27 @@ describe('maker fees and billing', () => {
     await setFeeRate(db, { asset: 'BTC', fiat: 'KRW', rateBp: 25, reason: 'back' }, OPERATOR, new Date());
   });
 
+  it('keeps the rate an ad was posted with when the rate changes', async () => {
+    const { ad: before } = await seller();
+    expect(before.feeRateBp).toBe(25);
+
+    await setFeeRate(db, { asset: 'BTC', fiat: 'KRW', rateBp: 50, reason: 'up' }, OPERATOR, new Date());
+    const { ad: after } = await seller();
+    expect(after.feeRateBp).toBe(50);
+
+    const listed = await ads.list({ asset: 'BTC', fiat: 'KRW', side: 'sell' });
+    expect(listed.find((a) => a.id === before.id)).toMatchObject({ feeRateBp: 25, finalPriceMinor: 100_250_000n });
+    expect(listed.find((a) => a.id === after.id)).toMatchObject({ feeRateBp: 50, finalPriceMinor: 100_500_000n });
+
+    // An order on the older ad costs what the market showed for it.
+    const order = await orders.create(await createUser(db), before.id, TENTH);
+    expect(order).toMatchObject({ feeRateBp: 25, feeFiatMinor: 25_000n, priceMinor: 100_250_000n });
+    await orders.cancel(order.id, order.buyerId);
+
+    await setFeeRate(db, { asset: 'BTC', fiat: 'KRW', rateBp: 25, reason: 'back' }, OPERATOR, new Date());
+    await db.query(`UPDATE ads SET status = 'closed' WHERE id = ANY($1::uuid[])`, [[before.id, after.id]]);
+  });
+
   it('bills each maker once a month ends, reminds, marks overdue and lifts the hold on payment', async () => {
     const a = await seller();
     const b = await seller();

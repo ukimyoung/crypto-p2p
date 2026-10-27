@@ -125,7 +125,7 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | POST | `/ops/users/:id/kyc/request-check` | reviewer | `{ reason }`. Sumsub에 재심사 요청 |
 | GET | `/ops/settings/kyc` | 모두 | Sumsub 연결 여부, 레벨 이름, 마지막 웹훅 수신 시각, 최근 24시간 웹훅 수. 키는 보여 주지 않음 |
 | GET | `/ops/ads?asset=&fiat=&side=&status=&makerId=&sort=&dir=&page=&pageSize=` | 모두 | 광고 그리드. 정렬은 `created_at`, `price_minor`, `remaining_amount` |
-| GET | `/ops/ads/:id` | 모두 | 광고, 지금 요율의 최종 가격, 이 광고로 생긴 주문 |
+| GET | `/ops/ads/:id` | 모두 | 광고, 등록 시 요율의 최종 가격, 이 광고로 생긴 주문 |
 | POST | `/ops/ads/:id/status` | reviewer | `{ status: offline \| closed, reason }`. 진행 중 주문은 유지. 광고주에게 알림(사유는 안 보냄) |
 | GET | `/ops/orders?status=&asset=&orderNumber=&userId=&from=&to=&page=&pageSize=` | 모두 | 전체 주문, 최신순. `orderNumber`는 앞자리 일치(예: `20261026`이면 그날 주문) |
 | GET | `/ops/orders/:id` | 모두 | 주문, 상태 이력, 채팅, 원장 분개 |
