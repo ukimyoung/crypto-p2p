@@ -49,6 +49,7 @@ export const EN: Record<string, string> = {
   '결제 기한': 'Pay by',
   '입금 계좌': 'Pay to',
   '예금주 {name}': 'Account holder {name}',
+  '보내는 사람': 'Sender',
   '주문 번호': 'Order number',
   '아래 계좌로 정확한 금액을 본인 명의 계좌에서 이체한 뒤 "이체 완료"를 눌러 주세요. 판매자의 코인은 에스크로에 잠겨 있습니다.':
     'Transfer the exact amount from a bank account in your own name to the account below, then press "I\'ve paid". The seller\'s coins are locked in escrow.',
