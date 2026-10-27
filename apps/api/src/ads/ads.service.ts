@@ -37,11 +37,12 @@ export interface Ad {
   minTakerKycLevel: number;
   status: 'online' | 'offline' | 'closed';
   paymentMethodId: string | null;
+  /** The maker fee rate in force when the ad was posted. Later rate changes leave it alone. */
+  feeRateBp: number;
 }
 
 /** An ad as the market shows it: the maker's price plus the fee, and the maker's nickname. */
 export interface MarketAd extends Ad {
-  feeRateBp: number;
   finalPriceMinor: bigint;
   makerNickname: string;
 }
@@ -71,11 +72,12 @@ export class AdsService {
       if (input.paymentMethodId) {
         await this.payments.assertUsable(tx, input.makerId, input.paymentMethodId, input.fiat);
       }
+      const feeRateBp = await currentFeeRate(tx, input.asset, input.fiat);
       const { rows } = await tx.query(
         `INSERT INTO ads (maker_id, side, asset, fiat, price_minor, total_amount, remaining_amount,
                           min_order_fiat_minor, max_order_fiat_minor, payment_window_minutes, min_taker_kyc_level,
-                          payment_method_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11)
+                          payment_method_id, fee_rate_bp)
+         VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $10, $11, $12)
          RETURNING *`,
         [
           input.makerId,
@@ -89,6 +91,7 @@ export class AdsService {
           input.paymentWindowMinutes ?? 15,
           input.minTakerKycLevel ?? 1,
           input.paymentMethodId ?? null,
+          feeRateBp,
         ],
       );
       const ad = toAd(rows[0]);
@@ -101,9 +104,9 @@ export class AdsService {
    * Market list (AD-1). `side` is the maker's side: a buyer browses `sell` ads.
    * Oldest ad first on both sides, with the id breaking ties so the order is stable.
    * Ads of makers with an overdue fee invoice are left out (FEE-8).
+   * Each ad shows the fee rate it was posted with, not today's rate.
    */
   async list(filter: { asset: string; fiat: string; side: 'buy' | 'sell'; limit?: number }): Promise<MarketAd[]> {
-    const feeRateBp = await currentFeeRate(this.db, filter.asset, filter.fiat);
     const { rows } = await this.db.query(
       `SELECT ads.*, u.nickname AS maker_nickname FROM ads JOIN users u ON u.id = ads.maker_id
        WHERE asset = $1 AND fiat = $2 AND side = $3 AND ads.status = 'online' AND remaining_amount > 0
@@ -114,7 +117,7 @@ export class AdsService {
     );
     return rows.map((row) => {
       const ad = toAd(row);
-      return { ...ad, feeRateBp, finalPriceMinor: finalPrice(ad.priceMinor, feeRateBp), makerNickname: row.maker_nickname };
+      return { ...ad, finalPriceMinor: finalPrice(ad.priceMinor, ad.feeRateBp), makerNickname: row.maker_nickname };
     });
   }
 
@@ -141,5 +144,6 @@ export function toAd(row: any): Ad {
     minTakerKycLevel: row.min_taker_kyc_level,
     status: row.status,
     paymentMethodId: row.payment_method_id,
+    feeRateBp: row.fee_rate_bp,
   };
 }

@@ -66,7 +66,7 @@ export default function OpsAdPage() {
           <dd>{formatKrw(ad.priceMinor)}</dd>
           <dt>최종 광고 가격</dt>
           <dd>
-            {formatKrw(ad.finalPriceMinor)} <span className="muted small-text">(지금 요율 {formatRate(ad.feeRateBp)})</span>
+            {formatKrw(ad.finalPriceMinor)} <span className="muted small-text">(등록 시 요율 {formatRate(ad.feeRateBp)})</span>
           </dd>
           <dt>수량</dt>
           <dd>
