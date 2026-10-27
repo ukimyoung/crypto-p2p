@@ -6,6 +6,7 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS, ORDER_STATUS } from '@/lib/messages';
+import { fullName } from '@/lib/names';
 import type { Me, Message, Order, PaymentDetails } from '@/lib/types';
 import { ASSETS, AssetCode, formatKrw, formatRate, formatUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
@@ -41,6 +42,8 @@ export default function OrderPage() {
 
   const isBuyer = order.buyerId === me.id;
   const decimals = ASSETS[order.asset as AssetCode].decimals;
+  // The buyer pays from an account in their own name, so the transfer shows the name they signed up with.
+  const senderName = fullName(me.firstName, me.lastName);
 
   return (
     <>
@@ -94,6 +97,12 @@ export default function OrderPage() {
                 <br />
                 {t('예금주 {name}', { name: details.accountHolder })}
               </dd>
+            </>
+          )}
+          {details && isBuyer && senderName && (
+            <>
+              <dt>{t('보내는 사람')}</dt>
+              <dd>{senderName}</dd>
             </>
           )}
           <dt>{t('주문 번호')}</dt>
