@@ -11,17 +11,36 @@ import type { PaymentMethod } from '@/lib/types';
 import { ASSETS, AssetCode, feeOn, formatKrw, formatRate, orderCost, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
+type Side = 'sell' | 'buy';
+
+interface AdForm {
+  asset: AssetCode;
+  price: string;
+  total: string;
+  min: string;
+  max: string;
+  paymentWindow: number;
+}
+
+const INITIAL_FORM: AdForm = { asset: 'BTC', price: '', total: '', min: '10000', max: '1000000', paymentWindow: 15 };
+
 export default function NewAdPage() {
   const { me } = useMe();
   const router = useRouter();
   const { t, locale } = useT();
-  const [side, setSide] = useState<'sell' | 'buy'>('sell');
-  const [asset, setAsset] = useState<AssetCode>('BTC');
-  const [price, setPrice] = useState('');
-  const [total, setTotal] = useState('');
-  const [min, setMin] = useState('10000');
-  const [max, setMax] = useState('1000000');
-  const [paymentWindow, setPaymentWindow] = useState(15);
+  const [side, setSide] = useState<Side>('sell');
+  // Each tab keeps its own values, so switching tabs neither copies nor loses what was typed.
+  const [forms, setForms] = useState<Record<Side, AdForm>>({ sell: INITIAL_FORM, buy: INITIAL_FORM });
+  const { asset, price, total, min, max, paymentWindow } = forms[side];
+  function setField<K extends keyof AdForm>(key: K, value: AdForm[K]) {
+    setForms((prev) => ({ ...prev, [side]: { ...prev[side], [key]: value } }));
+  }
+  const setAsset = (value: AssetCode) => setField('asset', value);
+  const setPrice = (value: string) => setField('price', value);
+  const setTotal = (value: string) => setField('total', value);
+  const setMin = (value: string) => setField('min', value);
+  const setMax = (value: string) => setField('max', value);
+  const setPaymentWindow = (value: number) => setField('paymentWindow', value);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [methodId, setMethodId] = useState('');
   const [error, setError] = useState<string | null>(null);
