@@ -38,4 +38,29 @@ describe('Resend email sender', () => {
     status = 403;
     await expect(sender.send({ to: 'a@example.com', subject: 'Hi', body: 'text' })).rejects.toThrow(/403.*domain not verified/);
   });
+
+  it('sends a Resend template in place of the subject and content when the message names one', async () => {
+    const bodies: unknown[] = [];
+    const fakeFetch = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return new Response('{"id":"e1"}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const sender = new ResendEmailSender(
+      { apiKey: 're_x', from: 'P2P Club <no-reply@p2pclub.biz>', baseUrl: 'https://api.resend.com' },
+      fakeFetch,
+    );
+
+    await sender.send({
+      to: 'a@example.com',
+      subject: 'fallback',
+      body: 'fallback',
+      html: '<p>fallback</p>',
+      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: 24 } },
+    });
+    expect(bodies[0]).toEqual({
+      from: 'P2P Club <no-reply@p2pclub.biz>',
+      to: ['a@example.com'],
+      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: 24 } },
+    });
+  });
 });

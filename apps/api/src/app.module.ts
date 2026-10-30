@@ -22,7 +22,7 @@ import { WalletController } from './http/wallet.controller';
 import { KycService } from './kyc/kyc.service';
 import { loadSumsubConfig, SumsubClient } from './kyc/sumsub.client';
 import { LedgerService } from './ledger/ledger.service';
-import { EmailWorker, LogEmailSender } from './notifications/email.worker';
+import { EmailSender, EmailWorker, LogEmailSender } from './notifications/email.worker';
 import { NotificationsService } from './notifications/notifications.service';
 import { loadResendConfig, ResendEmailSender } from './notifications/resend.client';
 import { DisputesService } from './ops/disputes.service';
@@ -45,12 +45,15 @@ import { WalletService } from './wallet/wallet.service';
     { provide: SecretBox, inject: [CONFIG], useFactory: (config: AppConfig) => new SecretBox(config.otpEncryptionKey) },
     {
       provide: AuthService,
-      inject: [DB, CONFIG],
-      useFactory: (db: Db, config: AppConfig) =>
-        new AuthService(db, {
+      inject: [DB, EMAIL_SENDER, CONFIG],
+      useFactory: (db: Db, mailer: EmailSender, config: AppConfig) =>
+        new AuthService(db, mailer, {
           sessionTtlHours: config.sessionTtlHours,
           maxFailedLogins: 5,
           lockoutMinutes: 15,
+          appUrl: config.appUrl,
+          signupLinkTtlHours: config.signupLinkTtlHours,
+          signupEmailTemplates: config.signupEmailTemplates,
         }),
     },
     AuthGuard,
@@ -100,7 +103,7 @@ import { WalletService } from './wallet/wallet.service';
         const resend = loadResendConfig();
         const logger = new Logger('Email');
         if (!resend) {
-          logger.warn('RESEND_API_KEY is not set: emails are written to this log instead of sent');
+          logger.warn('RESEND_API_KEY is not set: emails, signup links included, are written to this log instead of sent');
           return new LogEmailSender();
         }
         logger.log(`Sending email through Resend as ${resend.from}`);

@@ -27,13 +27,18 @@ export class ResendEmailSender implements EmailSender {
     const res = await this.fetchFn(`${this.config.baseUrl}/emails`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.config.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: this.config.from,
-        to: [message.to],
-        subject: message.subject,
-        text: message.body,
-        ...(message.html ? { html: message.html } : {}),
-      }),
+      body: JSON.stringify(
+        message.template
+          ? // Subject and content come from the template stored in Resend.
+            { from: this.config.from, to: [message.to], template: message.template }
+          : {
+              from: this.config.from,
+              to: [message.to],
+              subject: message.subject,
+              text: message.body,
+              ...(message.html ? { html: message.html } : {}),
+            },
+      ),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
