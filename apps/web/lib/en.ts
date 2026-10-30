@@ -1,6 +1,5 @@
 /** English text keyed by the Korean source text. A test checks every Korean string in the customer pages has an entry. */
 export const EN: Record<string, string> = {
-  'P2P 거래': 'P2P Trading',
   '이용자끼리 직접 거래하고, 코인은 에스크로로 보호합니다.':
     'Trade directly with other people while escrow protects the coins.',
   'P2P 마켓': 'P2P Market',

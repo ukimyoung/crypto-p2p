@@ -19,7 +19,7 @@ export function Footer() {
             <Link href="/#how">{t('이용 방법')}</Link>
             <Link href="/fees">{t('수수료')}</Link>
           </nav>
-          <p style={{ marginTop: 10 }}>© {new Date().getFullYear()} {t('P2P 거래')}</p>
+          <p style={{ marginTop: 10 }}>© {new Date().getFullYear()} {t('P2P Club')}</p>
         </div>
       </div>
     </footer>
