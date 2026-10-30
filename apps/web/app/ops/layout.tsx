@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { OpsShell } from './OpsShell';
 
 export const metadata: Metadata = {
-  title: '운영 콘솔 · P2P 거래',
+  title: '운영 콘솔 · P2P Club',
   robots: { index: false, follow: false },
 };
 

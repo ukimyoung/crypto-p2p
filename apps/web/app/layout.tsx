@@ -14,7 +14,7 @@ async function currentLocale() {
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await currentLocale();
   return {
-    title: translate(locale, 'P2P 거래'),
+    title: translate(locale, 'P2P Club'),
     description: translate(locale, '이용자끼리 직접 거래하고, 코인은 에스크로로 보호합니다.'),
   };
 }

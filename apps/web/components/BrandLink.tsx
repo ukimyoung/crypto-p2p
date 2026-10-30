@@ -21,7 +21,7 @@ export function BrandLink() {
       }}
     >
       <LogoMark />
-      {t('P2P 거래')}
+      {t('P2P Club')}
     </Link>
   );
 }
