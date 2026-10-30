@@ -33,6 +33,14 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Address in the signup confirmation link, e.g. https://p2pclub.biz. Defaults to the Render service URL.
+      - key: APP_URL
+        sync: false
+      # Resend template id (or alias) for the signup confirmation email per language. Empty sends the built-in email.
+      - key: RESEND_SIGNUP_TEMPLATE_KO
+        sync: false
+      - key: RESEND_SIGNUP_TEMPLATE_EN
+        sync: false
       # Identity verification through Sumsub (see README "본인 인증 (Sumsub)"). All four are needed.
       - key: SUMSUB_APP_TOKEN
         sync: false

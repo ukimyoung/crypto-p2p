@@ -9,6 +9,11 @@ export interface EmailMessage {
   /** Plain text. */
   body: string;
   html?: string;
+  /**
+   * A template stored in Resend, sent in place of `subject`/`body`/`html` when the Resend sender is
+   * in use. The log sender ignores it and writes `body`, so links can still be copied from the log.
+   */
+  template?: { id: string; variables: Record<string, string | number> };
 }
 
 export interface EmailSender {
@@ -17,7 +22,7 @@ export interface EmailSender {
 
 /**
  * Used when no Resend API key is set (local development, the hosted demo): writes the
- * message to the log instead of sending it.
+ * message to the log instead of sending it, so a signup link can be copied from there.
  */
 export class LogEmailSender implements EmailSender {
   private readonly logger = new Logger('Email');

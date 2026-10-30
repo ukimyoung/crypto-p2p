@@ -6,8 +6,6 @@ import { NicknameInput } from '@/components/NicknameInput';
 import { PhoneField } from '@/components/PhoneField';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { LOCALE_COOKIE } from '@/lib/locale';
-import type { Me } from '@/lib/types';
 
 export default function SignUpPage() {
   const { t, locale } = useT();
@@ -21,6 +19,9 @@ export default function SignUpPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set once the confirmation email is on its way.
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -31,18 +32,49 @@ export default function SignUpPage() {
     setBusy(true);
     setError(null);
     try {
-      // Emails and the site use the language the member signed up in.
-      const { user } = await api<{ user: Me }>('auth/signup', {
+      // Emails go out in the language the user signed up in.
+      const res = await api<{ email: string }>('auth/signup', {
         body: { email, password, phoneCountry, phoneNumber, nickname, firstName, lastName, locale },
       });
-      document.cookie = `${LOCALE_COOKIE}=${user.locale}; path=/; max-age=31536000; samesite=lax`;
-      // Full reload so the header picks up the new session.
-      window.location.href = '/account';
-      return;
+      setSentTo(res.email);
     } catch (err) {
       setError(messageOf(err));
     }
     setBusy(false);
+  }
+
+  async function resend() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api('auth/signup/resend', { body: { email: sentTo } });
+      setResent(true);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+    setBusy(false);
+  }
+
+  if (sentTo) {
+    return (
+      <div className="narrow">
+        <h1>{t('이메일을 확인해 주세요')}</h1>
+        <div className="card">
+          <p>{t('{email}(으)로 인증 메일을 보냈습니다.', { email: sentTo })}</p>
+          <p className="muted">
+            {t('메일의 링크를 누르면 이메일 인증과 가입이 완료됩니다. 링크는 24시간 동안 유효합니다.')}
+          </p>
+          <p className="muted small-text">
+            {t('메일이 보이지 않으면 스팸함을 확인하거나 1분 뒤에 다시 보내 주세요.')}
+          </p>
+          {resent && <p className="small-text">{t('인증 메일을 다시 보냈습니다.')}</p>}
+          <ErrorText error={error} />
+          <button type="button" className="full secondary" onClick={resend} disabled={busy}>
+            {t('인증 메일 다시 보내기')}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
