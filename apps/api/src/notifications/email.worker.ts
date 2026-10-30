@@ -13,7 +13,7 @@ export interface EmailMessage {
    * A template stored in Resend, sent in place of `subject`/`body`/`html` when the Resend sender is
    * in use. The log sender ignores it and writes `body`, so links can still be copied from the log.
    */
-  template?: { id: string; variables: Record<string, string | number> };
+  template?: { id: string; variables: Record<string, string> };
 }
 
 export interface EmailSender {

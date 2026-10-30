@@ -213,7 +213,7 @@ export class AuthService {
     if (templateId) {
       message.template = {
         id: templateId,
-        variables: { VERIFY_URL: link, NICKNAME: nickname, EXPIRES_HOURS: this.config.signupLinkTtlHours },
+        variables: { VERIFY_URL: link, NICKNAME: nickname, EXPIRES_HOURS: String(this.config.signupLinkTtlHours) },
       };
     }
     try {

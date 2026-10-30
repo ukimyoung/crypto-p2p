@@ -97,7 +97,7 @@ describe('HTTP API', () => {
       expect(sent.to).toBe(email);
       expect(sent.template).toEqual({
         id: 'signup-verify-ko',
-        variables: { VERIFY_URL: expect.stringMatching(/\/signup\/verify\?token=[\w-]+$/), NICKNAME: nickname, EXPIRES_HOURS: 24 },
+        variables: { VERIFY_URL: expect.stringMatching(/\/signup\/verify\?token=[\w-]+$/), NICKNAME: nickname, EXPIRES_HOURS: '24' },
       });
       expect(sent.template!.variables.VERIFY_URL).toContain(mail.signupToken(email));
       await confirm(email).expect(200);

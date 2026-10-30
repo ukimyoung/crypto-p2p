@@ -55,12 +55,12 @@ describe('Resend email sender', () => {
       subject: 'fallback',
       body: 'fallback',
       html: '<p>fallback</p>',
-      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: 24 } },
+      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: '24' } },
     });
     expect(bodies[0]).toEqual({
       from: 'P2P Club <no-reply@p2pclub.biz>',
       to: ['a@example.com'],
-      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: 24 } },
+      template: { id: 'signup-verify-ko', variables: { VERIFY_URL: 'https://p2pclub.biz/x', NICKNAME: 'nectar', EXPIRES_HOURS: '24' } },
     });
   });
 });
