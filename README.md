@@ -51,7 +51,7 @@ docker compose exec api node dist/demo/otp-cli.js
    - `RESEND_API_KEY=re_...`
    - `EMAIL_FROM=P2P Club <no-reply@mail.example.com>` (1번에서 인증한 도메인)
    - `APP_URL` 메일 링크에 들어갈 웹 주소(예: `https://p2pclub.biz`). Docker는 기본값 `http://localhost:3001`, Render는 비워 두면 서비스 주소가 들어갑니다.
-   - `RESEND_SIGNUP_TEMPLATE_KO`, `RESEND_SIGNUP_TEMPLATE_EN` (선택) Resend **Templates**에 등록한 가입 인증 메일 템플릿의 ID 또는 별칭(alias). 템플릿에는 변수 `VERIFY_URL`(인증 링크), `NICKNAME`(닉네임), `EXPIRES_HOURS`(링크 유효 시간)를 등록합니다. 언어별로 비워 두면 서버에 들어 있는 기본 메일을 보냅니다.
+   - `RESEND_SIGNUP_TEMPLATE_KO`, `RESEND_SIGNUP_TEMPLATE_EN` (선택) Resend **Templates**에 등록한 가입 인증 메일 템플릿의 ID 또는 별칭(alias). 템플릿에는 변수 `VERIFY_URL`(인증 링크), `NICKNAME`(닉네임), `EXPIRES_HOURS`(링크 유효 시간)를 모두 string 타입으로 등록합니다. 언어별로 비워 두면 서버에 들어 있는 기본 메일을 보냅니다.
 
 Docker로 띄울 때는 `docker-compose.yml`과 같은 폴더에 `.env` 파일을 만들어 위 값을 적고 `docker compose up -d`를 다시 실행합니다. Render는 서비스의 **Environment** 탭에 넣으면 다시 배포됩니다.
 
