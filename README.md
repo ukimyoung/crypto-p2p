@@ -73,6 +73,30 @@ Docker로 띄울 때는 `docker-compose.yml`과 같은 폴더에 `.env` 파일�
 
 Render는 서비스의 **Environment** 탭에, Docker는 `.env` 파일에 넣습니다. 운영 콘솔 **정책 설정 → 본인 인증 (Sumsub)**에서 연결 상태와 마지막 웹훅 수신 시각을 볼 수 있습니다. 처음에는 Sumsub의 Sandbox 토큰으로 시험하고, 실제 회원을 받을 때 Production 토큰으로 바꾸세요.
 
+### 휴대폰 번호 인증 문자 (Solapi 또는 Twilio)
+
+내 계정 > 휴대폰 번호에서 **인증하기**를 누르면 6자리 인증번호를 문자로 보내고, 그 번호를 입력해야 휴대폰 번호가 저장됩니다. 인증번호는 3분 동안 쓸 수 있고, 5번 틀리면 새로 받아야 합니다. 다시 받기는 1분 간격, 하루 10번까지입니다. 가입할 때 입력한 번호는 "미인증"으로 표시되고, 회원이 인증하기를 누르면 확인됩니다.
+
+문자 서비스를 설정하지 않으면 문자를 보내지 않고 API 로그에 `(not sent) to=+8210... [P2P Club] 인증번호 [123456]...`처럼 남깁니다. 서버가 뜰 때 로그에 `Sending verification texts through Solapi`(또는 Twilio)가 나오면 연동된 것이고, `No SMS service is set up`이 나오면 키가 전달되지 않은 것입니다.
+
+**Solapi (국내 회원 위주, 권장)**
+
+1. [Solapi](https://solapi.com)에 가입하고 충전합니다(단문 1건 약 20원 안팎).
+2. **발신번호 관리**에서 문자를 보낼 번호(회사 대표번호 등)를 등록합니다. 통신서비스 이용증명원 등 서류 인증이 필요하고, 승인까지 시간이 걸릴 수 있습니다.
+3. **개발/연동 → API Key 관리**에서 API Key와 API Secret을 만듭니다.
+4. 서버에 아래 값을 넣고 다시 시작합니다.
+   - `SOLAPI_API_KEY` 3번의 API Key
+   - `SOLAPI_API_SECRET` 3번의 API Secret
+   - `SMS_FROM` 2번에서 등록한 발신번호(예: `0212345678`)
+
+**Twilio (해외 회원 위주)**
+
+1. [Twilio](https://www.twilio.com)에서 문자를 보낼 수 있는 번호를 사거나 Messaging Service를 만듭니다.
+2. 콘솔 첫 화면의 **Account SID**와 **Auth Token**을 복사합니다.
+3. 서버에 `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `SMS_FROM`(Twilio 번호 `+1...` 또는 Messaging Service SID `MG...`)을 넣고 다시 시작합니다.
+
+두 서비스의 키를 모두 넣었다면 `SMS_PROVIDER=solapi` 또는 `SMS_PROVIDER=twilio`로 쓸 곳을 정합니다. Render는 서비스의 **Environment** 탭에, Docker는 `.env` 파일에 넣습니다.
+
 ### Docker 없이 인터넷에 띄우기 (Supabase + Render)
 
 DB는 Supabase, 서버는 Render 무료 플랜에 올립니다. 저장소의 `render.yaml`이 API와 웹을 서비스 하나로 띄우고, 처음 뜰 때 위 데모 계정과 데이터를 넣습니다.

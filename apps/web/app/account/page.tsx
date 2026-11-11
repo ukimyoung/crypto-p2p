@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
 import { fullName } from '@/lib/names';
 import { BANKS } from '@/lib/messages';
 import { addressExample, networkLabel, RECEIVING_NETWORKS, WITHDRAWAL_NETWORKS } from '@/lib/networks';
-import type { Me, PaymentMethod, ReceivingAddress, WithdrawalAddress } from '@/lib/types';
+import type { Me, PaymentMethod, PhoneCodeSent, ReceivingAddress, WithdrawalAddress } from '@/lib/types';
 import { useMe } from '@/lib/use-me';
 
 export default function AccountPage() {
@@ -46,9 +46,10 @@ export default function AccountPage() {
             {me.phone ? (
               <span className="row">
                 <strong>{me.phone}</strong>
+                <span className={me.phoneVerified ? 'badge completed' : 'badge'}>{t(me.phoneVerified ? '인증 완료' : '미인증')}</span>
                 {!editingPhone && (
                   <button type="button" className="secondary inline-action" onClick={() => setEditingPhone(true)}>
-                    {t('휴대폰 번호 변경')}
+                    {t(me.phoneVerified ? '휴대폰 번호 변경' : '인증하기')}
                   </button>
                 )}
               </span>
@@ -240,20 +241,47 @@ function NameEdit({ me, onSaved }: { me: Me; onSaved: () => Promise<void> }) {
   );
 }
 
-/** Members who joined before phone numbers were asked add one here; others open it from the button beside their number. */
+/**
+ * Adds, confirms or changes the phone number. 인증하기 texts a 6-digit code to the number;
+ * the number is saved, as verified, only once that code is typed here.
+ */
 function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<void>; onClose: () => void }) {
   const { t } = useT();
   const [country, setCountry] = useState(me.phoneCountry ?? 'KR');
-  const [number, setNumber] = useState(me.phoneNational ?? '');
+  const [number, setNumber] = useState(me.phoneVerified ? '' : (me.phoneNational ?? ''));
+  const [sent, setSent] = useState<PhoneCodeSent | null>(null);
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const now = useNow(sent !== null);
 
-  async function save(e: FormEvent) {
+  // A code belongs to the number it was sent to: editing the number starts over.
+  function changeNumber(update: () => void) {
+    update();
+    setSent(null);
+    setCode('');
+  }
+
+  async function sendCode(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setSent(await api<PhoneCodeSent>('me/phone/code', { body: { phoneCountry: country, phoneNumber: number } }));
+      setCode('');
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api('me/phone', { body: { phoneCountry: country, phoneNumber: number } });
+      await api('me/phone/verify', { body: { code } });
       onClose();
       await onSaved();
     } catch (err) {
@@ -263,24 +291,82 @@ function PhoneEdit({ me, onSaved, onClose }: { me: Me; onSaved: () => Promise<vo
     }
   }
 
+  const secondsLeft = sent ? Math.max(0, Math.ceil((Date.parse(sent.expiresAt) - now) / 1000)) : 0;
+  const resendIn = sent ? Math.max(0, Math.ceil((Date.parse(sent.resendAt) - now) / 1000)) : 0;
+  const timeLeft = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
+
   return (
     <section className="card">
-      <h2>{t(me.phone ? '휴대폰 번호 변경' : '휴대폰 번호 등록')}</h2>
-      {!me.phone && <p className="muted small-text">{t('연락받을 휴대폰 번호를 국가 번호와 함께 등록해 주세요.')}</p>}
-      <form onSubmit={save}>
-        <PhoneField id="account-phone" country={country} number={number} onCountry={setCountry} onNumber={setNumber} />
-        <div className="row" style={{ marginTop: 16 }}>
-          <button disabled={busy}>{t('저장')}</button>
-          {me.phone && (
-            <button type="button" className="secondary" onClick={onClose}>
-              {t('취소')}
+      <h2>{t(!me.phone ? '휴대폰 번호 등록' : me.phoneVerified ? '휴대폰 번호 변경' : '휴대폰 번호 인증')}</h2>
+      <p className="muted small-text">
+        {t(
+          me.phone && !me.phoneVerified
+            ? '가입할 때 입력한 번호입니다. 인증하기를 눌러 본인 번호인지 확인해 주세요.'
+            : '휴대폰 번호를 입력하고 인증하기를 누르면 인증번호 6자리를 문자로 보내 드립니다.',
+        )}
+      </p>
+      <form onSubmit={sendCode}>
+        <PhoneField
+          id="account-phone"
+          country={country}
+          number={number}
+          onCountry={(c) => changeNumber(() => setCountry(c))}
+          onNumber={(n) => changeNumber(() => setNumber(n))}
+          action={
+            <button className={sent ? 'secondary' : undefined} disabled={busy || resendIn > 0}>
+              {!sent ? t('인증하기') : resendIn > 0 ? t('재전송 ({n}초)', { n: resendIn }) : t('인증번호 재전송')}
             </button>
-          )}
-        </div>
+          }
+        />
       </form>
+      {sent && (
+        <form onSubmit={confirm} style={{ marginTop: 16 }}>
+          <p className="small-text" style={{ marginTop: 0 }}>
+            {t('{phone}(으)로 인증번호를 보냈습니다. 문자로 받은 6자리 숫자를 입력해 주세요.', { phone: sent.phone })}
+          </p>
+          <label htmlFor="account-phone-code">{t('인증번호')}</label>
+          <div className="code-field">
+            <input
+              id="account-phone-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              placeholder={t('6자리 숫자')}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              autoFocus
+            />
+            <button disabled={busy || code.length !== 6 || secondsLeft === 0}>{t('확인')}</button>
+          </div>
+          <p className={secondsLeft > 0 ? 'muted small-text code-timer' : 'error'} role={secondsLeft > 0 ? undefined : 'alert'}>
+            {secondsLeft > 0 ? t('남은 시간 {time}', { time: timeLeft }) : t('시간이 지났습니다. 인증번호를 다시 받아 주세요.')}
+          </p>
+        </form>
+      )}
       <ErrorText error={error} />
+      {me.phone && (
+        <div className="row" style={{ marginTop: 16 }}>
+          <button type="button" className="secondary" onClick={onClose}>
+            {t('취소')}
+          </button>
+        </div>
+      )}
     </section>
   );
+}
+
+/** The current time, updated every second while `running`, for countdowns. */
+function useNow(running: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running]);
+  return now;
 }
 
 /** Changes the password after checking the current one. Other devices are signed out. */

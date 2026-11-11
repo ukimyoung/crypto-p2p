@@ -16,6 +16,15 @@ export interface Me {
   phoneCountry: string | null;
   /** The number in local form (010-1234-5678), for editing. */
   phoneNational: string | null;
+  /** True once the number was confirmed with the code texted to it. */
+  phoneVerified: boolean;
+}
+
+/** Answer to asking for an SMS code (POST /me/phone/code). */
+export interface PhoneCodeSent {
+  phone: string;
+  expiresAt: string;
+  resendAt: string;
 }
 
 export interface Ad {

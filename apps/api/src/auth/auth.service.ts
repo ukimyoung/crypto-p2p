@@ -47,6 +47,8 @@ export interface Me {
   /** ISO country the number belongs to, and the number in local form (010-1234-5678), for editing. */
   phoneCountry: string | null;
   phoneNational: string | null;
+  /** True once the member confirmed the number with the code sent to it by SMS. */
+  phoneVerified: boolean;
 }
 
 export interface PhoneInput {
@@ -224,30 +226,6 @@ export class AuthService {
       this.logger.error(`Signup email to ${email} failed: ${String(err)}`);
       throw new DomainError('email_unavailable', 'The confirmation email could not be sent. Try again later');
     }
-  }
-
-  /** Adds or changes the member's phone number. */
-  async setPhone(userId: string, rawPhone: PhoneInput): Promise<Me> {
-    const phone = normalizePhone(rawPhone.country, rawPhone.number);
-    const before = await this.me(userId);
-    return withTransaction(this.db, async (tx) => {
-      const { rows } = await tx
-        .query('UPDATE users SET phone = $2, phone_country = $3 WHERE id = $1 RETURNING *', [
-          userId,
-          phone.e164,
-          phone.country,
-        ])
-        .catch(uniqueTaken);
-      await writeAudit(
-        tx,
-        { type: 'user', id: userId },
-        'user.phone_change',
-        { type: 'user', id: userId },
-        { phoneCountry: before.phoneCountry },
-        { phoneCountry: phone.country },
-      );
-      return toMe(rows[0]);
-    });
   }
 
   /**
@@ -508,5 +486,6 @@ function toMe(row: any): Me {
     phone: formatPhone(row.phone, row.phone_country),
     phoneCountry: row.phone_country,
     phoneNational: nationalPhone(row.phone, row.phone_country),
+    phoneVerified: Boolean(row.phone && row.phone_verified_at),
   };
 }
