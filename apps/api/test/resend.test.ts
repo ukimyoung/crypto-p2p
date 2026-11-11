@@ -24,7 +24,7 @@ describe('Resend email sender', () => {
       fakeFetch,
     );
 
-    await sender.send({ to: 'a@example.com', subject: 'Hi', body: 'text', html: '<p>html</p>' });
+    expect(await sender.send({ to: 'a@example.com', subject: 'Hi', body: 'text', html: '<p>html</p>' })).toEqual({ id: 'e1' });
     expect(calls[0]!.url).toBe('https://api.resend.com/emails');
     expect((calls[0]!.init.headers as Record<string, string>).Authorization).toBe('Bearer re_x');
     expect(JSON.parse(String(calls[0]!.init.body))).toEqual({

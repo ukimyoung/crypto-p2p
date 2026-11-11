@@ -1,10 +1,12 @@
 import { DomainError } from '../common/errors';
 import { writeAudit } from '../common/audit';
-import { Db, withTransaction } from '../db/database';
+import { Db, Tx, withTransaction } from '../db/database';
 import { NOT_ON_FEE_HOLD, onFeeHold } from '../fees/billing.service';
 import { currentFeeRate, finalPrice } from '../fees/fee-rates';
 import { assertCanPostAd, IN_OPEN_MARKET } from '../ops/markets';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
+import { formatUnits } from '../notifications/notify';
+import { renderAdAgreementEmail } from './ad-agreement-email';
 import { AD_TERMS_VERSION, adTerms, TermsLocale } from './ad-terms';
 
 /** The member's agreement to the ad terms, as the form sends it, plus where the request came from. */
@@ -125,9 +127,10 @@ export class AdsService {
            ON CONFLICT (hash) DO NOTHING`,
           [terms.hash, terms.version, terms.side, terms.locale, terms.text],
         );
-        await tx.query(
+        const recorded = await tx.query<{ id: string; agreed_at: Date; ip: string | null }>(
           `INSERT INTO ad_agreements (user_id, ad_id, side, terms_version, terms_hash, locale, ip, user_agent)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id, agreed_at, ip`,
           [
             input.makerId,
             ad.id,
@@ -139,9 +142,57 @@ export class AdsService {
             agreement.userAgent?.slice(0, 1000) ?? null,
           ],
         );
+        await this.queueAgreementEmail(tx, ad, terms.locale, recorded.rows[0]!);
       }
       return ad;
     });
+  }
+
+  /**
+   * Emails the member the terms they just agreed to, with the ad and when and from where they agreed.
+   * Queued in the same transaction as the ad, so the email exists exactly when the ad does; the
+   * outbox worker sends it and records when it went out.
+   */
+  private async queueAgreementEmail(
+    tx: Tx,
+    ad: Ad,
+    locale: TermsLocale,
+    agreement: { id: string; agreed_at: Date; ip: string | null },
+  ): Promise<void> {
+    const user = await tx.query<{ email: string | null; nickname: string }>(
+      'SELECT email, nickname FROM users WHERE id = $1',
+      [ad.makerId],
+    );
+    const email = user.rows[0]?.email;
+    if (!email) return;
+    const asset = await tx.query<{ decimals: number }>('SELECT decimals FROM assets WHERE code = $1', [ad.asset]);
+    const method = ad.paymentMethodId
+      ? await tx.query<{ bank_code: string; account_last4: string; account_holder: string }>(
+          'SELECT bank_code, account_last4, account_holder FROM payment_methods WHERE id = $1',
+          [ad.paymentMethodId],
+        )
+      : null;
+    const pm = method?.rows[0];
+    const { subject, body } = renderAdAgreementEmail({
+      side: ad.side,
+      locale,
+      nickname: user.rows[0]!.nickname,
+      adId: ad.id,
+      asset: ad.asset,
+      totalAmount: formatUnits(ad.totalAmount, asset.rows[0]?.decimals ?? 0),
+      priceMinor: ad.priceMinor,
+      finalPriceMinor: finalPrice(ad.priceMinor, ad.feeRateBp),
+      minOrderFiatMinor: ad.minOrderFiatMinor,
+      maxOrderFiatMinor: ad.maxOrderFiatMinor,
+      paymentWindowMinutes: ad.paymentWindowMinutes,
+      paymentMethod: pm ? { bankCode: pm.bank_code, accountLast4: pm.account_last4, accountHolder: pm.account_holder } : null,
+      agreedAt: agreement.agreed_at,
+      ip: agreement.ip,
+    });
+    await tx.query(
+      'INSERT INTO email_outbox (ad_agreement_id, to_address, subject, body) VALUES ($1, $2, $3, $4)',
+      [agreement.id, email, subject, body],
+    );
   }
 
   /**

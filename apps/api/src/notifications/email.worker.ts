@@ -17,7 +17,8 @@ export interface EmailMessage {
 }
 
 export interface EmailSender {
-  send(message: EmailMessage): Promise<void>;
+  /** Resolves with the provider's id for the message when it gives one. */
+  send(message: EmailMessage): Promise<{ id?: string } | void>;
 }
 
 /**
@@ -74,10 +75,11 @@ export class EmailWorker implements OnApplicationBootstrap, OnApplicationShutdow
         let sent = 0;
         for (const row of rows) {
           try {
-            await this.sender.send({ to: row.to_address, subject: row.subject, body: row.body });
+            const result = await this.sender.send({ to: row.to_address, subject: row.subject, body: row.body });
             await tx.query(
-              `UPDATE email_outbox SET status = 'sent', sent_at = $2, attempts = attempts + 1 WHERE id = $1`,
-              [row.id, now],
+              `UPDATE email_outbox SET status = 'sent', sent_at = $2, attempts = attempts + 1, provider_message_id = $3
+               WHERE id = $1`,
+              [row.id, now, (result && result.id) || null],
             );
             sent++;
           } catch (err) {
