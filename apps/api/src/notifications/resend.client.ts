@@ -23,7 +23,7 @@ export class ResendEmailSender implements EmailSender {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
-  async send(message: EmailMessage): Promise<void> {
+  async send(message: EmailMessage): Promise<{ id?: string }> {
     const res = await this.fetchFn(`${this.config.baseUrl}/emails`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.config.apiKey}`, 'Content-Type': 'application/json' },
@@ -45,5 +45,7 @@ export class ResendEmailSender implements EmailSender {
       const detail = await res.text().catch(() => '');
       throw new Error(`Resend answered ${res.status}: ${detail.slice(0, 300)}`);
     }
+    const data = (await res.json().catch(() => ({}))) as { id?: unknown };
+    return typeof data.id === 'string' ? { id: data.id } : {};
   }
 }

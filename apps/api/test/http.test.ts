@@ -6,7 +6,9 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { Db } from '../src/db/database';
+import { AppConfig } from '../src/config';
 import { configureApp } from '../src/http/configure';
+import { EmailWorker } from '../src/notifications/email.worker';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
 import { EMAIL_SENDER, SMS_SENDER } from '../src/tokens';
@@ -471,6 +473,31 @@ describe('HTTP API', () => {
       expect(agreements[0].ip).toBeTruthy();
       expect(agreements[0].agreed_at).toBeInstanceOf(Date);
       expect(agreements[0].body).toContain('허위가 아님을 보증합니다');
+
+      // The member is emailed what they agreed to, and the outbox keeps exactly what was sent.
+      const { rows: mails } = await db.query(
+        `SELECT o.to_address, o.subject, o.body, o.status, o.created_at, o.sent_at, o.provider_message_id
+         FROM email_outbox o JOIN ad_agreements a ON a.id = o.ad_agreement_id WHERE a.ad_id = $1`,
+        [adId],
+      );
+      expect(mails).toHaveLength(1);
+      expect(mails[0].to_address).toBe(seller.email);
+      expect(mails[0].subject).toMatch(/^\[P2P Club\] 팔기 광고 등록 및 서비스 이용 동의 확인 \(BTC · 광고번호 [0-9A-F]{8}\)$/);
+      expect(mails[0].body).toContain('■ 동의하신 내용 (전문)');
+      expect(mails[0].body).toContain(terms.title);
+      expect(mails[0].body).toContain(`- 접속 IP: ${agreements[0].ip}`);
+      expect(mails[0].body).toContain('- 입금받을 계좌: ');
+      expect(mails[0].body).not.toContain(terms.hash);
+      expect(mails[0].status).toBe('pending');
+      const sent = new EmailWorker(db, { send: async () => ({ id: 'resend-msg-1' }) }, { emailIntervalSeconds: 0 } as AppConfig);
+      await sent.tick(new Date());
+      const { rows: after } = await db.query(
+        `SELECT o.status, o.sent_at, o.provider_message_id FROM email_outbox o
+         JOIN ad_agreements a ON a.id = o.ad_agreement_id WHERE a.ad_id = $1`,
+        [adId],
+      );
+      expect(after[0]).toMatchObject({ status: 'sent', provider_message_id: 'resend-msg-1' });
+      expect(after[0].sent_at).toBeInstanceOf(Date);
       expect(adRes.body.ad.priceMinor).toBe('100000000');
 
       const market = await http().get('/ads').query({ asset: 'BTC', fiat: 'KRW', side: 'sell' }).expect(200);
