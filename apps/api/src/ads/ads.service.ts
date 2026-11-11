@@ -5,6 +5,16 @@ import { NOT_ON_FEE_HOLD, onFeeHold } from '../fees/billing.service';
 import { currentFeeRate, finalPrice } from '../fees/fee-rates';
 import { assertCanPostAd, IN_OPEN_MARKET } from '../ops/markets';
 import { PaymentMethodsService } from '../payments/payment-methods.service';
+import { AD_TERMS_VERSION, adTerms, TermsLocale } from './ad-terms';
+
+/** The member's agreement to the ad terms, as the form sends it, plus where the request came from. */
+export interface AdAgreementInput {
+  termsVersion: string;
+  termsHash: string;
+  locale: TermsLocale;
+  ip?: string;
+  userAgent?: string;
+}
 
 export interface CreateAdInput {
   makerId: string;
@@ -20,6 +30,11 @@ export interface CreateAdInput {
   minTakerKycLevel?: number;
   /** Where buyers send fiat. Required on sell ads; on buy ads the selling taker picks one. */
   paymentMethodId?: string;
+  /**
+   * Agreement to the ad terms. The HTTP API always requires it; internal callers (demo seed, tests)
+   * may leave it out.
+   */
+  agreement?: AdAgreementInput;
 }
 
 export interface Ad {
@@ -64,6 +79,13 @@ export class AdsService {
     if (input.side === 'buy' && input.paymentMethodId) {
       throw new DomainError('invalid_request', 'A buy ad pays to the seller, so it takes no payment method');
     }
+    const terms = input.agreement ? adTerms(input.side, input.agreement.locale) : null;
+    if (
+      terms &&
+      (input.agreement!.termsVersion !== AD_TERMS_VERSION || input.agreement!.termsHash !== terms.hash)
+    ) {
+      throw new DomainError('terms_outdated', 'The ad terms have changed. Reload the page and agree again');
+    }
     return withTransaction(this.db, async (tx) => {
       await assertCanPostAd(tx, input.asset, input.fiat);
       if (await onFeeHold(tx, input.makerId)) {
@@ -96,6 +118,28 @@ export class AdsService {
       );
       const ad = toAd(rows[0]);
       await writeAudit(tx, { type: 'user', id: input.makerId }, 'ad.create', { type: 'ad', id: ad.id }, null, ad);
+      if (terms) {
+        const agreement = input.agreement!;
+        await tx.query(
+          `INSERT INTO ad_terms (hash, version, side, locale, body) VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (hash) DO NOTHING`,
+          [terms.hash, terms.version, terms.side, terms.locale, terms.text],
+        );
+        await tx.query(
+          `INSERT INTO ad_agreements (user_id, ad_id, side, terms_version, terms_hash, locale, ip, user_agent)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            input.makerId,
+            ad.id,
+            ad.side,
+            terms.version,
+            terms.hash,
+            terms.locale,
+            agreement.ip ?? null,
+            agreement.userAgent?.slice(0, 1000) ?? null,
+          ],
+        );
+      }
       return ad;
     });
   }

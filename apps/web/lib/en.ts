@@ -203,6 +203,11 @@ export const EN: Record<string, string> = {
   '판매 수량만큼 지갑 잔고가 있어야 주문을 받을 수 있습니다.':
     'You need enough coins in your wallet to cover the amount you sell before orders can be filled.',
   '광고 올리기': 'Post ad',
+  '서비스 이용 동의에 체크해 주세요.': 'Please tick the box to agree to the terms.',
+  '서비스 이용 동의에 체크해야 광고를 올릴 수 있습니다.': 'Tick the box to agree to the terms before posting your ad.',
+  '이용 동의 내용을 불러오지 못했습니다.': 'Could not load the terms.',
+  '다시 시도': 'Try again',
+  '(필수)': '(required)',
   '알 수 없는 오류가 발생했습니다.': 'Something went wrong.',
   마켓: 'Market',
   '알림 {n}건 안 읽음': '{n} unread notifications',
@@ -430,6 +435,7 @@ export const EN: Record<string, string> = {
   '{asset} 광고가 운영팀에 의해 비노출로 바뀌었습니다. 진행 중인 주문은 그대로 진행됩니다.':
     'Our team hid your {asset} ad. Open orders carry on.',
   '지금은 이 마켓에서 새 광고나 주문을 받지 않습니다.': 'This market is not taking new ads or orders right now.',
+  '광고 이용 동의 내용이 바뀌었습니다. 새 내용을 읽고 다시 동의해 주세요.': 'The ad terms have changed. Please read the new terms and agree again.',
   '지금은 이 코인의 출금이 일시 중지되어 있습니다.': 'Withdrawals of this coin are paused right now.',
   '판매자가 정해진 시간 안에 코인을 전달하지 않아 주문이 운영 검토로 넘어갔습니다. 채팅에 증빙을 남겨 주세요.':
     'The seller did not release the coins in time, so the order went to review. Please add evidence in the chat.',

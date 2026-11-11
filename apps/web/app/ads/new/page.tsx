@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
 import type { PaymentMethod } from '@/lib/types';
@@ -20,6 +20,16 @@ interface AdForm {
   min: string;
   max: string;
   paymentWindow: number;
+}
+
+/** Ad terms as `GET /ads/terms` returns them. The server keeps the only copy of the wording. */
+interface AdTerms {
+  version: string;
+  locale: 'ko' | 'en';
+  title: string;
+  clauses: { heading: string; body: string }[];
+  agreement: string;
+  hash: string;
 }
 
 const INITIAL_FORM: AdForm = { asset: 'BTC', price: '', total: '', min: '10000', max: '1000000', paymentWindow: 15 };
@@ -45,6 +55,27 @@ export default function NewAdPage() {
   const [methodId, setMethodId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [feeRateBp, setFeeRateBp] = useState<number | null>(null);
+  const [terms, setTerms] = useState<AdTerms | null>(null);
+  const [termsError, setTermsError] = useState(false);
+  // Agreement is per tab and per ad: posting or switching language starts with the box unticked.
+  const [agreed, setAgreed] = useState<Record<Side, boolean>>({ sell: false, buy: false });
+  const [termsReload, setTermsReload] = useState(0);
+
+  useEffect(() => {
+    let current = true;
+    setTerms(null);
+    setTermsError(false);
+    api<{ terms: AdTerms }>(`ads/terms?side=${side}&locale=${locale}`)
+      .then((res) => current && setTerms(res.terms))
+      .catch(() => current && setTermsError(true));
+    return () => {
+      current = false;
+    };
+  }, [side, locale, termsReload]);
+
+  useEffect(() => {
+    setAgreed({ sell: false, buy: false });
+  }, [locale]);
 
   useEffect(() => {
     setFeeRateBp(null);
@@ -75,6 +106,10 @@ export default function NewAdPage() {
     e.preventDefault();
     setError(null);
     const totalAmount = parseUnits(total, ASSETS[asset].decimals);
+    if (!terms || !agreed[side]) {
+      setError(t('서비스 이용 동의에 체크해 주세요.'));
+      return;
+    }
     if (!/^\d+$/.test(price.replaceAll(',', '')) || !totalAmount) {
       setError(t('가격(원 단위 정수)과 수량을 확인해 주세요.'));
       return;
@@ -91,10 +126,16 @@ export default function NewAdPage() {
           maxOrderFiatMinor: max.replaceAll(',', ''),
           paymentWindowMinutes: paymentWindow,
           paymentMethodId: side === 'sell' ? methodId || undefined : undefined,
+          agreement: { agreed: true, termsVersion: terms.version, termsHash: terms.hash, locale: terms.locale },
         },
       });
       router.push('/market');
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'terms_outdated') {
+        // The wording changed while the form was open: show the new text and ask again.
+        setAgreed((prev) => ({ ...prev, [side]: false }));
+        setTermsReload((n) => n + 1);
+      }
       setError(messageOf(err));
     }
   }
@@ -208,8 +249,48 @@ export default function NewAdPage() {
             <p className="muted small-text">{t('판매 수량만큼 지갑 잔고가 있어야 주문을 받을 수 있습니다.')}</p>
           </>
         )}
+        <section className="ad-terms" aria-labelledby="ad-terms-title">
+          {terms ? (
+            <>
+              <h2 id="ad-terms-title">{terms.title}</h2>
+              <ol className="ad-terms-body" tabIndex={0} aria-label={terms.title}>
+                {terms.clauses.map((clause) => (
+                  <li key={clause.heading}>
+                    <strong>{clause.heading}</strong>
+                    <p>{clause.body}</p>
+                  </li>
+                ))}
+              </ol>
+              <label className="ad-terms-agree">
+                <input
+                  type="checkbox"
+                  checked={agreed[side]}
+                  onChange={(e) => setAgreed((prev) => ({ ...prev, [side]: e.target.checked }))}
+                />
+                <span>
+                  {terms.agreement} <span className="ad-terms-required">{t('(필수)')}</span>
+                </span>
+              </label>
+            </>
+          ) : termsError ? (
+            <p className="muted small-text">
+              {t('이용 동의 내용을 불러오지 못했습니다.')}{' '}
+              <button type="button" className="link-button" onClick={() => setTermsReload((n) => n + 1)}>
+                {t('다시 시도')}
+              </button>
+            </p>
+          ) : (
+            <p className="muted small-text">{t('불러오는 중…')}</p>
+          )}
+        </section>
         <ErrorText error={error} />
-        <button className="full">{t('광고 올리기')}</button>
+        <button
+          className="full"
+          disabled={!terms || !agreed[side]}
+          title={!agreed[side] ? t('서비스 이용 동의에 체크해야 광고를 올릴 수 있습니다.') : undefined}
+        >
+          {t('광고 올리기')}
+        </button>
       </form>
     </>
   );

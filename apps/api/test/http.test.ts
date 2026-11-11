@@ -416,21 +416,61 @@ describe('HTTP API', () => {
       await deposit(db, ledger, seller.id, 'BTC', BTC);
       const paymentMethodId = await addBankAccount(db, app.get(PaymentMethodsService), seller.id);
 
+      const sellAd = {
+        side: 'sell',
+        asset: 'BTC',
+        fiat: 'KRW',
+        priceMinor: '100000000',
+        totalAmount: String(BTC / 2n),
+        minOrderFiatMinor: '10000',
+        maxOrderFiatMinor: '5000000',
+        paymentMethodId,
+      };
+      const terms = (await http().get('/ads/terms').query({ side: 'sell', locale: 'ko' }).expect(200)).body.terms;
+      expect(terms.title).toBe('팔기 광고 등록 서비스 이용 동의');
+      expect(terms.clauses.map((c: { heading: string }) => c.heading)).toContain('완료된 거래는 환불 불가');
+
+      // The ad terms must be agreed to, and to the text the server holds now.
+      await http().post('/ads').set(auth(seller)).send(sellAd).expect(400);
+      const agreement = { agreed: true, termsVersion: terms.version, termsHash: terms.hash, locale: 'ko' };
+      const stale = await http()
+        .post('/ads')
+        .set(auth(seller))
+        .send({ ...sellAd, agreement: { ...agreement, termsHash: '0'.repeat(64) } })
+        .expect(409);
+      expect(stale.body.error.code).toBe('terms_outdated');
+      // The buy ad terms do not stand in for the sell ad terms.
+      const buyTerms = (await http().get('/ads/terms').query({ side: 'buy', locale: 'ko' }).expect(200)).body.terms;
+      await http()
+        .post('/ads')
+        .set(auth(seller))
+        .send({ ...sellAd, agreement: { ...agreement, termsHash: buyTerms.hash } })
+        .expect(409);
+
       const adRes = await http()
         .post('/ads')
         .set(auth(seller))
-        .send({
-          side: 'sell',
-          asset: 'BTC',
-          fiat: 'KRW',
-          priceMinor: '100000000',
-          totalAmount: String(BTC / 2n),
-          minOrderFiatMinor: '10000',
-          maxOrderFiatMinor: '5000000',
-          paymentMethodId,
-        })
+        .set('User-Agent', 'terms-test-agent')
+        .send({ ...sellAd, agreement })
         .expect(201);
       const adId = adRes.body.ad.id;
+      const { rows: agreements } = await db.query(
+        `SELECT a.user_id, a.side, a.terms_version, a.terms_hash, a.locale, a.ip, a.user_agent, a.agreed_at, t.body
+         FROM ad_agreements a JOIN ad_terms t ON t.hash = a.terms_hash WHERE a.ad_id = $1`,
+        [adId],
+      );
+      expect(agreements).toHaveLength(1);
+      expect(agreements[0]).toMatchObject({
+        user_id: seller.id,
+        side: 'sell',
+        terms_version: terms.version,
+        terms_hash: terms.hash,
+        locale: 'ko',
+        user_agent: 'terms-test-agent',
+      });
+      expect(agreements[0].ip).toBeTruthy();
+      expect(agreements[0].agreed_at).toBeInstanceOf(Date);
+      expect(agreements[0].body).toContain('허위가 아님을 보증합니다');
       expect(adRes.body.ad.priceMinor).toBe('100000000');
 
       const market = await http().get('/ads').query({ asset: 'BTC', fiat: 'KRW', side: 'sell' }).expect(200);

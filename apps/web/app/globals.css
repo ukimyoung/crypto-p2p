@@ -785,6 +785,73 @@ main .link-button:hover:not(:disabled) {
   text-underline-offset: 3px;
 }
 
+.ad-terms {
+  margin: 20px 0 4px;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.ad-terms h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.ad-terms-body {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px 14px 12px 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--fg-soft);
+}
+
+.ad-terms-body li + li {
+  margin-top: 10px;
+}
+
+.ad-terms-body strong {
+  color: var(--fg);
+}
+
+.ad-terms-body p {
+  margin: 2px 0 0;
+}
+
+.ad-terms-body:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.ad-terms-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 14px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.ad-terms-agree input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.ad-terms-required {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .tabs {
   display: inline-flex;
   gap: 4px;
