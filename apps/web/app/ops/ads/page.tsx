@@ -6,7 +6,7 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { AD_STATUS } from '@/lib/ops-labels';
 import type { OpsAd } from '@/lib/types';
-import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
+import { ASSET_CODES, ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
 import { Pager, SortHead, toQuery, useQueryState } from '../Grid';
 
 const DEFAULTS = { asset: '', side: '', status: '', makerId: '', sort: 'created_at', dir: 'desc', page: '1', pageSize: '50' };
@@ -37,7 +37,7 @@ export default function OpsAdsPage() {
           <label htmlFor="asset">코인</label>
           <select id="asset" value={state.asset} onChange={(e) => update({ asset: e.target.value, page: '1' })}>
             <option value="">전체</option>
-            {Object.keys(ASSETS).map((a) => (
+            {ASSET_CODES.map((a) => (
               <option key={a}>{a}</option>
             ))}
           </select>

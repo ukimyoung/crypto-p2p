@@ -6,7 +6,7 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { ORDER_STATUS } from '@/lib/messages';
 import type { OpsOrder } from '@/lib/types';
-import { ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
+import { ASSET_CODES, ASSETS, AssetCode, formatKrw, formatUnits } from '@/lib/units';
 import { Pager, toQuery, useQueryState } from '../Grid';
 
 const DEFAULTS = { status: '', asset: '', orderNumber: '', userId: '', from: '', to: '', page: '1', pageSize: '50' };
@@ -67,7 +67,7 @@ export default function OpsOrdersPage() {
           <label htmlFor="asset">코인</label>
           <select id="asset" value={state.asset} onChange={(e) => update({ asset: e.target.value, page: '1' })}>
             <option value="">전체</option>
-            {Object.keys(ASSETS).map((a) => (
+            {ASSET_CODES.map((a) => (
               <option key={a}>{a}</option>
             ))}
           </select>

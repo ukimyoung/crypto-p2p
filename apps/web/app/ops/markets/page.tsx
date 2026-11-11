@@ -5,6 +5,7 @@ import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import { ASSET_STATUS, MARKET_STATUS } from '@/lib/ops-labels';
 import type { MarketsOverview } from '@/lib/types';
+import { sortByAsset } from '@/lib/units';
 import { isAdmin } from '@/lib/use-operator';
 import { useCurrentOperator } from '../OpsShell';
 
@@ -15,7 +16,12 @@ export default function OpsMarketsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setData(await api<MarketsOverview>('ops/markets'));
+    const overview = await api<MarketsOverview>('ops/markets');
+    setData({
+      ...overview,
+      markets: sortByAsset(overview.markets, (m) => m.asset),
+      assets: sortByAsset(overview.assets, (a) => a.code),
+    });
   }, []);
 
   useEffect(() => {

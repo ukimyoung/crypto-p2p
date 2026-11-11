@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import type { WithdrawalRules } from '@/lib/types';
-import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
+import { ASSETS, AssetCode, formatUnits, parseUnits, sortByAsset } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 import { BillingForm, FeeRates, OrderSettingsForm } from './FeeSettings';
 
@@ -22,7 +22,7 @@ export default function OpsSettingsPage() {
   const [rules, setRules] = useState<WithdrawalRules[] | null>(null);
 
   const load = useCallback(async () => {
-    setRules((await api<{ rules: WithdrawalRules[] }>('ops/settings/withdrawal-rules')).rules);
+    setRules(sortByAsset((await api<{ rules: WithdrawalRules[] }>('ops/settings/withdrawal-rules')).rules, (r) => r.asset));
   }, []);
 
   useEffect(() => {

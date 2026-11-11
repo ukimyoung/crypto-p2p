@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
 import type { BillingSettings, FeeRateChange, FeeRateOverview } from '@/lib/types';
-import { formatRate, parseRate } from '@/lib/units';
+import { formatRate, parseRate, sortByAsset } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 
 const DEFAULT = 'default';
@@ -23,7 +23,8 @@ export function FeeRates() {
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
-    setData(await api<FeeRateOverview>('ops/settings/fee-rates'));
+    const overview = await api<FeeRateOverview>('ops/settings/fee-rates');
+    setData({ ...overview, markets: sortByAsset(overview.markets, (m) => m.asset) });
   }, []);
 
   useEffect(() => {

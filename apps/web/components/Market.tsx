@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { BANKS } from '@/lib/messages';
 import type { Ad, Me, Order, PaymentMethod } from '@/lib/types';
-import { ASSETS, AssetCode, fiatFor, formatKrw, formatRate, formatUnits, orderCost, parseUnits } from '@/lib/units';
+import { ASSET_CODES, ASSETS, DEFAULT_ASSET, AssetCode, fiatFor, formatKrw, formatRate, formatUnits, orderCost, parseUnits } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
 type Mode = 'buy' | 'sell';
@@ -34,7 +34,7 @@ export function Market() {
   const { me } = useMe();
   const { t, locale } = useT();
   const [mode, setMode] = useState<Mode>('buy');
-  const [asset, setAsset] = useState<AssetCode>('BTC');
+  const [asset, setAsset] = useState<AssetCode>(DEFAULT_ASSET);
   const [amount, setAmount] = useState('');
   const [sort, setSort] = useState<Sort>('created');
   const [ads, setAds] = useState<Ad[] | null>(null);
@@ -139,7 +139,7 @@ export function Market() {
           <div>
             <label htmlFor="market-asset">{t('코인')}</label>
             <select id="market-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
-              {Object.keys(ASSETS).map((a) => (
+              {ASSET_CODES.map((a) => (
                 <option key={a}>{a}</option>
               ))}
             </select>
