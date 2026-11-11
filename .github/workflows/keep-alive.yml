@@ -1,0 +1,29 @@
+name: Keep alive
+
+# Render's free plan stops a web service after 15 minutes without traffic, and
+# the next visitor waits about 30 seconds while it starts again. Calling the
+# health endpoint every 10 minutes keeps it running. /api/health goes through
+# the web app to the API and runs `SELECT 1`, so it also keeps the Supabase
+# project active. Set the repository variable KEEPALIVE_URL to use another
+# address; set it to `off` to stop pinging (e.g. after moving to a paid plan).
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: vars.KEEPALIVE_URL != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        env:
+          URL: ${{ vars.KEEPALIVE_URL || 'https://p2pclub.biz/api/health' }}
+        run: |
+          # A sleeping service can take ~30-60s to answer the first request.
+          curl --fail --silent --show-error --max-time 90 \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            "$URL"

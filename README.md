@@ -90,7 +90,7 @@ Render 무료 플랜에서는 명령을 실행할 수 없으므로, 운영 콘�
 | `reviewer1@demo.test` | `DEMOREVIEWERONEDEMOREVIEWERONE22` |
 | `reviewer2@demo.test` | `DEMOREVIEWERTWODEMOREVIEWERTWO22` |
 
-무료 플랜은 15분 동안 접속이 없으면 잠들고, 다음 접속 때 30초쯤 걸려 깨어납니다. 주소를 아는 사람은 누구나 공개된 데모 계정으로 들어올 수 있으니 실제 고객 정보나 돈은 넣지 마세요.
+무료 플랜은 15분 동안 접속이 없으면 잠들고, 다음 접속 때 30초쯤 걸려 깨어납니다. 이를 막기 위해 GitHub Actions의 `.github/workflows/keep-alive.yml`이 10분마다 `https://p2pclub.biz/api/health`를 호출합니다. 주소가 다르면 저장소 **Settings → Secrets and variables → Actions → Variables**에 `KEEPALIVE_URL`을 넣고, 유료 플랜(Starter 이상, 잠들지 않음)으로 바꾼 뒤에는 `off`로 두면 호출을 멈춥니다. GitHub 예약 실행은 몇 분씩 늦어질 수 있어 가끔 잠들 수 있으니, 확실히 상시 가동하려면 유료 플랜이 가장 확실합니다. 주소를 아는 사람은 누구나 공개된 데모 계정으로 들어올 수 있으니 실제 고객 정보나 돈은 넣지 마세요.
 
 ## 개발 환경
 
