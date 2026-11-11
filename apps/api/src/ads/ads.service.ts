@@ -173,7 +173,7 @@ export class AdsService {
         )
       : null;
     const pm = method?.rows[0];
-    const { subject, body } = renderAdAgreementEmail({
+    const { subject, body, html } = renderAdAgreementEmail({
       side: ad.side,
       locale,
       nickname: user.rows[0]!.nickname,
@@ -190,8 +190,8 @@ export class AdsService {
       ip: agreement.ip,
     });
     await tx.query(
-      'INSERT INTO email_outbox (ad_agreement_id, to_address, subject, body) VALUES ($1, $2, $3, $4)',
-      [agreement.id, email, subject, body],
+      'INSERT INTO email_outbox (ad_agreement_id, to_address, subject, body, html) VALUES ($1, $2, $3, $4, $5)',
+      [agreement.id, email, subject, body, html],
     );
   }
 

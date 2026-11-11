@@ -75,7 +75,12 @@ export class EmailWorker implements OnApplicationBootstrap, OnApplicationShutdow
         let sent = 0;
         for (const row of rows) {
           try {
-            const result = await this.sender.send({ to: row.to_address, subject: row.subject, body: row.body });
+            const result = await this.sender.send({
+              to: row.to_address,
+              subject: row.subject,
+              body: row.body,
+              ...(row.html ? { html: row.html } : {}),
+            });
             await tx.query(
               `UPDATE email_outbox SET status = 'sent', sent_at = $2, attempts = attempts + 1, provider_message_id = $3
                WHERE id = $1`,

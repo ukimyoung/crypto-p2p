@@ -43,7 +43,7 @@ describe('ad agreement email', () => {
   };
 
   it('confirms a sell ad with the receiving account and the full terms', () => {
-    const { subject, body } = renderAdAgreementEmail({
+    const { subject, body, html } = renderAdAgreementEmail({
       ...base,
       side: 'sell',
       locale: 'ko',
@@ -51,18 +51,31 @@ describe('ad agreement email', () => {
     });
     expect(subject).toBe('[P2P Club] 팔기 광고 등록 및 서비스 이용 동의 확인 (BTC · 광고번호 3F2A9C1E)');
     expect(body).toContain('2026-11-11 21:19:32에 아래 팔기 광고를 등록하시면서');
-    expect(body).toContain('- 1 BTC 가격: 100,000,000원 (수수료 포함 최종 광고 가격 101,000,000원)');
+    expect(body).toContain('- 1 BTC 가격: 100,000,000원');
+    expect(body).toContain('- 수수료 포함 최종 광고 가격: 101,000,000원');
     expect(body).toContain('- 입금받을 계좌: KB국민은행 ****1098 (박기자)');
     expect(body).toContain('- 접속 IP: 203.0.113.7');
     expect(body).toContain(adTerms('sell', 'ko').text.trimEnd());
     expect(body).not.toContain('약관 버전');
     expect(body).not.toContain(adTerms('sell', 'ko').hash);
+
+    // The HTML version shows the same facts in sections, with member-entered text escaped.
+    expect(html).toContain('팔기 광고가 등록되었습니다');
+    for (const section of ['광고 정보', '동의 정보', '동의하신 내용 (전문)', '본인이 등록하지 않은 광고인가요?']) {
+      expect(html).toContain(section);
+    }
+    expect(html).toContain('KB국민은행 ****1098 (박기자)');
+    expect(html).toContain('203.0.113.7');
+    for (const clause of adTerms('sell', 'ko').clauses) expect(html).toContain(clause.heading);
+    const evil = renderAdAgreementEmail({ ...base, nickname: '<script>x</script>', side: 'buy', locale: 'ko' });
+    expect(evil.html).not.toContain('<script>');
+    expect(evil.html).toContain('&lt;script&gt;');
   });
 
   it('confirms a buy ad without an account line, in English when agreed in English', () => {
     const ko = renderAdAgreementEmail({ ...base, side: 'buy', locale: 'ko' });
     expect(ko.subject).toBe('[P2P Club] 사기 광고 등록 및 서비스 이용 동의 확인 (BTC · 광고번호 3F2A9C1E)');
-    expect(ko.body).toContain('수수료 포함 실제 입금 가격 101,000,000원');
+    expect(ko.body).toContain('- 수수료 포함 실제 입금 가격: 101,000,000원');
     expect(ko.body).not.toContain('입금받을 계좌');
     expect(ko.body).toContain(adTerms('buy', 'ko').text.trimEnd());
 

@@ -476,7 +476,7 @@ describe('HTTP API', () => {
 
       // The member is emailed what they agreed to, and the outbox keeps exactly what was sent.
       const { rows: mails } = await db.query(
-        `SELECT o.to_address, o.subject, o.body, o.status, o.created_at, o.sent_at, o.provider_message_id
+        `SELECT o.to_address, o.subject, o.body, o.html, o.status, o.created_at, o.sent_at, o.provider_message_id
          FROM email_outbox o JOIN ad_agreements a ON a.id = o.ad_agreement_id WHERE a.ad_id = $1`,
         [adId],
       );
@@ -488,6 +488,8 @@ describe('HTTP API', () => {
       expect(mails[0].body).toContain(`- 접속 IP: ${agreements[0].ip}`);
       expect(mails[0].body).toContain('- 입금받을 계좌: ');
       expect(mails[0].body).not.toContain(terms.hash);
+      expect(mails[0].html).toContain('<h1');
+      expect(mails[0].html).toContain(terms.title);
       expect(mails[0].status).toBe('pending');
       const sent = new EmailWorker(db, { send: async () => ({ id: 'resend-msg-1' }) }, { emailIntervalSeconds: 0 } as AppConfig);
       await sent.tick(new Date());
