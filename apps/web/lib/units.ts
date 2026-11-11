@@ -1,11 +1,24 @@
 /** Decimals of each supported coin's smallest unit (matches the API's assets table). */
 export const ASSETS = {
-  BTC: { decimals: 8, network: 'Bitcoin' },
   USDT: { decimals: 6, network: 'Ethereum (ERC-20)' },
+  BTC: { decimals: 8, network: 'Bitcoin' },
   ETH: { decimals: 18, network: 'Ethereum' },
 } as const;
 
 export type AssetCode = keyof typeof ASSETS;
+
+/** The order coins are listed in everywhere a coin is picked. The first one is the default choice. */
+export const ASSET_CODES: readonly AssetCode[] = ['USDT', 'BTC', 'ETH'];
+export const DEFAULT_ASSET: AssetCode = ASSET_CODES[0]!;
+
+/** Sorts a list of rows by coin in ASSET_CODES order (unknown coins last), keeping the existing order otherwise. */
+export function sortByAsset<T>(rows: readonly T[], assetOf: (row: T) => string): T[] {
+  const rank = (code: string) => {
+    const i = (ASSET_CODES as readonly string[]).indexOf(code);
+    return i === -1 ? ASSET_CODES.length : i;
+  };
+  return [...rows].sort((a, b) => rank(assetOf(a)) - rank(assetOf(b)));
+}
 
 /** "0.015" BTC -> 1500000n. Returns null for anything that is not a plain positive decimal. */
 export function parseUnits(input: string, decimals: number): bigint | null {

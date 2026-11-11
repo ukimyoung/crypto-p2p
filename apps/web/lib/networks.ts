@@ -1,27 +1,27 @@
 /** Networks each coin can be received on, matching the API's RECEIVING_NETWORKS, with the name shown for each. */
 export const RECEIVING_NETWORKS: Record<string, { value: string; label: string }[]> = {
+  USDT: [
+    { value: 'ethereum', label: 'Ethereum (ERC-20)' },
+    { value: 'tron', label: 'Tron (TRC-20)' },
+    { value: 'bsc', label: 'BNB Smart Chain (BEP-20)' },
+  ],
   BTC: [{ value: 'bitcoin', label: 'Bitcoin' }],
   ETH: [
     { value: 'ethereum', label: 'Ethereum' },
     { value: 'arbitrum', label: 'Arbitrum One' },
     { value: 'base', label: 'Base' },
   ],
-  USDT: [
-    { value: 'ethereum', label: 'Ethereum (ERC-20)' },
-    { value: 'tron', label: 'Tron (TRC-20)' },
-    { value: 'bsc', label: 'BNB Smart Chain (BEP-20)' },
-  ],
 };
 
 /** Networks each coin can be withdrawn on, matching the API's WITHDRAWAL_NETWORKS. */
 export const WITHDRAWAL_NETWORKS: Record<string, { value: string; label: string }[]> = {
-  BTC: [{ value: 'bitcoin', label: 'Bitcoin' }],
-  ETH: [{ value: 'ethereum', label: 'Ethereum' }],
   USDT: [
     { value: 'ethereum', label: 'Ethereum (ERC-20)' },
     { value: 'tron', label: 'Tron (TRC-20)' },
     { value: 'bsc', label: 'BNB Smart Chain (BEP-20)' },
   ],
+  BTC: [{ value: 'bitcoin', label: 'Bitcoin' }],
+  ETH: [{ value: 'ethereum', label: 'Ethereum' }],
 };
 
 export function networkLabel(asset: string, network: string): string {

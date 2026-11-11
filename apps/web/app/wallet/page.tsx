@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n';
 import { WITHDRAWAL_STATUS } from '@/lib/messages';
 import { networkLabel } from '@/lib/networks';
 import type { Balance, Withdrawal, WithdrawalAddress, WithdrawalLimit } from '@/lib/types';
-import { ASSETS, AssetCode, formatUnits, parseUnits } from '@/lib/units';
+import { ASSET_CODES, ASSETS, DEFAULT_ASSET, AssetCode, formatUnits, parseUnits, sortByAsset } from '@/lib/units';
 import { useMe } from '@/lib/use-me';
 
 const decimalsOf = (asset: string) => ASSETS[asset as AssetCode]?.decimals ?? 0;
@@ -34,7 +34,7 @@ export default function WalletPage() {
       api<{ addresses: WithdrawalAddress[] }>('wallet/addresses'),
       api<{ withdrawals: Withdrawal[]; limits: WithdrawalLimit[] }>('wallet/withdrawals'),
     ]);
-    setData({ balances: b.balances, addresses: a.addresses, withdrawals: w.withdrawals, limits: w.limits });
+    setData({ balances: sortByAsset(b.balances, (x) => x.asset), addresses: a.addresses, withdrawals: w.withdrawals, limits: w.limits });
   }, []);
 
   useEffect(() => {
@@ -104,7 +104,7 @@ function Balances({ balances }: { balances: Balance[] }) {
 
 function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promise<void> }) {
   const { t, date } = useT();
-  const [asset, setAsset] = useState<AssetCode>('BTC');
+  const [asset, setAsset] = useState<AssetCode>(DEFAULT_ASSET);
   const [amountText, setAmountText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -147,7 +147,7 @@ function WithdrawForm({ data, onDone }: { data: WalletData; onDone: () => Promis
           <div>
             <label htmlFor="w-asset">{t('코인')}</label>
             <select id="w-asset" value={asset} onChange={(e) => setAsset(e.target.value as AssetCode)}>
-              {Object.keys(ASSETS).map((code) => (
+              {ASSET_CODES.map((code) => (
                 <option key={code} value={code}>
                   {code}
                 </option>
