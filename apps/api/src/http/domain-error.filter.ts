@@ -14,6 +14,7 @@ const STATUS: Record<string, number> = {
   fee_overdue: 403,
   kyc_rejected: 403,
   market_unavailable: 409,
+  terms_outdated: 409,
   withdrawals_paused: 409,
   holder_name_mismatch: 422,
   not_found: 404,
