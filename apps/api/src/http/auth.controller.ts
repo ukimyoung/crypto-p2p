@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Req, UseGuards } from '@
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthService } from '../auth/auth.service';
+import { PhoneVerificationService } from '../auth/phone-verification.service';
 import { AuthGuard, AuthedRequest, CurrentUser } from './auth.guard';
 import { parse } from './validation';
 
@@ -20,11 +21,15 @@ const passwordBody = z.object({ currentPassword: z.string().max(200), newPasswor
 const nicknameBody = z.object({ nickname: z.string().max(40) });
 const nameBody = z.object({ firstName: z.string().max(100), lastName: z.string().max(100) });
 const phoneBody = z.object(phoneFields);
+const phoneCodeBody = z.object({ code: z.string().max(20) });
 const localeBody = z.object({ locale: z.enum(['ko', 'en']) });
 
 @Controller()
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(PhoneVerificationService) private readonly phones: PhoneVerificationService,
+  ) {}
 
   /** Emails a confirmation link. The account exists only once the link is opened. */
   @Post('auth/signup')
@@ -84,12 +89,21 @@ export class AuthController {
     await this.auth.setLocale(userId, parse(localeBody, body).locale);
   }
 
-  @Post('me/phone')
+  /** Texts a 6-digit code to the number. The number is saved only once the code is confirmed. */
+  @Post('me/phone/code')
   @HttpCode(200)
   @UseGuards(AuthGuard)
-  async setPhone(@CurrentUser() userId: string, @Body() body: unknown) {
+  async sendPhoneCode(@CurrentUser() userId: string, @Body() body: unknown) {
     const { phoneCountry, phoneNumber } = parse(phoneBody, body);
-    return { user: await this.auth.setPhone(userId, { country: phoneCountry, number: phoneNumber }) };
+    return this.phones.sendCode(userId, { country: phoneCountry, number: phoneNumber });
+  }
+
+  /** Confirms the code from the latest text and saves the number as verified. */
+  @Post('me/phone/verify')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async verifyPhone(@CurrentUser() userId: string, @Body() body: unknown) {
+    return { user: await this.phones.confirm(userId, parse(phoneCodeBody, body).code) };
   }
 
   @Post('me/nickname')

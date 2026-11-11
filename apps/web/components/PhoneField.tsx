@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useT } from '@/lib/i18n';
 import { PHONE_COUNTRIES } from '@/lib/phone';
 
@@ -10,19 +11,22 @@ export function PhoneField({
   number,
   onCountry,
   onNumber,
+  action,
 }: {
   id: string;
   country: string;
   number: string;
   onCountry: (country: string) => void;
   onNumber: (number: string) => void;
+  /** A button shown at the end of the row, such as 인증하기. */
+  action?: ReactNode;
 }) {
   const { t } = useT();
 
   return (
     <>
       <label htmlFor={id}>{t('휴대폰 번호')}</label>
-      <div className="phone-field">
+      <div className={action ? 'phone-field with-action' : 'phone-field'}>
         <select aria-label={t('국가 번호')} value={country} onChange={(e) => onCountry(e.target.value)} required>
           {PHONE_COUNTRIES.map(({ code, dial, name }) => (
             <option key={code} value={code}>
@@ -40,6 +44,7 @@ export function PhoneField({
           onChange={(e) => onNumber(e.target.value)}
           required
         />
+        {action}
       </div>
     </>
   );

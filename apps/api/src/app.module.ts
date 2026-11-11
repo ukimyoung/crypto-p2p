@@ -1,6 +1,7 @@
 import { Inject, Logger, Module, OnApplicationShutdown } from '@nestjs/common';
 import { AdsService } from './ads/ads.service';
 import { AuthService } from './auth/auth.service';
+import { PhoneVerificationService } from './auth/phone-verification.service';
 import { SecretBox } from './auth/secret-box';
 import { AppConfig, loadConfig } from './config';
 import { createPool, Db } from './db/database';
@@ -34,7 +35,8 @@ import { OrderChatService } from './orders/order-chat.service';
 import { OrdersService } from './orders/orders.service';
 import { PaymentMethodsService } from './payments/payment-methods.service';
 import { ReceivingAddressesService } from './payments/receiving-addresses.service';
-import { CONFIG, DB, EMAIL_SENDER } from './tokens';
+import { loadSmsSender, SmsSender } from './sms/sms';
+import { CONFIG, DB, EMAIL_SENDER, SMS_SENDER } from './tokens';
 import { WalletService } from './wallet/wallet.service';
 
 @Module({
@@ -57,6 +59,22 @@ import { WalletService } from './wallet/wallet.service';
         }),
     },
     AuthGuard,
+    {
+      // Without SMS keys in the environment, verification codes are written to the log instead of sent.
+      provide: SMS_SENDER,
+      useFactory: () => {
+        const sms = loadSmsSender();
+        const logger = new Logger('SMS');
+        if (sms.name === 'log') logger.warn('No SMS service is set up: phone verification codes are written to this log instead of sent');
+        else logger.log(`Sending verification texts through ${sms.name}`);
+        return sms;
+      },
+    },
+    {
+      provide: PhoneVerificationService,
+      inject: [DB, AuthService, SMS_SENDER],
+      useFactory: (db: Db, auth: AuthService, sms: SmsSender) => new PhoneVerificationService(db, auth, sms),
+    },
     { provide: LedgerService, useFactory: () => new LedgerService() },
     {
       provide: PaymentMethodsService,

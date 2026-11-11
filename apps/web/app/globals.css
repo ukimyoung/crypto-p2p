@@ -706,6 +706,41 @@ main .link-button:hover:not(:disabled) {
   gap: 8px;
 }
 
+.phone-field.with-action {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.phone-field > button {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .phone-field.with-action {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .phone-field.with-action > button {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The SMS code box beside its confirm button and the time left. */
+.code-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.code-field input:not(:placeholder-shown) {
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+.code-timer {
+  font-variant-numeric: tabular-nums;
+}
+
 .grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;

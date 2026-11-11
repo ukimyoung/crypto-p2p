@@ -9,8 +9,8 @@ import { Db } from '../src/db/database';
 import { configureApp } from '../src/http/configure';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
-import { EMAIL_SENDER } from '../src/tokens';
-import { addBankAccount, BTC, deposit, MemoryEmailSender, NAME, nextNickname, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
+import { EMAIL_SENDER, SMS_SENDER } from '../src/tokens';
+import { addBankAccount, BTC, deposit, MemoryEmailSender, MemorySmsSender, NAME, nextNickname, nextPhone, setupDb, TEST_DATABASE_URL } from './helpers';
 
 const PASSWORD = 'test password 123';
 
@@ -19,6 +19,7 @@ describe('HTTP API', () => {
   let db: Db;
   const ledger = new LedgerService();
   const mail = new MemoryEmailSender();
+  const sms = new MemorySmsSender();
   const http = () => request(app.getHttpServer());
 
   interface TestUser {
@@ -61,6 +62,8 @@ describe('HTTP API', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_SENDER)
       .useValue(mail)
+      .overrideProvider(SMS_SENDER)
+      .useValue(sms)
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -299,21 +302,40 @@ describe('HTTP API', () => {
       expect(again.body.error.code).toBe('nickname_locked');
     });
 
-    it('lets a member change the phone number', async () => {
+    it('changes the phone number only after the texted code is confirmed', async () => {
       const user = await signUpAndLogin('newphone@example.com');
-      const us = { phoneCountry: 'US', phoneNumber: '(415) 555-0100' };
-      const changed = await http().post('/me/phone').set(auth(user)).send(us).expect(200);
-      expect(changed.body.user).toMatchObject({ phone: '+1 4155550100', phoneCountry: 'US', phoneNational: '4155550100' });
+      // The number given at signup is kept but not verified.
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user).toMatchObject({ phoneVerified: false });
+      // Saving a number without a code is no longer possible.
+      await http().post('/me/phone').set(auth(user)).send(nextPhone()).expect(404);
 
-      const jp = { phoneCountry: 'JP', phoneNumber: '090-1234-5678' };
-      await http().post('/me/phone').set(auth(user)).send(jp).expect(200);
-      expect((await http().get('/me').set(auth(user)).expect(200)).body.user.phone).toBe('+81 9012345678');
+      const us = { phoneCountry: 'US', phoneNumber: '(415) 555-0100' };
+      const sent = await http().post('/me/phone/code').set(auth(user)).send(us).expect(200);
+      expect(sent.body).toMatchObject({ phone: '+1 4155550100', expiresAt: expect.any(String), resendAt: expect.any(String) });
+      expect(sms.sent.at(-1)).toMatchObject({ to: '+14155550100', country: 'US' });
+      // Nothing changes until the code is typed.
+      expect((await http().get('/me').set(auth(user)).expect(200)).body.user.phoneCountry).toBe('KR');
+
+      const wrong = await http().post('/me/phone/verify').set(auth(user)).send({ code: '000000' === sms.codeFor('+14155550100') ? '111111' : '000000' }).expect(400);
+      expect(wrong.body.error.code).toBe('invalid_phone_code');
+      const again = await http().post('/me/phone/code').set(auth(user)).send(us).expect(429);
+      expect(again.body.error.code).toBe('phone_code_resend_wait');
+
+      const verified = await http().post('/me/phone/verify').set(auth(user)).send({ code: sms.codeFor('+14155550100') }).expect(200);
+      expect(verified.body.user).toMatchObject({ phone: '+1 4155550100', phoneCountry: 'US', phoneNational: '4155550100', phoneVerified: true });
+      // A used code cannot be used again.
+      await http().post('/me/phone/verify').set(auth(user)).send({ code: sms.codeFor('+14155550100') }).expect(410);
+
+      // Someone else's number cannot get a code.
+      const other = await signUpAndLogin('otherphone@example.com');
+      const taken = await http().post('/me/phone/code').set(auth(other)).send(us).expect(409);
+      expect(taken.body.error.code).toBe('phone_taken');
 
       const { rows } = await db.query(
         "SELECT before, after FROM audit_logs WHERE action = 'user.phone_change' AND target_id = $1 ORDER BY id",
         [user.id],
       );
-      expect(rows.map((r) => r.after)).toEqual([{ phoneCountry: 'US' }, { phoneCountry: 'JP' }]);
+      expect(rows).toEqual([{ before: { phoneCountry: 'KR', verified: false }, after: { phoneCountry: 'US', verified: true } }]);
     });
 
     it('logs in, returns the profile, and logs out', async () => {

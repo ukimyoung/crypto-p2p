@@ -6,6 +6,7 @@ import { migrate } from '../src/db/migrate';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { EmailMessage, EmailSender } from '../src/notifications/email.worker';
 import { PaymentMethodsService } from '../src/payments/payment-methods.service';
+import { SmsMessage, SmsSender } from '../src/sms/sms';
 
 export const TEST_DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres@localhost:5432/p2p_test';
 
@@ -115,4 +116,23 @@ export async function signUpConfirmed(
 ): Promise<Me> {
   await auth.signUp({ email, password, phone: nextPhoneInput(), nickname: nextNickname(), ...NAME });
   return (await auth.completeSignUp(mail.signupToken(email), {})).user;
+}
+
+/** Keeps texts in memory so tests can read the verification code. */
+export class MemorySmsSender implements SmsSender {
+  readonly name = 'memory';
+  sent: SmsMessage[] = [];
+  fail = false;
+
+  async send(message: SmsMessage): Promise<void> {
+    if (this.fail) throw new Error('SMS gateway down');
+    this.sent.push(message);
+  }
+
+  /** The code in the latest text sent to `e164`. */
+  codeFor(e164: string): string {
+    const code = this.sent.filter((m) => m.to === e164).at(-1)?.text.match(/\d{6}/)?.[0];
+    if (!code) throw new Error(`No code was texted to ${e164}`);
+    return code;
+  }
 }
