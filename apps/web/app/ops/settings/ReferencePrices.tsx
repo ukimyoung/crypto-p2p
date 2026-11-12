@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorText, messageOf } from '@/components/ErrorText';
 import { api } from '@/lib/api';
-import type { ReferencePrice, ReferencePriceOverview } from '@/lib/types';
+import type { LivePrice, ReferencePrice, ReferencePriceOverview } from '@/lib/types';
 import { formatKrw } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 
@@ -18,7 +18,7 @@ export function parseWon(input: string): string | null {
 const priceText = (p: Pick<ReferencePrice, 'fiat' | 'priceMinor'>) =>
   p.fiat === 'KRW' ? formatKrw(p.priceMinor) : `${BigInt(p.priceMinor).toLocaleString('ko-KR')} ${p.fiat}`;
 
-/** The USDT/KRW price operators set by hand, with who changed it and when. */
+/** The USDT, BTC and ETH prices in won that operators set by hand, with who changed them and when. */
 export function ReferencePrices() {
   const [markets, setMarkets] = useState<ReferencePriceOverview[] | null>(null);
 
@@ -35,8 +35,9 @@ export function ReferencePrices() {
   return (
     <>
       <p className="muted small-text">
-        운영자가 직접 정하는 1 USDT의 원화 시세입니다. 저장하면 바로 지금 시세가 되고, 이전 값은 변경 이력과 감사
-        로그에 남습니다. 지금은 기록·참고용이며 광고 가격이나 주문 금액에는 쓰이지 않습니다.
+        운영자가 직접 정하는 코인 1개의 원화 시세입니다. &lsquo;실시간 시세 가져오기&rsquo;를 누르면 업비트(실패하면
+        빗썸)의 최근 체결가를 입력칸에 채웁니다. 저장하면 바로 지금 시세가 되고, 이전 값은 변경 이력과 감사 로그에
+        남습니다. 지금은 기록·참고용이며 광고 가격이나 주문 금액에는 쓰이지 않습니다.
       </p>
       {markets.map((m) => (
         <MarketPrice key={`${m.asset}/${m.fiat}`} market={m} onSaved={load} />
@@ -51,6 +52,25 @@ function MarketPrice({ market, onSaved }: { market: ReferencePriceOverview; onSa
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [live, setLive] = useState<LivePrice | null>(null);
+  const [fetching, setFetching] = useState(false);
+
+  async function fetchLive() {
+    setError(null);
+    setSaved(false);
+    setFetching(true);
+    try {
+      const q = new URLSearchParams({ asset: market.asset, fiat: market.fiat });
+      const res = await api<{ price: LivePrice }>(`ops/settings/reference-prices/live?${q}`);
+      setLive(res.price);
+      setPrice(BigInt(res.price.priceMinor).toLocaleString('ko-KR'));
+    } catch (err) {
+      setLive(null);
+      setError(messageOf(err));
+    } finally {
+      setFetching(false);
+    }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -66,6 +86,7 @@ function MarketPrice({ market, onSaved }: { market: ReferencePriceOverview; onSa
       if (!(await withStepUp(() => api('ops/settings/reference-prices', { body })))) return;
       setPrice('');
       setReason('');
+      setLive(null);
       setSaved(true);
       await onSaved();
     } catch (err) {
@@ -74,7 +95,8 @@ function MarketPrice({ market, onSaved }: { market: ReferencePriceOverview; onSa
   }
 
   return (
-    <>
+    <div className="reference-price">
+      <h3>{market.asset}</h3>
       <dl className="kv">
         <dt>지금 시세</dt>
         <dd>
@@ -97,18 +119,32 @@ function MarketPrice({ market, onSaved }: { market: ReferencePriceOverview; onSa
       </dl>
 
       <form onSubmit={save} className="settings-form">
-        <h3>시세 바꾸기</h3>
+        <h3>{market.asset} 시세 바꾸기</h3>
         <label htmlFor={`${id}-price`}>
           1 {market.asset} 시세 ({market.fiat === 'KRW' ? '원' : market.fiat})
         </label>
-        <input
-          id={`${id}-price`}
-          inputMode="numeric"
-          placeholder="1,380"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          required
-        />
+        <div className="price-input-row">
+          <input
+            id={`${id}-price`}
+            inputMode="numeric"
+            placeholder={market.asset === 'USDT' ? '1,380' : ''}
+            value={price}
+            onChange={(e) => {
+              setPrice(e.target.value);
+              setLive(null);
+            }}
+            required
+          />
+          <button type="button" className="secondary" onClick={fetchLive} disabled={fetching}>
+            {fetching ? '가져오는 중…' : '실시간 시세 가져오기'}
+          </button>
+        </div>
+        {live && (
+          <p className="muted small-text">
+            {live.source === 'Upbit' ? '업비트' : live.source === 'Bithumb' ? '빗썸' : live.source} 최근 체결가 (
+            {new Date(live.tradedAt).toLocaleString('ko-KR')})를 채웠습니다. 확인한 뒤 저장해 주세요.
+          </p>
+        )}
         <label htmlFor={`${id}-reason`}>변경 사유 (감사 로그에 남습니다)</label>
         <input id={`${id}-reason`} value={reason} onChange={(e) => setReason(e.target.value)} required />
         <button>시세 저장 (OTP 확인)</button>
@@ -143,6 +179,6 @@ function MarketPrice({ market, onSaved }: { market: ReferencePriceOverview; onSa
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }

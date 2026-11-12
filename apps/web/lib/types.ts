@@ -278,6 +278,14 @@ export interface ReferencePriceOverview {
   history: ReferencePrice[];
 }
 
+export interface LivePrice {
+  asset: string;
+  fiat: string;
+  priceMinor: string;
+  source: string;
+  tradedAt: string;
+}
+
 export interface BillingSettings {
   cycle: 'daily' | 'monthly';
   dueDays: number;

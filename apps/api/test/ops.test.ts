@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AdsService } from '../src/ads/ads.service';
 import { AppModule } from '../src/app.module';
+import { LivePriceService } from '../src/ops/live-prices';
 import { AuthService } from '../src/auth/auth.service';
 import { codeAt, counterAt } from '../src/auth/totp';
 import { Db } from '../src/db/database';
@@ -96,6 +97,14 @@ describe('operations console', () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_SENDER)
       .useValue(mail)
+      .overrideProvider(LivePriceService)
+      .useValue(
+        new LivePriceService(async (url) =>
+          String(url).includes('KRW-BTC')
+            ? Response.json([{ market: 'KRW-BTC', trade_price: 150_123_456.7, trade_timestamp: 1_700_000_000_000 }])
+            : new Response('down', { status: 500 }),
+        ),
+      )
       .compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApp(app);
@@ -317,7 +326,9 @@ describe('operations console', () => {
   describe('reference price', () => {
     it('lets a reviewer set the USDT/KRW price, keeps the history and audits each change', async () => {
       const empty = await http().get('/ops/settings/reference-prices').set(bearer(reviewerB)).expect(200);
-      expect(empty.body.prices).toEqual([{ asset: 'USDT', fiat: 'KRW', current: null, history: [] }]);
+      expect(empty.body.prices).toEqual(
+        ['USDT', 'BTC', 'ETH'].map((asset) => ({ asset, fiat: 'KRW', current: null, history: [] })),
+      );
 
       const body = { asset: 'USDT', fiat: 'KRW', priceMinor: '1380', reason: '오전 시세' };
       const noStepUp = await http().post('/ops/settings/reference-prices').set(bearer(reviewerB)).send(body).expect(403);
@@ -326,7 +337,7 @@ describe('operations console', () => {
         { ...body, priceMinor: '0' },
         { ...body, priceMinor: '13.8' },
         { ...body, reason: ' ' },
-        { ...body, asset: 'BTC' },
+        { ...body, asset: 'XRP' },
       ]) {
         await http().post('/ops/settings/reference-prices').set(bearer(reviewerA)).send(bad).expect(400);
       }
@@ -340,9 +351,23 @@ describe('operations console', () => {
       expect(saved.body.price).toMatchObject({ asset: 'USDT', fiat: 'KRW', priceMinor: '1395' });
 
       const list = await http().get('/ops/settings/reference-prices').set(bearer(reviewerB)).expect(200);
-      const usdt = list.body.prices[0];
+      const usdt = list.body.prices.find((p: { asset: string }) => p.asset === 'USDT');
       expect(usdt.current).toMatchObject({ priceMinor: '1395', reason: '오후 시세', createdBy: reviewerAId });
       expect(usdt.history.map((p: { priceMinor: string }) => p.priceMinor)).toEqual(['1395', '1380']);
+
+      await http()
+        .post('/ops/settings/reference-prices')
+        .set(bearer(reviewerA))
+        .send({ asset: 'BTC', fiat: 'KRW', priceMinor: '150000000', reason: 'BTC 시세' })
+        .expect(201);
+      const btc = (await http().get('/ops/settings/reference-prices').set(bearer(reviewerB))).body.prices[1];
+      expect(btc).toMatchObject({ asset: 'BTC', current: { priceMinor: '150000000' } });
+
+      const live = await http().get('/ops/settings/reference-prices/live').query({ asset: 'BTC' }).set(bearer(reviewerB)).expect(200);
+      expect(live.body.price).toMatchObject({ asset: 'BTC', fiat: 'KRW', priceMinor: '150123457', source: 'Upbit' });
+      const down = await http().get('/ops/settings/reference-prices/live').query({ asset: 'ETH' }).set(bearer(reviewerB)).expect(502);
+      expect(down.body.error.code).toBe('price_unavailable');
+      await http().get('/ops/settings/reference-prices/live').query({ asset: 'XRP' }).set(bearer(reviewerB)).expect(400);
 
       const audit = await http().get('/ops/audit').query({ targetId: 'USDT/KRW' }).set(bearer(admin)).expect(200);
       expect(audit.body.entries.slice(0, 2)).toMatchObject([
