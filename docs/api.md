@@ -140,6 +140,8 @@ Sumsub 키가 없으면 `kyc_unavailable`(503), Sumsub API 오류는 `kyc_provid
 | PUT | `/ops/settings/withdrawal-rules/:asset` | reviewer | `{ fee, minAmount, autoApproveMax, dailyLimits: { "1": "..." }, reason }`. 최소 단위 정수 문자열. 키는 KYC 0 또는 1, 빠진 단계는 출금 불가. step-up 필요 |
 | GET | `/ops/settings/fee-rates` | 모두 | 기본 요율, 마켓별 지금 요율, 예약된 변경, 변경 이력 |
 | POST | `/ops/settings/fee-rates` | reviewer | `{ asset?, fiat?, rateBp, effectiveFrom?, reason }`. 둘 다 빼면 기본 요율. 마켓에 `rateBp: null`이면 기본 요율로 되돌림. step-up 필요 |
+| GET | `/ops/settings/reference-prices` | 모두 | 운영자가 직접 정하는 시세(지금은 USDT/KRW). `{ prices: [{ asset, fiat, current, history }] }`, 최근 50건 |
+| POST | `/ops/settings/reference-prices` | reviewer | `{ asset, fiat, priceMinor, reason }`. `priceMinor`는 1코인당 법정화폐 최소 단위(원) 정수 문자열. step-up 필요, 감사 로그 `settings.reference_price` |
 | GET | `/ops/settings/orders` | 모두 | `{ autoReviewMinutes }` |
 | PUT | `/ops/settings/orders` | reviewer | `{ autoReviewMinutes: 1~1440, reason }`. 결제 완료 후 이 시간 동안 릴리즈가 없으면 자동 운영 검토. step-up 필요 |
 | GET | `/ops/settings/billing` | 모두 | `{ cycle: daily \| monthly, dueDays }` |

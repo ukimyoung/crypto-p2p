@@ -7,6 +7,7 @@ import type { WithdrawalRules } from '@/lib/types';
 import { ASSETS, AssetCode, formatUnits, parseUnits, sortByAsset } from '@/lib/units';
 import { withStepUp } from '@/lib/use-operator';
 import { BillingForm, FeeRates, OrderSettingsForm } from './FeeSettings';
+import { ReferencePrices } from './ReferencePrices';
 
 /** Only verified members (KYC 1) get a daily limit field. A level left empty cannot withdraw. */
 const KYC_LEVELS = [1];
@@ -32,6 +33,10 @@ export default function OpsSettingsPage() {
   return (
     <>
       <h1>정책 설정</h1>
+      <section className="card">
+        <h2>USDT 시세</h2>
+        <ReferencePrices />
+      </section>
       <section className="card">
         <h2>주문</h2>
         <OrderSettingsForm />
