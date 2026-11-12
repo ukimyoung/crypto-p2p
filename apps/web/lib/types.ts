@@ -260,6 +260,24 @@ export interface FeeRateOverview {
   history: FeeRateChange[];
 }
 
+export interface ReferencePrice {
+  id: string;
+  asset: string;
+  fiat: string;
+  /** Fiat minor units per 1 whole coin (won for KRW). */
+  priceMinor: string;
+  reason: string;
+  createdByEmail: string | null;
+  createdAt: string;
+}
+
+export interface ReferencePriceOverview {
+  asset: string;
+  fiat: string;
+  current: ReferencePrice | null;
+  history: ReferencePrice[];
+}
+
 export interface BillingSettings {
   cycle: 'daily' | 'monthly';
   dueDays: number;

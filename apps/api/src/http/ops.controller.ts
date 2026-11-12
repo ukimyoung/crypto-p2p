@@ -23,6 +23,7 @@ import { KycService } from '../kyc/kyc.service';
 import { DisputesService } from '../ops/disputes.service';
 import { listMarkets, setAssetStatus, setMarketStatus } from '../ops/markets';
 import { autoReviewMinutes, billingSettings, updateSettings } from '../ops/ops-settings';
+import { referencePriceOverview, setReferencePrice } from '../ops/reference-prices';
 import { AD_SORTS, OpsTradesService } from '../ops/ops-trades.service';
 import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
 import { maskName, OpsService, USER_SORTS } from '../ops/ops.service';
@@ -63,6 +64,15 @@ const feeRateBody = z.object({
 const billingBody = z.object({
   cycle: z.enum(['daily', 'monthly']),
   dueDays: z.number().int().min(1).max(60),
+  reason: z.string().max(500),
+});
+const referencePriceBody = z.object({
+  asset: z.string().max(10),
+  fiat: z.string().max(10),
+  priceMinor: z
+    .string()
+    .regex(/^[1-9]\d{0,40}$/, 'must be a positive integer string')
+    .transform((v) => BigInt(v)),
   reason: z.string().max(500),
 });
 const orderSettingsBody = z.object({
@@ -438,6 +448,20 @@ export class OpsController {
       operator.id,
     );
     return { change };
+  }
+
+  /** The coin prices operators set by hand (USDT/KRW), with their history. */
+  @Get('settings/reference-prices')
+  async referencePrices() {
+    return { prices: await referencePriceOverview(this.db) };
+  }
+
+  @Post('settings/reference-prices')
+  async setReferencePrice(@CurrentOperator() operator: Operator, @Body() body: unknown) {
+    assertRole(operator, 'reviewer');
+    assertStepUp(operator);
+    const input = parse(referencePriceBody, body);
+    return { price: await setReferencePrice(this.db, input, operator.id) };
   }
 
   /** Whether the Sumsub keys are set and when a webhook last came in (KYC-6). */

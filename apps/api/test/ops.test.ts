@@ -314,6 +314,44 @@ describe('operations console', () => {
     });
   });
 
+  describe('reference price', () => {
+    it('lets a reviewer set the USDT/KRW price, keeps the history and audits each change', async () => {
+      const empty = await http().get('/ops/settings/reference-prices').set(bearer(reviewerB)).expect(200);
+      expect(empty.body.prices).toEqual([{ asset: 'USDT', fiat: 'KRW', current: null, history: [] }]);
+
+      const body = { asset: 'USDT', fiat: 'KRW', priceMinor: '1380', reason: '오전 시세' };
+      const noStepUp = await http().post('/ops/settings/reference-prices').set(bearer(reviewerB)).send(body).expect(403);
+      expect(noStepUp.body.error.code).toBe('step_up_required');
+      for (const bad of [
+        { ...body, priceMinor: '0' },
+        { ...body, priceMinor: '13.8' },
+        { ...body, reason: ' ' },
+        { ...body, asset: 'BTC' },
+      ]) {
+        await http().post('/ops/settings/reference-prices').set(bearer(reviewerA)).send(bad).expect(400);
+      }
+
+      await http().post('/ops/settings/reference-prices').set(bearer(reviewerA)).send(body).expect(201);
+      const saved = await http()
+        .post('/ops/settings/reference-prices')
+        .set(bearer(reviewerA))
+        .send({ ...body, priceMinor: '1395', reason: '오후 시세' })
+        .expect(201);
+      expect(saved.body.price).toMatchObject({ asset: 'USDT', fiat: 'KRW', priceMinor: '1395' });
+
+      const list = await http().get('/ops/settings/reference-prices').set(bearer(reviewerB)).expect(200);
+      const usdt = list.body.prices[0];
+      expect(usdt.current).toMatchObject({ priceMinor: '1395', reason: '오후 시세', createdBy: reviewerAId });
+      expect(usdt.history.map((p: { priceMinor: string }) => p.priceMinor)).toEqual(['1395', '1380']);
+
+      const audit = await http().get('/ops/audit').query({ targetId: 'USDT/KRW' }).set(bearer(admin)).expect(200);
+      expect(audit.body.entries.slice(0, 2)).toMatchObject([
+        { action: 'settings.reference_price', actorId: reviewerAId, before: { priceMinor: '1380' }, after: { priceMinor: '1395', reason: '오후 시세' } },
+        { action: 'settings.reference_price', before: { priceMinor: null }, after: { priceMinor: '1380' } },
+      ]);
+    });
+  });
+
   describe('fees and billing', () => {
     it('sets fee rates and billing terms, bills a maker and records the payment', async () => {
       const rateBody = { asset: 'BTC', fiat: 'KRW', rateBp: 25, reason: 'BTC 0.25%' };
