@@ -2,8 +2,16 @@ import { writeAudit } from '../common/audit';
 import { DomainError } from '../common/errors';
 import { Db, Tx, withTransaction } from '../db/database';
 
-/** Markets whose price operators set by hand on the settings page. */
-export const REFERENCE_PRICE_MARKETS = [{ asset: 'USDT', fiat: 'KRW' }] as const;
+/** Markets whose price operators set by hand on the settings page, in the order they are listed. */
+export const REFERENCE_PRICE_MARKETS = [
+  { asset: 'USDT', fiat: 'KRW' },
+  { asset: 'BTC', fiat: 'KRW' },
+  { asset: 'ETH', fiat: 'KRW' },
+] as const;
+
+export function isReferencePriceMarket(asset: string, fiat: string): boolean {
+  return REFERENCE_PRICE_MARKETS.some((m) => m.asset === asset && m.fiat === fiat);
+}
 
 /** Sanity bound: no coin we list is worth a trillion won or dollars. */
 export const MAX_REFERENCE_PRICE_MINOR = 10n ** 15n;
@@ -69,7 +77,7 @@ export async function setReferencePrice(
 ): Promise<ReferencePrice> {
   const reason = input.reason.trim();
   if (!reason) throw new DomainError('invalid_request', 'Give a reason');
-  if (!REFERENCE_PRICE_MARKETS.some((m) => m.asset === input.asset && m.fiat === input.fiat)) {
+  if (!isReferencePriceMarket(input.asset, input.fiat)) {
     throw new DomainError('invalid_request', `${input.asset}/${input.fiat} has no hand-set price`);
   }
   if (input.priceMinor <= 0n || input.priceMinor > MAX_REFERENCE_PRICE_MINOR) {

@@ -23,7 +23,8 @@ import { KycService } from '../kyc/kyc.service';
 import { DisputesService } from '../ops/disputes.service';
 import { listMarkets, setAssetStatus, setMarketStatus } from '../ops/markets';
 import { autoReviewMinutes, billingSettings, updateSettings } from '../ops/ops-settings';
-import { referencePriceOverview, setReferencePrice } from '../ops/reference-prices';
+import { LivePriceService } from '../ops/live-prices';
+import { isReferencePriceMarket, referencePriceOverview, setReferencePrice } from '../ops/reference-prices';
 import { AD_SORTS, OpsTradesService } from '../ops/ops-trades.service';
 import { assertRole, assertStepUp, Operator, OperatorAuthService } from '../ops/operator-auth.service';
 import { maskName, OpsService, USER_SORTS } from '../ops/ops.service';
@@ -75,6 +76,7 @@ const referencePriceBody = z.object({
     .transform((v) => BigInt(v)),
   reason: z.string().max(500),
 });
+const livePriceQuery = z.object({ asset: z.string().max(10), fiat: z.string().max(10).default('KRW') });
 const orderSettingsBody = z.object({
   autoReviewMinutes: z.number().int().min(1).max(1440),
   reason: z.string().max(500),
@@ -191,6 +193,7 @@ export class OpsController {
     @Inject(BillingService) private readonly billing: BillingService,
     @Inject(OpsTradesService) private readonly trades: OpsTradesService,
     @Inject(KycService) private readonly kyc: KycService,
+    @Inject(LivePriceService) private readonly livePrices: LivePriceService,
     @Inject(DB) private readonly db: Db,
   ) {}
 
@@ -462,6 +465,16 @@ export class OpsController {
     assertStepUp(operator);
     const input = parse(referencePriceBody, body);
     return { price: await setReferencePrice(this.db, input, operator.id) };
+  }
+
+  /** The latest exchange price for a hand-set market, to fill in the form. Nothing is saved. */
+  @Get('settings/reference-prices/live')
+  async livePrice(@Query() query: unknown) {
+    const { asset, fiat } = parse(livePriceQuery, query);
+    if (!isReferencePriceMarket(asset, fiat)) {
+      throw new DomainError('invalid_request', `${asset}/${fiat} has no hand-set price`);
+    }
+    return { price: await this.livePrices.fetch(asset, fiat) };
   }
 
   /** Whether the Sumsub keys are set and when a webhook last came in (KYC-6). */

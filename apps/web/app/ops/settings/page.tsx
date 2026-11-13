@@ -34,7 +34,7 @@ export default function OpsSettingsPage() {
     <>
       <h1>정책 설정</h1>
       <section className="card">
-        <h2>USDT 시세</h2>
+        <h2>코인 시세</h2>
         <ReferencePrices />
       </section>
       <section className="card">

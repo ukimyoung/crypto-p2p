@@ -93,6 +93,8 @@ export const EN: Record<string, string> = {
   '본인 인증': 'Identity verification',
   '신분증과 얼굴 사진으로 본인임을 확인합니다. 인증은 Sumsub가 처리하고, 신분증 이미지는 이 서비스에 저장하지 않습니다.':
     'We confirm who you are with your ID and a selfie. Sumsub handles the check, and we do not keep images of your ID.',
+  '거래소에서 실시간 시세를 가져오지 못했습니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.':
+    'Could not fetch the live price from the exchange. Try again shortly or enter it yourself.',
   '본인 인증을 아직 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.':
     'Identity verification is not available yet. Please try again later.',
   '본인 인증이 완료되었습니다.': 'Your identity is verified.',

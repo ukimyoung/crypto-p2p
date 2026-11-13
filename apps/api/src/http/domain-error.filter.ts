@@ -38,6 +38,7 @@ const STATUS: Record<string, number> = {
   email_unavailable: 503,
   kyc_provider_error: 502,
   kyc_unavailable: 503,
+  price_unavailable: 502,
 };
 
 /** Maps domain errors to `{ error: { code, message } }` with a fitting HTTP status. */

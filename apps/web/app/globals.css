@@ -2160,3 +2160,31 @@ tr.clickable {
 tr.clickable:hover td {
   background: var(--accent-soft);
 }
+
+.reference-price + .reference-price {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.price-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.price-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-form .price-input-row button {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .price-input-row {
+    flex-direction: column;
+  }
+}

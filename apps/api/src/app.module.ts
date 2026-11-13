@@ -21,6 +21,7 @@ import { OpsAuthController, OpsController } from './http/ops.controller';
 import { OpsGuard } from './http/ops.guard';
 import { WalletController } from './http/wallet.controller';
 import { KycService } from './kyc/kyc.service';
+import { LivePriceService } from './ops/live-prices';
 import { loadSumsubConfig, SumsubClient } from './kyc/sumsub.client';
 import { LedgerService } from './ledger/ledger.service';
 import { EmailSender, EmailWorker, LogEmailSender } from './notifications/email.worker';
@@ -130,6 +131,7 @@ import { WalletService } from './wallet/wallet.service';
     },
     EmailWorker,
     { provide: OpsService, inject: [DB], useFactory: (db: Db) => new OpsService(db) },
+    { provide: LivePriceService, useFactory: () => new LivePriceService() },
     { provide: BillingService, inject: [DB], useFactory: (db: Db) => new BillingService(db) },
     { provide: OpsTradesService, inject: [DB], useFactory: (db: Db) => new OpsTradesService(db) },
     BillingWorker,
